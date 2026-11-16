@@ -1,0 +1,38 @@
+/* Shared phone scaffold. Static concept drawings only. */
+@font-face { font-family: "Atkinson Next"; src: url("../assets/AtkinsonHyperlegibleNext.ttf"); font-weight: 200 800; }
+@font-face { font-family: "Archivo"; src: url("../assets/Archivo.ttf"); font-weight: 100 900; font-stretch: 62% 125%; }
+@font-face { font-family: "Literata"; src: url("../assets/Literata.ttf"); font-weight: 200 900; }
+@font-face { font-family: "Barlow"; src: url("../assets/Barlow-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Barlow"; src: url("../assets/Barlow-SemiBold.ttf"); font-weight: 600; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { -webkit-font-smoothing: antialiased; }
+img { display: block; object-fit: cover; }
+svg.i { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+svg.i.s20 { width: 20px; height: 20px; }
+svg.i.s18 { width: 18px; height: 18px; }
+
+.phone { width: 390px; height: 844px; border-radius: 34px; overflow: hidden; position: relative;
+  display: flex; flex-direction: column; background: var(--ground); color: var(--text); }
+.sb { height: 36px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 26px 0 28px; font-size: 14px; font-weight: 600; background: var(--sb, var(--ground)); }
+.sb .sys { display: flex; gap: 6px; align-items: center; }
+.sb .bat { width: 22px; height: 11px; border-radius: 3px; background: var(--text); }
+.sb .sig { width: 15px; height: 12px; background: linear-gradient(to top right, var(--text) 50%, transparent 50%); }
+.appbar { height: 64px; flex: none; display: flex; align-items: center; padding: 0 4px; gap: 2px; }
+.iconbtn { width: 48px; height: 48px; display: grid; place-items: center; flex: none; }
+.appbar .title { flex: 1; padding-left: 4px; }
+.tabs { height: 48px; flex: none; display: flex; position: relative; }
+.tab { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; color: var(--text2); }
+.tab.on { color: var(--text); }
+.tab.on::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--indicator); }
+.body { flex: 1; overflow: hidden; position: relative; }
+.bottom { flex: none; padding: 12px 16px 8px; }
+.gesture { height: 22px; flex: none; display: grid; place-items: center; }
+.gesture i { width: 108px; height: 4px; border-radius: 2px; background: var(--text); opacity: .85; }
+.btn { height: 52px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.btn.sm { height: 48px; width: auto; padding: 0 20px; display: inline-flex; }
+.row { display: flex; align-items: center; }
+.grow { flex: 1; min-width: 0; }
+.state { display: inline-flex; align-items: center; gap: 6px; }
+.ok { color: var(--ok); } .err { color: var(--err); } .warn { color: var(--warn); }

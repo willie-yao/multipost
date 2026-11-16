@@ -1,0 +1,114 @@
+{
+  "contrast": [
+    {
+      "option": "soft-plum",
+      "pair": "ink/bg",
+      "ratio": 12.99,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "muted/bg",
+      "ratio": 6.11,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "muted/panel",
+      "ratio": 5.46,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "on/accent",
+      "ratio": 9.04,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "tintInk/tint",
+      "ratio": 9.3,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "accent/bg",
+      "ratio": 8.46,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "success/panel",
+      "ratio": 6.87,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "error/panel",
+      "ratio": 6.04,
+      "pass": true
+    },
+    {
+      "option": "soft-plum",
+      "pair": "outline/bg",
+      "ratio": 3.88,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "ink/bg",
+      "ratio": 13.95,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "muted/bg",
+      "ratio": 6.3,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "muted/panel",
+      "ratio": 5.76,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "on/accent",
+      "ratio": 7.26,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "tintInk/tint",
+      "ratio": 9.09,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "accent/bg",
+      "ratio": 7.26,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "success/panel",
+      "ratio": 7.15,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "error/panel",
+      "ratio": 6.38,
+      "pass": true
+    },
+    {
+      "option": "clear-blue",
+      "pair": "outline/bg",
+      "ratio": 3.8,
+      "pass": true
+    }
+  ],
+  "text_width_issues": [],
+  "scope": "Static drawings only; no native UI, font-scale, keyboard, TalkBack or integration testing."
+}

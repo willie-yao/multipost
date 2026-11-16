@@ -1,0 +1,102 @@
+{
+  "contrast": [
+    {
+      "option": "dispatch",
+      "pair": "ink/bg",
+      "ratio": 14.16,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "muted/bg",
+      "ratio": 8.77,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "muted/panel",
+      "ratio": 7.46,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "on/accent",
+      "ratio": 9.55,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "accent/bg",
+      "ratio": 9.97,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "success/bg",
+      "ratio": 10.01,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "error/bg",
+      "ratio": 9.19,
+      "pass": true
+    },
+    {
+      "option": "dispatch",
+      "pair": "line/bg",
+      "ratio": 3.97,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "ink/bg",
+      "ratio": 12.95,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "muted/bg",
+      "ratio": 5.72,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "muted/panel",
+      "ratio": 5.29,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "on/accent",
+      "ratio": 6.14,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "accent/bg",
+      "ratio": 5.63,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "success/bg",
+      "ratio": 6.25,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "error/bg",
+      "ratio": 6.17,
+      "pass": true
+    },
+    {
+      "option": "margin",
+      "pair": "line/bg",
+      "ratio": 3.25,
+      "pass": true
+    }
+  ],
+  "text_width_warnings": [],
+  "scope": "Static render only. No native device behavior tested."
+}

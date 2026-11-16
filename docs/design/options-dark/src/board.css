@@ -1,0 +1,23 @@
+/* Presentation boards (light neutral ground so the dark phones read clearly). */
+body.single { width: 390px; height: 844px; background: #DDDDD8; overflow: hidden; }
+body.boardpage { width: 1346px; background: #DDDDD8; color: #1C1C1A; font-family: "Atkinson Next", sans-serif; }
+body.boardpage.wide { width: 1776px; }
+.board { padding: 44px 48px 36px; }
+.board header h1 { font-family: "Archivo", sans-serif; font-stretch: 78%; font-weight: 650; font-size: 44px; line-height: 1.05; letter-spacing: -0.01em; }
+.board header .idea { font-size: 19px; line-height: 1.45; max-width: 66ch; margin-top: 10px; color: #33332F; }
+.board .phones { display: flex; gap: 40px; margin-top: 30px; }
+.board figure { width: 390px; }
+.board figure .phone { box-shadow: 0 10px 28px rgba(0,0,0,.18); }
+.board figcaption { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
+.board figcaption b { font-size: 19px; }
+.board figcaption span { font-size: 15px; line-height: 1.45; color: #45453F; }
+.board .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 34px; padding-top: 24px; border-top: 1px solid #A9A9A2; }
+.board .notes h2 { font-size: 19px; margin-bottom: 6px; }
+.board .notes p { font-size: 16px; line-height: 1.5; color: #33332F; max-width: 60ch; }
+.board .chips { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+.board .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+.board .chip i { width: 22px; height: 22px; border-radius: 4px; border: 1px solid #77776F; }
+.board .chip em { font-style: normal; color: #55554F; font-variant-numeric: tabular-nums; }
+.board .rowh { font-size: 22px; margin-top: 34px; }
+.board .rowh + .phones { margin-top: 14px; }
+.board footer { margin-top: 30px; font-size: 14px; color: #4B4B45; }

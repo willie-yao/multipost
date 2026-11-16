@@ -1,0 +1,31 @@
+{
+  "title": "Two visual designs, the same posting flow",
+  "question": "Choose the look you prefer. Both retain Choose → write → review, independent destination results, on-device drafts, and Instagram's manual finish. These are static mockups only.",
+  "options": [
+    {
+      "id": "soft-plum",
+      "kind": "grounded",
+      "label": "A · Soft Plum",
+      "thesis": "Warm, spacious and gently grouped; a refinement of the first design.",
+      "palette": ["#FAF7F2", "#653B59", "#EBDDE4", "#312A35"],
+      "materials": ["warm reading surface", "rounded tonal groups", "relaxed sans-serif hierarchy"],
+      "viewport": "A labeled stage strip, a calm shared editor, ordered media, and softly grouped platform versions.",
+      "risk": "The rounded tonal groups may feel too soft if you prefer a plain utility.",
+      "comp": "docs/design/options/soft-plum-composer.png"
+    },
+    {
+      "id": "clear-blue",
+      "kind": "grounded",
+      "label": "B · Clear Blue",
+      "thesis": "Bright, precise and easier to scan; a flatter alternative with stronger hierarchy.",
+      "palette": ["#FFFFFF", "#2155A3", "#E9EFF8", "#192D46"],
+      "materials": ["white writing surface", "fine separators", "crisper headings and aligned rows"],
+      "viewport": "A compact stage line, an open writing field, ordered media, and a single list of platform versions.",
+      "risk": "The sharper, flatter treatment feels more utilitarian.",
+      "comp": "docs/design/options/clear-blue-composer.png"
+    }
+  ],
+  "steer": true,
+  "reroll": false,
+  "canon": false
+}

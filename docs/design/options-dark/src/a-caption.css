@@ -1,0 +1,75 @@
+/* A · Caption — true black stage, caption boxes, speaker colour shows which caption a destination uses. */
+.dA { --stage: #000000; --ground: #131517; --raised: #1D2023; --raised2: #2A2E32;
+  --hair: #2C3034; --line: #6A7179; --text: #F2F2EE; --text2: #B6BBC0; --own: #7DD7E9;
+  --ok: #8CD9A4; --err: #FF9F9F; --warn: #F0CF72; --indicator: #F2F2EE; --sb: #000;
+  font-family: "Atkinson Next", sans-serif; font-size: 16px; line-height: 1.4; }
+.dA .appbar { background: var(--ground); }
+.dA .title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.dA .tab { font-size: 16px; font-weight: 500; }
+.dA .tabs { border-bottom: 1px solid var(--hair); }
+.dA .tab.on { font-weight: 700; }
+
+/* the caption box: white type on a black box, hugging the words */
+.dA .cap { background: var(--stage); color: var(--text); padding: 1px 6px 2px; border-radius: 2px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.dA .cap.own { color: var(--own); }
+
+.dA .stage { background: var(--stage); padding: 2px 16px 16px; }
+.dA .stage .hd { height: 40px; display: flex; align-items: center; justify-content: space-between; }
+.dA .stage .hd b { font-weight: 600; font-size: 16px; }
+.dA .tbtn { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 8px; margin-right: -8px; font-weight: 600; color: var(--text); }
+.dA .frames { display: flex; gap: 8px; }
+.dA .frame { position: relative; flex: 1; height: 112px; border-radius: 3px; overflow: hidden; }
+.dA .frame img { width: 100%; height: 100%; }
+.dA .frame .n { position: absolute; left: 8px; bottom: 8px; font-weight: 700; font-size: 15px; line-height: 1; padding: 4px 7px 5px; }
+
+.dA .sec { padding: 0 16px; }
+.dA .lbl { display: flex; justify-content: space-between; align-items: center; height: 44px; color: var(--text2); font-size: 14px; font-weight: 500; }
+.dA .lbl .saved { display: inline-flex; gap: 5px; align-items: center; }
+.dA .field { background: var(--stage); padding: 12px 14px 14px; border-bottom: 2px solid var(--text); border-radius: 4px 4px 0 0;
+  font-size: 21px; line-height: 30px; }
+.dA .caret { display: inline-block; width: 2px; height: 24px; background: var(--own); vertical-align: -4px; margin-left: 1px; }
+
+.dA .dhd { display: flex; justify-content: space-between; align-items: center; height: 46px; margin-top: 4px; }
+.dA .dhd b { font-size: 18px; font-weight: 700; }
+.dA .dest { display: flex; align-items: center; gap: 8px; padding: 9px 0 10px; border-top: 1px solid var(--hair); min-height: 72px; }
+.dA .dest .nm { font-weight: 700; font-size: 17px; }
+.dA .dest .acct { color: var(--text2); font-size: 14px; margin-left: 6px; }
+.dA .dest .sample { margin-top: 5px; font-size: 14px; line-height: 22px; display: flex; gap: 8px; align-items: baseline; white-space: nowrap; }
+.dA .dest .sample .src { color: var(--text2); }
+.dA .chev { color: var(--text2); }
+
+.dA .bottom { background: var(--ground); border-top: 1px solid var(--hair); }
+.dA .primary { background: var(--text); color: #0B0C0D; border-radius: 6px; font-weight: 700; font-size: 17px; }
+.dA .tonal { background: var(--raised2); color: var(--text); border-radius: 6px; font-weight: 600; }
+.dA .outlined { border: 1px solid var(--line); color: var(--text); border-radius: 6px; font-weight: 600; }
+.dA .textbtn { color: var(--text); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; height: 44px; }
+.dA .note { color: var(--text2); font-size: 14px; }
+
+/* results */
+.dA .summary { padding: 6px 16px 14px; }
+.dA .summary .line { font-size: 21px; line-height: 34px; font-weight: 600; }
+.dA .summary .cap { padding: 2px 8px 3px; }
+.dA .summary .note { margin-top: 8px; }
+.dA .res { padding: 14px 16px 16px; border-top: 1px solid var(--hair); }
+.dA .res .top { display: flex; align-items: baseline; gap: 8px; }
+.dA .res .nm { font-size: 19px; font-weight: 700; }
+.dA .res .acct { color: var(--text2); font-size: 14px; }
+.dA .res .st { margin-left: auto; font-weight: 700; font-size: 15px; align-self: center; }
+.dA .res .det { color: var(--text2); font-size: 15px; margin-top: 4px; }
+.dA .res .time { font-variant-numeric: tabular-nums; }
+.dA .res .acts { margin-top: 10px; display: flex; gap: 12px; align-items: center; }
+.dA .res.focus { background: var(--raised); }
+
+/* instagram */
+.dA .ladder { display: flex; align-items: center; gap: 4px; padding: 4px 16px 0; font-size: 15px; color: var(--text2); flex-wrap: nowrap; }
+.dA .ladder .cur { color: var(--text); font-weight: 700; }
+.dA .ladder .cap { padding: 4px 8px; }
+.dA .step { padding: 14px 16px 0; }
+.dA .step .sh { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; height: 32px; }
+.dA .step .sh .cap { font-size: 15px; padding: 3px 8px; }
+.dA .step .capbox { margin-top: 8px; font-size: 17px; line-height: 27px; }
+.dA .step .acts { margin-top: 10px; display: flex; gap: 10px; align-items: center; }
+.dA .thumbs { display: flex; gap: 8px; margin-top: 8px; }
+.dA .thumbs .frame { flex: none; width: 76px; height: 64px; }
+.dA .thumbs .frame .n { left: 5px; bottom: 5px; font-size: 13px; padding: 3px 6px 4px; }

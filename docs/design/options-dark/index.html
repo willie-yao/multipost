@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark directions compared</title>
+<style>
+  @font-face { font-family: "Atkinson Next"; src: url("assets/AtkinsonHyperlegibleNext.ttf"); font-weight: 200 800; }
+  @font-face { font-family: "Archivo"; src: url("assets/Archivo.ttf"); font-weight: 100 900; font-stretch: 62% 125%; }
+  :root { --bg: #DDDDD8; --ink: #1C1C1A; --muted: #45453F; --rule: #A9A9A2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 "Atkinson Next", sans-serif; }
+  main { max-width: 1400px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font: 650 44px/1.05 "Archivo", sans-serif; font-stretch: 78%; margin: 0; }
+  h2 { font: 650 28px/1.1 "Archivo", sans-serif; font-stretch: 82%; margin: 48px 0 8px; }
+  p { max-width: 70ch; color: var(--muted); }
+  .status { font-weight: 700; color: var(--ink); }
+  img { width: 100%; height: auto; display: block; border-radius: 6px; }
+  nav a, a { color: var(--ink); text-underline-offset: 3px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; }
+  section { border-top: 1px solid var(--rule); margin-top: 40px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Three dark directions</h1>
+  <p class="status">Unapproved design concepts · static drawings · illustrative content · not app screenshots.</p>
+  <p>Same post, same destinations, same flow: choose, write, review. A · Caption, B · Contact Sheet, C · Margin Night. Dispatch is excluded. Notes, guidance, recommendation and checks are in <a href="README.md">README.md</a>.</p>
+  <nav><a href="#remaining">Caption remaining screens</a><a href="#flair">Caption with more flair</a><a href="#composer">Composer</a><a href="#results">Results</a><a href="#instagram">Instagram</a><a href="#boards">Full boards</a></nav>
+  <section id="remaining"><h2>Caption: remaining screens (unapproved concept)</h2><p>Choose, Bluesky version, Review, first run, library, accounts, publishing states and finishing Instagram. Notes and checks are in README.md.</p>
+    <img src="caption/caption-flow-board.png" alt="Caption posting flow: Choose, Write, Bluesky version, Review">
+    <img src="caption/caption-library-board.png" alt="Caption first run, library and accounts" style="margin-top:24px">
+    <img src="caption/caption-states-publishing-board.png" alt="Caption states: connection needed, offline, publication unknown" style="margin-top:24px">
+    <img src="caption/caption-states-instagram-board.png" alt="Caption finishing Instagram: back from Instagram, confirm, marked posted" style="margin-top:24px"></section>
+  <section id="flair"><h2>Caption, with more flair (current refinement)</h2><img src="compare-caption-v1-v2.png" alt="Caption first version and refinement, three screens each"></section>
+  <section id="composer"><h2>Composer</h2><img src="compare-composer.png" alt="Three composer screens side by side"></section>
+  <section id="results"><h2>Posting results: partial success</h2><img src="compare-results.png" alt="Three results screens side by side"></section>
+  <section id="instagram"><h2>Assisted Instagram</h2><img src="compare-instagram.png" alt="Three assisted Instagram screens side by side"></section>
+  <section id="boards"><h2>A · Caption</h2><img src="a-caption-board.png" alt="Caption board">
+    <h2>B · Contact Sheet</h2><img src="b-contact-board.png" alt="Contact Sheet board">
+    <h2>C · Margin Night</h2><img src="c-margin-night-board.png" alt="Margin Night board"></section>
+</main>
+</body>
+</html>

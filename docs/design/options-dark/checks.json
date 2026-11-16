@@ -1,0 +1,280 @@
+{
+  "info": [
+    {
+      "pair": "tonal button fills vs ground (all options)",
+      "note": "Fill-to-ground is about 1.3:1 by design (Material tonal button). Not a WCAG 1.4.11 requirement: the text label identifies the control and its text contrast is checked. Native focus/pressed states must still be tested."
+    }
+  ],
+  "method": "Boundary ratios from design tokens (WCAG 2.x relative luminance). Rendered pixels sampled from 2x PNGs at fixed CSS points.",
+  "boundaries": [
+    {
+      "option": "a-caption",
+      "pair": "outline",
+      "fg": "#6A7179",
+      "bg": "#131517",
+      "ratio": 3.71,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "a-caption",
+      "pair": "outline on focus row",
+      "fg": "#6A7179",
+      "bg": "#1D2023",
+      "ratio": 3.31,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "a-caption",
+      "pair": "field indicator",
+      "fg": "#F2F2EE",
+      "bg": "#000000",
+      "ratio": 18.71,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "a-caption",
+      "pair": "tab indicator",
+      "fg": "#F2F2EE",
+      "bg": "#131517",
+      "ratio": 16.31,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "a-caption",
+      "pair": "own-caption cyan on caption box",
+      "fg": "#7DD7E9",
+      "bg": "#000000",
+      "ratio": 12.77,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "a-caption",
+      "pair": "caret",
+      "fg": "#7DD7E9",
+      "bg": "#000000",
+      "ratio": 12.77,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "b-contact",
+      "pair": "outline",
+      "fg": "#7A6A5B",
+      "bg": "#17120E",
+      "ratio": 3.58,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "b-contact",
+      "pair": "add-slot border",
+      "fg": "#7A6A5B",
+      "bg": "#0A0806",
+      "ratio": 3.85,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "b-contact",
+      "pair": "field indicator",
+      "fg": "#F2E9DB",
+      "bg": "#221B16",
+      "ratio": 14.12,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "b-contact",
+      "pair": "tab indicator",
+      "fg": "#F2E9DB",
+      "bg": "#17120E",
+      "ratio": 15.46,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "b-contact",
+      "pair": "ladder rule",
+      "fg": "#7A6A5B",
+      "bg": "#17120E",
+      "ratio": 3.58,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "c-margin-night",
+      "pair": "outline",
+      "fg": "#75738F",
+      "bg": "#13131C",
+      "ratio": 4.05,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "c-margin-night",
+      "pair": "tab indicator",
+      "fg": "#B5B2FF",
+      "bg": "#13131C",
+      "ratio": 9.47,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "c-margin-night",
+      "pair": "primary fill vs ground",
+      "fg": "#B5B2FF",
+      "bg": "#13131C",
+      "ratio": 9.47,
+      "need": 3,
+      "pass": true
+    },
+    {
+      "option": "c-margin-night",
+      "pair": "caret",
+      "fg": "#B5B2FF",
+      "bg": "#13131C",
+      "ratio": 9.47,
+      "need": 3,
+      "pass": true
+    }
+  ],
+  "sampled": [
+    {
+      "screen": "a-caption-composer",
+      "where": "ground",
+      "css_xy": [
+        8,
+        760
+      ],
+      "pixel": "#131517",
+      "text_token": "#B6BBC0",
+      "ratio": 9.46,
+      "pass": true
+    },
+    {
+      "screen": "a-caption-composer",
+      "where": "primary button",
+      "css_xy": [
+        30,
+        795
+      ],
+      "pixel": "#F2F2EE",
+      "text_token": "#0B0C0D",
+      "ratio": 17.44,
+      "pass": true
+    },
+    {
+      "screen": "a-caption-composer",
+      "where": "caption field",
+      "css_xy": [
+        22,
+        400
+      ],
+      "pixel": "#000000",
+      "text_token": "#F2F2EE",
+      "ratio": 18.71,
+      "pass": true
+    },
+    {
+      "screen": "b-contact-composer",
+      "where": "ground",
+      "css_xy": [
+        8,
+        760
+      ],
+      "pixel": "#17120E",
+      "text_token": "#C6B9A6",
+      "ratio": 9.64,
+      "pass": true
+    },
+    {
+      "screen": "b-contact-composer",
+      "where": "primary button",
+      "css_xy": [
+        30,
+        795
+      ],
+      "pixel": "#F2E9DB",
+      "text_token": "#17120E",
+      "ratio": 15.46,
+      "pass": true
+    },
+    {
+      "screen": "b-contact-composer",
+      "where": "rebate strip",
+      "css_xy": [
+        6,
+        200
+      ],
+      "pixel": "#0A0806",
+      "text_token": "#C6B9A6",
+      "ratio": 10.37,
+      "pass": true
+    },
+    {
+      "screen": "c-margin-night-composer",
+      "where": "ground",
+      "css_xy": [
+        8,
+        760
+      ],
+      "pixel": "#13131C",
+      "text_token": "#BBB8C9",
+      "ratio": 9.5,
+      "pass": true
+    },
+    {
+      "screen": "c-margin-night-composer",
+      "where": "primary button",
+      "css_xy": [
+        40,
+        795
+      ],
+      "pixel": "#B5B2FF",
+      "text_token": "#17163A",
+      "ratio": 8.89,
+      "pass": true
+    },
+    {
+      "screen": "a-caption-results",
+      "where": "focus row",
+      "css_xy": [
+        8,
+        470
+      ],
+      "pixel": "#1D2023",
+      "text_token": "#B6BBC0",
+      "ratio": 8.46,
+      "pass": true
+    },
+    {
+      "screen": "b-contact-instagram",
+      "where": "caption block",
+      "css_xy": [
+        120,
+        410
+      ],
+      "pixel": "#221B16",
+      "text_token": "#F2E9DB",
+      "ratio": 14.12,
+      "pass": true
+    },
+    {
+      "screen": "c-margin-night-instagram",
+      "where": "tonal button",
+      "css_xy": [
+        140,
+        360
+      ],
+      "pixel": "#292938",
+      "text_token": "#EEEAE0",
+      "ratio": 11.9,
+      "pass": true
+    }
+  ]
+}

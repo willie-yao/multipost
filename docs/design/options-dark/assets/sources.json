@@ -1,0 +1,14 @@
+{
+  "purpose": "Illustrative sample media and fonts for unapproved static design concepts.",
+  "photos": {
+    "flowers.jpg": "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&q=85&fit=crop (copied from ../../options/assets)",
+    "leaves.jpg": "https://images.unsplash.com/photo-1497250681960-ef046c08a56e?w=800&q=85&fit=crop (copied from ../../options/assets)"
+  },
+  "fonts": {
+    "AtkinsonHyperlegibleNext.ttf": "https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegiblenext (OFL)",
+    "Archivo.ttf": "https://github.com/google/fonts/tree/main/ofl/archivo (OFL)",
+    "Literata.ttf": "copied from ../../options-v2/assets (OFL)",
+    "Barlow-Regular.ttf, Barlow-SemiBold.ttf": "copied from ../../options-v2/assets (OFL)"
+  },
+  "renders": "All PNGs in ../ are authored HTML/CSS drawings rendered with headless Edge at 2x; no image generation."
+}

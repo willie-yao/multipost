@@ -1,0 +1,7 @@
+{
+  "purpose": "Illustrative sample media only, not the user's photos.",
+  "sources": {
+    "flowers.jpg": "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&q=85&fit=crop",
+    "leaves.jpg": "https://images.unsplash.com/photo-1497250681960-ef046c08a56e?w=800&q=85&fit=crop"
+  }
+}

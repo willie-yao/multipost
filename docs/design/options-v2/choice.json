@@ -1,0 +1,33 @@
+{
+  "title": "Two stronger directions — same posting flow",
+  "question": "Compare the actual mockups: Dispatch uses a compact text-first workspace and a destination status rail; Margin uses an open writing surface and an annotation gutter. Both retain Choose → write → review and the same manual Instagram finish. Which should carry forward?",
+  "options": [
+    {
+      "id": "dispatch",
+      "kind": "challenger",
+      "catalogId": "signals-instruments-split-flap-concourse",
+      "label": "A · Dispatch",
+      "thesis": "A compact charcoal workspace with clear destination rows and warm amber actions.",
+      "palette": ["#202322", "#F5F2E9", "#F1C86B", "#AEB8B1"],
+      "materials": ["condensed task headings", "flat working surface", "consistent destination status rail"],
+      "viewport": "A compact stage line above a text-first shared editor; the three destination versions read as aligned status rows.",
+      "risk": "The denser, darker direction feels more like a utility; a complementary light theme would still be needed.",
+      "comp": "docs/design/options-v2/dispatch-composer.png"
+    },
+    {
+      "id": "margin",
+      "kind": "challenger",
+      "catalogId": "rw-centre-rail-reference-setting",
+      "label": "B · Margin",
+      "thesis": "An open writing surface with readable serif post text, generous media, and a useful annotation gutter.",
+      "palette": ["#F6F5F0", "#252D29", "#AA3D2F", "#DBDFD7"],
+      "materials": ["Literata post text", "plain sans-serif controls", "numbered media and destination annotations"],
+      "viewport": "A shared post reads like writing, with its photos and platform-specific notes aligned to an annotation gutter.",
+      "risk": "The reading-oriented treatment uses more vertical space and feels less like a conventional social composer.",
+      "comp": "docs/design/options-v2/margin-composer.png"
+    }
+  ],
+  "steer": true,
+  "reroll": false,
+  "canon": false
+}

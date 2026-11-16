@@ -1,0 +1,73 @@
+{
+  "title": "Choose the posting flow",
+  "question": "Which structure should the design develop? These are layout schematics, not an app prototype. Both retain an explicit review step and honest Instagram status.",
+  "options": [
+    {
+      "id": "guided",
+      "kind": "assigned",
+      "label": "Choose, write, review",
+      "lineage": "Personal correspondence: recipient, message, receipt",
+      "thesis": "Choose destinations first, then write with their requirements already visible.",
+      "palette": ["#FAF7F2", "#312A35", "#653B59", "#EBDDE4"],
+      "materials": ["warm surfaces", "clear sans-serif type", "standard Android controls"],
+      "viewport": "Android top bar and three labeled stages; destination rows lead, with Continue anchored below.",
+      "risk": "Clear for first use, but adds a step to every routine post.",
+      "raised": [
+        {"from":"Data field", "raise":"Every status has explicit text and a stable reading order."},
+        {"from":"Mixtape", "raise":"Platform length limits appear beside the version they constrain."},
+        {"from":"Reference manual", "raise":"The same destination status row carries through setup, review, and results."},
+        {"from":"Type grid", "raise":"A disciplined spacing grid aligns labels and actions."},
+        {"from":"Community catalog", "raise":"Media order remains legible at thumbnail size."},
+        {"from":"Star atlas", "raise":"The one next action has stronger visual emphasis than supporting detail."}
+      ],
+      "wireframe": {"cols":12,"rows":20,"regions":[
+        {"label":"New post · saved on device","x":0,"y":0,"w":12,"h":2},
+        {"label":"Choose → Write → Review","x":0,"y":2,"w":12,"h":2,"accent":true},
+        {"label":"Choose destinations","x":0,"y":4,"w":12,"h":3},
+        {"label":"X · direct publishing*","x":0,"y":7,"w":12,"h":3},
+        {"label":"Bluesky · direct publishing*","x":0,"y":10,"w":12,"h":3},
+        {"label":"Instagram · finish in app","x":0,"y":13,"w":12,"h":3},
+        {"label":"Continue to writing","x":0,"y":17,"w":12,"h":3,"accent":true}
+      ]}
+    },
+    {
+      "id": "write-first",
+      "kind": "pick",
+      "label": "Write, tailor, review",
+      "kicker": "RECOMMENDED",
+      "lineage": "Personal field notes: one working draft with clear annotations",
+      "thesis": "Start with a shared post; tailor only the destinations that need it.",
+      "palette": ["#FAF8F3", "#252D32", "#285668", "#DFEBEE"],
+      "materials": ["warm reading surface", "ink-blue selection", "standard Android controls"],
+      "viewport": "Android top bar, destination chips, a generous shared editor, ordered media, and a Review post action.",
+      "risk": "A familiar composer; platform differences must remain visible as concise status rows.",
+      "wireframe": {"cols":12,"rows":20,"regions":[
+        {"label":"New post · saved on device","x":0,"y":0,"w":12,"h":2},
+        {"label":"X / Bluesky / Instagram","x":0,"y":2,"w":12,"h":2},
+        {"label":"Shared post · write here","x":0,"y":4,"w":12,"h":6,"accent":true},
+        {"label":"Ordered photos / video","x":0,"y":10,"w":12,"h":3},
+        {"label":"Versions · shared / customized","x":0,"y":13,"w":12,"h":4},
+        {"label":"Review post","x":0,"y":17,"w":12,"h":3,"accent":true}
+      ]}
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "kind":"canon",
+    "label":"A separate editor for each platform",
+    "thesis":"Start from shared content, then work through conventional platform tabs.",
+    "palette":["#FFFFFF","#1F2937","#355F9E"],
+    "materials":["neutral surfaces","standard Android tabs"],
+    "viewport":"A platform tab bar above one editor, with a final review screen.",
+    "risk":"Makes platform differences obvious, but hides the shared draft and invites repeated editing.",
+    "wireframe":{"cols":12,"rows":20,"regions":[
+      {"label":"New post","x":0,"y":0,"w":12,"h":2},
+      {"label":"X | Bluesky | Instagram","x":0,"y":2,"w":12,"h":3,"accent":true},
+      {"label":"Current platform editor","x":0,"y":5,"w":12,"h":9},
+      {"label":"Media for this platform","x":0,"y":14,"w":12,"h":3},
+      {"label":"Review post","x":0,"y":17,"w":12,"h":3,"accent":true}
+    ]}
+  }
+}
