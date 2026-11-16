@@ -227,4 +227,39 @@ void main() {
     expect(tester.getSize(find.text(shared)).height, greaterThan(84));
     expect(tester.takeException(), isNull);
   });
+
+  // Cyan identifies destination-owned wording, not ordinary selection state.
+  testWidgets('ordinary selection stays neutral while own captions stay cyan', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CaptionApp(
+        home: CaptionScaffold(
+          title: 'Caption',
+          body: Column(
+            children: [
+              ChoiceChip(
+                label: const Text('Photos'),
+                selected: true,
+                onSelected: (_) {},
+              ),
+              const CaptionText('Own wording', own: true),
+            ],
+          ),
+        ),
+      ),
+    );
+    final label = tester.widget<RichText>(
+      find.descendant(
+        of: find.byType(ChoiceChip),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(label.text.style?.color, const Color(0xFFF2F2EE));
+    expect(
+      tester.widget<Text>(find.text('Own wording')).textSpan?.style?.color,
+      const Color(0xFF7DD7E9),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
