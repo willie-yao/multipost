@@ -6,15 +6,7 @@ part of 'draft.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_Attachment _$AttachmentFromJson(Map<String, dynamic> json) => _Attachment(
-  assetId: json['assetId'] as String,
-  altText: json['altText'] as String? ?? '',
-);
-
-Map<String, dynamic> _$AttachmentToJson(_Attachment instance) =>
-    <String, dynamic>{'assetId': instance.assetId, 'altText': instance.altText};
-
-_PostContent _$PostContentFromJson(Map<String, dynamic> json) => _PostContent(
+PostContent _$PostContentFromJson(Map<String, dynamic> json) => PostContent(
   text: json['text'] as String? ?? '',
   media:
       (json['media'] as List<dynamic>?)
@@ -23,14 +15,14 @@ _PostContent _$PostContentFromJson(Map<String, dynamic> json) => _PostContent(
       const [],
 );
 
-Map<String, dynamic> _$PostContentToJson(_PostContent instance) =>
+Map<String, dynamic> _$PostContentToJson(PostContent instance) =>
     <String, dynamic>{
       'text': instance.text,
       'media': instance.media.map((e) => e.toJson()).toList(),
     };
 
-_DestinationVersion _$DestinationVersionFromJson(Map<String, dynamic> json) =>
-    _DestinationVersion(
+DestinationVersion _$DestinationVersionFromJson(Map<String, dynamic> json) =>
+    DestinationVersion(
       ownText: json['ownText'] as String?,
       ownMedia: (json['ownMedia'] as List<dynamic>?)
           ?.map((e) => Attachment.fromJson(e as Map<String, dynamic>))
@@ -39,7 +31,7 @@ _DestinationVersion _$DestinationVersionFromJson(Map<String, dynamic> json) =>
       baseMediaRevision: (json['baseMediaRevision'] as num?)?.toInt(),
     );
 
-Map<String, dynamic> _$DestinationVersionToJson(_DestinationVersion instance) =>
+Map<String, dynamic> _$DestinationVersionToJson(DestinationVersion instance) =>
     <String, dynamic>{
       'ownText': instance.ownText,
       'ownMedia': instance.ownMedia?.map((e) => e.toJson()).toList(),
@@ -47,7 +39,7 @@ Map<String, dynamic> _$DestinationVersionToJson(_DestinationVersion instance) =>
       'baseMediaRevision': instance.baseMediaRevision,
     };
 
-_Draft _$DraftFromJson(Map<String, dynamic> json) => _Draft(
+Draft _$DraftFromJson(Map<String, dynamic> json) => Draft(
   id: json['id'] as String,
   updatedAt: DateTime.parse(json['updatedAt'] as String),
   revision: (json['revision'] as num?)?.toInt() ?? 0,
@@ -62,7 +54,7 @@ _Draft _$DraftFromJson(Map<String, dynamic> json) => _Draft(
           .toSet() ??
       const {},
   shared: json['shared'] == null
-      ? const PostContent()
+      ? const PostContent._empty()
       : PostContent.fromJson(json['shared'] as Map<String, dynamic>),
   versions:
       (json['versions'] as Map<String, dynamic>?)?.map(
@@ -77,7 +69,7 @@ _Draft _$DraftFromJson(Map<String, dynamic> json) => _Draft(
       : DateTime.parse(json['deletedAt'] as String),
 );
 
-Map<String, dynamic> _$DraftToJson(_Draft instance) => <String, dynamic>{
+Map<String, dynamic> _$DraftToJson(Draft instance) => <String, dynamic>{
   'id': instance.id,
   'updatedAt': instance.updatedAt.toIso8601String(),
   'revision': instance.revision,
@@ -103,6 +95,14 @@ const _$DestinationEnumMap = {
   Destination.bluesky: 'bluesky',
   Destination.instagram: 'instagram',
 };
+
+_Attachment _$AttachmentFromJson(Map<String, dynamic> json) => _Attachment(
+  assetId: json['assetId'] as String,
+  altText: json['altText'] as String? ?? '',
+);
+
+Map<String, dynamic> _$AttachmentToJson(_Attachment instance) =>
+    <String, dynamic>{'assetId': instance.assetId, 'altText': instance.altText};
 
 _MediaAsset _$MediaAssetFromJson(Map<String, dynamic> json) => _MediaAsset(
   id: json['id'] as String,

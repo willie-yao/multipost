@@ -59,7 +59,7 @@ void main() {
     d = editOwnMedia(d, Destination.x, const [], now);
     final restored = Draft.fromJson(jsonDecode(jsonEncode(d.toJson())));
     expect(restored, d);
-    expect(resolveContent(restored, Destination.x), const PostContent());
+    expect(resolveContent(restored, Destination.x), PostContent());
     expect(restored.versions[Destination.x]!.ownText, '');
     expect(restored.versions[Destination.x]!.ownMedia, isEmpty);
     expect(
@@ -125,7 +125,7 @@ void main() {
     expect(d.versions, versions);
     expect(
       resolveContent(d, Destination.bluesky),
-      const PostContent(text: 'Saved own words'),
+      PostContent(text: 'Saved own words'),
     );
   });
 
@@ -235,7 +235,7 @@ void main() {
       now,
     );
     d = editSharedCaption(d, 'Shared change made afterward', now);
-    d = restoreVersion(d, Destination.x, const DestinationVersion(), now);
+    d = restoreVersion(d, Destination.x, DestinationVersion(), now);
     expect(
       resolveContent(d, Destination.x).text,
       'Shared change made afterward',
@@ -265,9 +265,7 @@ void main() {
       sharedTextRevision: 4,
       sharedMediaRevision: 7,
       deletedAt: DateTime.utc(2026, 11, 20),
-      versions: const {
-        Destination.instagram: DestinationVersion(ownText: 'Keep me'),
-      },
+      versions: {Destination.instagram: DestinationVersion(ownText: 'Keep me')},
     );
     final before = jsonEncode(original.toJson());
     final now = DateTime.utc(2026, 11, 17);
@@ -283,7 +281,7 @@ void main() {
       (d) => setDestination(d, Destination.x, false, now),
       (d) => setDestination(d, Destination.x, true, now),
       (d) => setStage(d, ComposeStage.review, now),
-      (d) => restoreVersion(d, Destination.x, const DestinationVersion(), now),
+      (d) => restoreVersion(d, Destination.x, DestinationVersion(), now),
     ];
     for (final edit in edits) {
       final changed = edit(original);
@@ -321,11 +319,11 @@ void main() {
       sharedMediaRevision: 2,
       stage: ComposeStage.review,
       selected: const {Destination.x, Destination.instagram},
-      shared: const PostContent(
+      shared: PostContent(
         text: 'Shared',
-        media: [Attachment(assetId: 'photo', altText: 'A poppy')],
+        media: const [Attachment(assetId: 'photo', altText: 'A poppy')],
       ),
-      versions: const {
+      versions: {
         Destination.x: DestinationVersion(
           ownText: '',
           ownMedia: [],
@@ -405,5 +403,121 @@ void main() {
     expect(first, matches(uuidV4));
     expect(second, matches(uuidV4));
     expect(second, isNot(first));
+  });
+
+  test('PostContent constructor owns its media list', () {
+    final media = [const Attachment(assetId: 'original')];
+    final content = PostContent(text: 'Words', media: media);
+    media.clear();
+    expect(content.media, const [Attachment(assetId: 'original')]);
+    expect(() => content.media.clear(), throwsUnsupportedError);
+  });
+
+  test('PostContent copyWith owns its replacement media list', () {
+    final original = PostContent(text: 'Words');
+    final media = [const Attachment(assetId: 'replacement')];
+    final copied = original.copyWith(media: media);
+    media.clear();
+    expect(copied.media, const [Attachment(assetId: 'replacement')]);
+    expect(copied.text, 'Words');
+    expect(original.media, isEmpty);
+    expect(() => copied.media.clear(), throwsUnsupportedError);
+  });
+
+  test('DestinationVersion constructor owns its ownMedia list', () {
+    final media = [const Attachment(assetId: 'original')];
+    final version = DestinationVersion(ownMedia: media);
+    media.clear();
+    expect(version.ownMedia, const [Attachment(assetId: 'original')]);
+    expect(() => version.ownMedia!.clear(), throwsUnsupportedError);
+  });
+
+  test('DestinationVersion copyWith owns its replacement ownMedia list', () {
+    final original = DestinationVersion(ownText: 'Own words');
+    final media = [const Attachment(assetId: 'replacement')];
+    final copied = original.copyWith(ownMedia: media);
+    media.clear();
+    expect(copied.ownMedia, const [Attachment(assetId: 'replacement')]);
+    expect(copied.ownText, 'Own words');
+    expect(original.ownMedia, isNull);
+    expect(() => copied.ownMedia!.clear(), throwsUnsupportedError);
+  });
+
+  test('Draft constructor owns its selected set', () {
+    final selected = {Destination.x};
+    final draft = Draft(
+      id: 'owned-selection',
+      updatedAt: DateTime.utc(2026),
+      selected: selected,
+    );
+    selected.clear();
+    expect(draft.selected, {Destination.x});
+    expect(() => draft.selected.clear(), throwsUnsupportedError);
+  });
+
+  test('Draft copyWith owns its replacement selected set', () {
+    final original = sampleDraft();
+    final selected = {Destination.x};
+    final copied = original.copyWith(selected: selected);
+    selected.clear();
+    expect(copied.selected, {Destination.x});
+    expect(original.selected, Destination.values.toSet());
+    expect(() => copied.selected.clear(), throwsUnsupportedError);
+  });
+
+  test('Draft constructor owns its versions map', () {
+    final version = DestinationVersion(ownText: 'Own words');
+    final versions = {Destination.x: version};
+    final draft = Draft(
+      id: 'owned-versions',
+      updatedAt: DateTime.utc(2026),
+      versions: versions,
+    );
+    versions.clear();
+    expect(draft.versions[Destination.x]?.ownText, 'Own words');
+    expect(() => draft.versions.clear(), throwsUnsupportedError);
+  });
+
+  test('Draft copyWith owns its replacement versions map', () {
+    final original = sampleDraft();
+    final versions = {Destination.x: DestinationVersion(ownText: 'Own words')};
+    final copied = original.copyWith(versions: versions);
+    versions.clear();
+    expect(copied.versions[Destination.x]?.ownText, 'Own words');
+    expect(original.versions, isEmpty);
+    expect(() => copied.versions.clear(), throwsUnsupportedError);
+  });
+
+  test('restored version cannot change through caller-owned media', () {
+    final media = [const Attachment(assetId: 'saved-own-photo')];
+    final version = DestinationVersion(ownMedia: media, baseMediaRevision: 0);
+    final original = sampleDraft();
+    final now = DateTime.utc(2026, 11, 17);
+    final restored = restoreVersion(original, Destination.x, version, now);
+    final encoded = jsonEncode(restored.toJson());
+    media.clear();
+    expect(resolveContent(restored, Destination.x).media, const [
+      Attachment(assetId: 'saved-own-photo'),
+    ]);
+    expect(jsonEncode(restored.toJson()), encoded);
+    expect(restored.revision, 1);
+    expect(restored.updatedAt, now);
+    expect(original.revision, 0);
+  });
+
+  test('minimal draft JSON retains model defaults', () {
+    final draft = Draft.fromJson({
+      'id': 'minimal',
+      'updatedAt': '2026-11-16T00:00:00.000Z',
+    });
+    expect(draft.stage, ComposeStage.choose);
+    expect(draft.revision, 0);
+    expect(draft.sharedTextRevision, 0);
+    expect(draft.sharedMediaRevision, 0);
+    expect(draft.shared.text, '');
+    expect(draft.shared.media, isEmpty);
+    expect(draft.selected, isEmpty);
+    expect(draft.versions, isEmpty);
+    expect(draft.deletedAt, isNull);
   });
 }

@@ -289,15 +289,13 @@ as String,
 /// @nodoc
 mixin _$PostContent {
 
- String get text; List<Attachment> get media;
+
 /// Create a copy of PostContent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $PostContentCopyWith<PostContent> get copyWith => _$PostContentCopyWithImpl<PostContent>(this as PostContent, _$identity);
 
-  /// Serializes this PostContent to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -369,11 +367,10 @@ extension PostContentPatterns on PostContent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PostContent value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _PostContent() when $default != null:
-return $default(_that);case _:
+case _:
   return orElse();
 
 }
@@ -391,11 +388,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PostContent value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _PostContent():
-return $default(_that);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -412,11 +408,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PostContent value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _PostContent() when $default != null:
-return $default(_that);case _:
+case _:
   return null;
 
 }
@@ -433,10 +428,9 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String text,  List<Attachment> media)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _PostContent() when $default != null:
-return $default(_that.text,_that.media);case _:
+case _:
   return orElse();
 
 }
@@ -454,10 +448,9 @@ return $default(_that.text,_that.media);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String text,  List<Attachment> media)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _PostContent():
-return $default(_that.text,_that.media);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -474,10 +467,9 @@ return $default(_that.text,_that.media);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String text,  List<Attachment> media)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _PostContent() when $default != null:
-return $default(_that.text,_that.media);case _:
+case _:
   return null;
 
 }
@@ -485,98 +477,17 @@ return $default(_that.text,_that.media);case _:
 
 }
 
-/// @nodoc
-@JsonSerializable()
-
-class _PostContent implements PostContent {
-  const _PostContent({this.text = '',  List<Attachment> media = const []}): _media = media;
-  factory _PostContent.fromJson(Map<String, dynamic> json) => _$PostContentFromJson(json);
-
-@override@JsonKey() final  String text;
- final  List<Attachment> _media;
-@override@JsonKey() List<Attachment> get media {
-  if (_media is EqualUnmodifiableListView) return _media;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_media);
-}
-
-
-/// Create a copy of PostContent
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$PostContentCopyWith<_PostContent> get copyWith => __$PostContentCopyWithImpl<_PostContent>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$PostContentToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PostContent&&(identical(other.text, text) || other.text == text)&&const DeepCollectionEquality().equals(other.media, _media));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode {
-    return Object.hash(runtimeType,text,const DeepCollectionEquality().hash(_media));
-}
-
-@override
-String toString() {
-    return 'PostContent(text: $text, media: $media)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$PostContentCopyWith<$Res> implements $PostContentCopyWith<$Res> {
-  factory _$PostContentCopyWith(_PostContent value, $Res Function(_PostContent) _then) = __$PostContentCopyWithImpl;
-@override @useResult
-$Res call({
- String text, List<Attachment> media
-});
-
-
-
-
-}
-/// @nodoc
-class __$PostContentCopyWithImpl<$Res>
-    implements _$PostContentCopyWith<$Res> {
-  __$PostContentCopyWithImpl(this._self, this._then);
-
-  final _PostContent _self;
-  final $Res Function(_PostContent) _then;
-
-/// Create a copy of PostContent
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? text = null,Object? media = null,}) {
-  return _then(_PostContent(
-text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
-as String,media: null == media ? _self._media : media // ignore: cast_nullable_to_non_nullable
-as List<Attachment>,
-  ));
-}
-
-
-}
-
 
 /// @nodoc
 mixin _$DestinationVersion {
 
- String? get ownText; List<Attachment>? get ownMedia; int? get baseTextRevision; int? get baseMediaRevision;
+
 /// Create a copy of DestinationVersion
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $DestinationVersionCopyWith<DestinationVersion> get copyWith => _$DestinationVersionCopyWithImpl<DestinationVersion>(this as DestinationVersion, _$identity);
 
-  /// Serializes this DestinationVersion to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -650,11 +561,10 @@ extension DestinationVersionPatterns on DestinationVersion {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DestinationVersion value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _DestinationVersion() when $default != null:
-return $default(_that);case _:
+case _:
   return orElse();
 
 }
@@ -672,11 +582,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DestinationVersion value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _DestinationVersion():
-return $default(_that);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -693,11 +602,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DestinationVersion value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _DestinationVersion() when $default != null:
-return $default(_that);case _:
+case _:
   return null;
 
 }
@@ -714,10 +622,9 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? ownText,  List<Attachment>? ownMedia,  int? baseTextRevision,  int? baseMediaRevision)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _DestinationVersion() when $default != null:
-return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMediaRevision);case _:
+case _:
   return orElse();
 
 }
@@ -735,10 +642,9 @@ return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMe
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? ownText,  List<Attachment>? ownMedia,  int? baseTextRevision,  int? baseMediaRevision)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _DestinationVersion():
-return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMediaRevision);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -755,10 +661,9 @@ return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMe
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? ownText,  List<Attachment>? ownMedia,  int? baseTextRevision,  int? baseMediaRevision)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _DestinationVersion() when $default != null:
-return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMediaRevision);case _:
+case _:
   return null;
 
 }
@@ -766,104 +671,17 @@ return $default(_that.ownText,_that.ownMedia,_that.baseTextRevision,_that.baseMe
 
 }
 
-/// @nodoc
-@JsonSerializable()
-
-class _DestinationVersion implements DestinationVersion {
-  const _DestinationVersion({this.ownText,  List<Attachment>? ownMedia, this.baseTextRevision, this.baseMediaRevision}): _ownMedia = ownMedia;
-  factory _DestinationVersion.fromJson(Map<String, dynamic> json) => _$DestinationVersionFromJson(json);
-
-@override final  String? ownText;
- final  List<Attachment>? _ownMedia;
-@override List<Attachment>? get ownMedia {
-  final value = _ownMedia;
-  if (value == null) return null;
-  if (_ownMedia is EqualUnmodifiableListView) return _ownMedia;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(value);
-}
-
-@override final  int? baseTextRevision;
-@override final  int? baseMediaRevision;
-
-/// Create a copy of DestinationVersion
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$DestinationVersionCopyWith<_DestinationVersion> get copyWith => __$DestinationVersionCopyWithImpl<_DestinationVersion>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$DestinationVersionToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DestinationVersion&&(identical(other.ownText, ownText) || other.ownText == ownText)&&const DeepCollectionEquality().equals(other.ownMedia, _ownMedia)&&(identical(other.baseTextRevision, baseTextRevision) || other.baseTextRevision == baseTextRevision)&&(identical(other.baseMediaRevision, baseMediaRevision) || other.baseMediaRevision == baseMediaRevision));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode {
-    return Object.hash(runtimeType,ownText,const DeepCollectionEquality().hash(_ownMedia),baseTextRevision,baseMediaRevision);
-}
-
-@override
-String toString() {
-    return 'DestinationVersion(ownText: $ownText, ownMedia: $ownMedia, baseTextRevision: $baseTextRevision, baseMediaRevision: $baseMediaRevision)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$DestinationVersionCopyWith<$Res> implements $DestinationVersionCopyWith<$Res> {
-  factory _$DestinationVersionCopyWith(_DestinationVersion value, $Res Function(_DestinationVersion) _then) = __$DestinationVersionCopyWithImpl;
-@override @useResult
-$Res call({
- String? ownText, List<Attachment>? ownMedia, int? baseTextRevision, int? baseMediaRevision
-});
-
-
-
-
-}
-/// @nodoc
-class __$DestinationVersionCopyWithImpl<$Res>
-    implements _$DestinationVersionCopyWith<$Res> {
-  __$DestinationVersionCopyWithImpl(this._self, this._then);
-
-  final _DestinationVersion _self;
-  final $Res Function(_DestinationVersion) _then;
-
-/// Create a copy of DestinationVersion
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? ownText = freezed,Object? ownMedia = freezed,Object? baseTextRevision = freezed,Object? baseMediaRevision = freezed,}) {
-  return _then(_DestinationVersion(
-ownText: freezed == ownText ? _self.ownText : ownText // ignore: cast_nullable_to_non_nullable
-as String?,ownMedia: freezed == ownMedia ? _self._ownMedia : ownMedia // ignore: cast_nullable_to_non_nullable
-as List<Attachment>?,baseTextRevision: freezed == baseTextRevision ? _self.baseTextRevision : baseTextRevision // ignore: cast_nullable_to_non_nullable
-as int?,baseMediaRevision: freezed == baseMediaRevision ? _self.baseMediaRevision : baseMediaRevision // ignore: cast_nullable_to_non_nullable
-as int?,
-  ));
-}
-
-
-}
-
 
 /// @nodoc
 mixin _$Draft {
 
- String get id; DateTime get updatedAt; int get revision; int get sharedTextRevision; int get sharedMediaRevision; ComposeStage get stage; Set<Destination> get selected; PostContent get shared; Map<Destination, DestinationVersion> get versions; DateTime? get deletedAt;
+
 /// Create a copy of Draft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $DraftCopyWith<Draft> get copyWith => _$DraftCopyWithImpl<Draft>(this as Draft, _$identity);
 
-  /// Serializes this Draft to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -952,11 +770,10 @@ extension DraftPatterns on Draft {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _Draft value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _Draft() when $default != null:
-return $default(_that);case _:
+case _:
   return orElse();
 
 }
@@ -974,11 +791,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _Draft value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _Draft():
-return $default(_that);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -995,11 +811,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _Draft value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(){
 final _that = this;
 switch (_that) {
-case _Draft() when $default != null:
-return $default(_that);case _:
+case _:
   return null;
 
 }
@@ -1016,10 +831,9 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime updatedAt,  int revision,  int sharedTextRevision,  int sharedMediaRevision,  ComposeStage stage,  Set<Destination> selected,  PostContent shared,  Map<Destination, DestinationVersion> versions,  DateTime? deletedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _Draft() when $default != null:
-return $default(_that.id,_that.updatedAt,_that.revision,_that.sharedTextRevision,_that.sharedMediaRevision,_that.stage,_that.selected,_that.shared,_that.versions,_that.deletedAt);case _:
+case _:
   return orElse();
 
 }
@@ -1037,10 +851,9 @@ return $default(_that.id,_that.updatedAt,_that.revision,_that.sharedTextRevision
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime updatedAt,  int revision,  int sharedTextRevision,  int sharedMediaRevision,  ComposeStage stage,  Set<Destination> selected,  PostContent shared,  Map<Destination, DestinationVersion> versions,  DateTime? deletedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _Draft():
-return $default(_that.id,_that.updatedAt,_that.revision,_that.sharedTextRevision,_that.sharedMediaRevision,_that.stage,_that.selected,_that.shared,_that.versions,_that.deletedAt);case _:
+case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1057,125 +870,14 @@ return $default(_that.id,_that.updatedAt,_that.revision,_that.sharedTextRevision
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime updatedAt,  int revision,  int sharedTextRevision,  int sharedMediaRevision,  ComposeStage stage,  Set<Destination> selected,  PostContent shared,  Map<Destination, DestinationVersion> versions,  DateTime? deletedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>() {final _that = this;
 switch (_that) {
-case _Draft() when $default != null:
-return $default(_that.id,_that.updatedAt,_that.revision,_that.sharedTextRevision,_that.sharedMediaRevision,_that.stage,_that.selected,_that.shared,_that.versions,_that.deletedAt);case _:
+case _:
   return null;
 
 }
 }
 
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class _Draft implements Draft {
-  const _Draft({required this.id, required this.updatedAt, this.revision = 0, this.sharedTextRevision = 0, this.sharedMediaRevision = 0, this.stage = ComposeStage.choose,  Set<Destination> selected = const {}, this.shared = const PostContent(),  Map<Destination, DestinationVersion> versions = const {}, this.deletedAt}): _selected = selected,_versions = versions;
-  factory _Draft.fromJson(Map<String, dynamic> json) => _$DraftFromJson(json);
-
-@override final  String id;
-@override final  DateTime updatedAt;
-@override@JsonKey() final  int revision;
-@override@JsonKey() final  int sharedTextRevision;
-@override@JsonKey() final  int sharedMediaRevision;
-@override@JsonKey() final  ComposeStage stage;
- final  Set<Destination> _selected;
-@override@JsonKey() Set<Destination> get selected {
-  if (_selected is EqualUnmodifiableSetView) return _selected;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableSetView(_selected);
-}
-
-@override@JsonKey() final  PostContent shared;
- final  Map<Destination, DestinationVersion> _versions;
-@override@JsonKey() Map<Destination, DestinationVersion> get versions {
-  if (_versions is EqualUnmodifiableMapView) return _versions;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableMapView(_versions);
-}
-
-@override final  DateTime? deletedAt;
-
-/// Create a copy of Draft
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$DraftCopyWith<_Draft> get copyWith => __$DraftCopyWithImpl<_Draft>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$DraftToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Draft&&(identical(other.id, id) || other.id == id)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.revision, revision) || other.revision == revision)&&(identical(other.sharedTextRevision, sharedTextRevision) || other.sharedTextRevision == sharedTextRevision)&&(identical(other.sharedMediaRevision, sharedMediaRevision) || other.sharedMediaRevision == sharedMediaRevision)&&(identical(other.stage, stage) || other.stage == stage)&&const DeepCollectionEquality().equals(other.selected, _selected)&&(identical(other.shared, shared) || other.shared == shared)&&const DeepCollectionEquality().equals(other.versions, _versions)&&(identical(other.deletedAt, deletedAt) || other.deletedAt == deletedAt));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode {
-    return Object.hash(runtimeType,id,updatedAt,revision,sharedTextRevision,sharedMediaRevision,stage,const DeepCollectionEquality().hash(_selected),shared,const DeepCollectionEquality().hash(_versions),deletedAt);
-}
-
-@override
-String toString() {
-    return 'Draft(id: $id, updatedAt: $updatedAt, revision: $revision, sharedTextRevision: $sharedTextRevision, sharedMediaRevision: $sharedMediaRevision, stage: $stage, selected: $selected, shared: $shared, versions: $versions, deletedAt: $deletedAt)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$DraftCopyWith<$Res> implements $DraftCopyWith<$Res> {
-  factory _$DraftCopyWith(_Draft value, $Res Function(_Draft) _then) = __$DraftCopyWithImpl;
-@override @useResult
-$Res call({
- String id, DateTime updatedAt, int revision, int sharedTextRevision, int sharedMediaRevision, ComposeStage stage, Set<Destination> selected, PostContent shared, Map<Destination, DestinationVersion> versions, DateTime? deletedAt
-});
-
-
-@override $PostContentCopyWith<$Res> get shared;
-
-}
-/// @nodoc
-class __$DraftCopyWithImpl<$Res>
-    implements _$DraftCopyWith<$Res> {
-  __$DraftCopyWithImpl(this._self, this._then);
-
-  final _Draft _self;
-  final $Res Function(_Draft) _then;
-
-/// Create a copy of Draft
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? updatedAt = null,Object? revision = null,Object? sharedTextRevision = null,Object? sharedMediaRevision = null,Object? stage = null,Object? selected = null,Object? shared = null,Object? versions = null,Object? deletedAt = freezed,}) {
-  return _then(_Draft(
-id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,revision: null == revision ? _self.revision : revision // ignore: cast_nullable_to_non_nullable
-as int,sharedTextRevision: null == sharedTextRevision ? _self.sharedTextRevision : sharedTextRevision // ignore: cast_nullable_to_non_nullable
-as int,sharedMediaRevision: null == sharedMediaRevision ? _self.sharedMediaRevision : sharedMediaRevision // ignore: cast_nullable_to_non_nullable
-as int,stage: null == stage ? _self.stage : stage // ignore: cast_nullable_to_non_nullable
-as ComposeStage,selected: null == selected ? _self._selected : selected // ignore: cast_nullable_to_non_nullable
-as Set<Destination>,shared: null == shared ? _self.shared : shared // ignore: cast_nullable_to_non_nullable
-as PostContent,versions: null == versions ? _self._versions : versions // ignore: cast_nullable_to_non_nullable
-as Map<Destination, DestinationVersion>,deletedAt: freezed == deletedAt ? _self.deletedAt : deletedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,
-  ));
-}
-
-/// Create a copy of Draft
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$PostContentCopyWith<$Res> get shared {
-  
-  return $PostContentCopyWith<$Res>(_self.shared, (value) {
-    return _then(_self.copyWith(shared: value));
-  });
-}
 }
 
 

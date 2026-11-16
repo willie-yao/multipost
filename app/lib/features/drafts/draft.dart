@@ -19,45 +19,76 @@ abstract class Attachment with _$Attachment {
 }
 
 @freezed
-abstract class PostContent with _$PostContent {
-  const factory PostContent({
-    @Default('') String text,
-    @Default([]) List<Attachment> media,
-  }) = _PostContent;
+@JsonSerializable()
+class PostContent with _$PostContent {
+  PostContent({this.text = '', List<Attachment> media = const []})
+    : media = List<Attachment>.unmodifiable(media);
+
+  const PostContent._empty() : text = '', media = const [];
+
+  final String text;
+  final List<Attachment> media;
 
   factory PostContent.fromJson(Map<String, dynamic> json) =>
       _$PostContentFromJson(json);
+
+  Map<String, dynamic> toJson() => _$PostContentToJson(this);
 }
 
 @freezed
-abstract class DestinationVersion with _$DestinationVersion {
-  const factory DestinationVersion({
-    String? ownText,
+@JsonSerializable()
+class DestinationVersion with _$DestinationVersion {
+  DestinationVersion({
+    this.ownText,
     List<Attachment>? ownMedia,
-    int? baseTextRevision,
-    int? baseMediaRevision,
-  }) = _DestinationVersion;
+    this.baseTextRevision,
+    this.baseMediaRevision,
+  }) : ownMedia = ownMedia == null
+           ? null
+           : List<Attachment>.unmodifiable(ownMedia);
+
+  final String? ownText;
+  final List<Attachment>? ownMedia;
+  final int? baseTextRevision;
+  final int? baseMediaRevision;
 
   factory DestinationVersion.fromJson(Map<String, dynamic> json) =>
       _$DestinationVersionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$DestinationVersionToJson(this);
 }
 
 @freezed
-abstract class Draft with _$Draft {
-  const factory Draft({
-    required String id,
-    required DateTime updatedAt,
-    @Default(0) int revision,
-    @Default(0) int sharedTextRevision,
-    @Default(0) int sharedMediaRevision,
-    @Default(ComposeStage.choose) ComposeStage stage,
-    @Default({}) Set<Destination> selected,
-    @Default(PostContent()) PostContent shared,
-    @Default({}) Map<Destination, DestinationVersion> versions,
-    DateTime? deletedAt,
-  }) = _Draft;
+@JsonSerializable()
+class Draft with _$Draft {
+  Draft({
+    required this.id,
+    required this.updatedAt,
+    this.revision = 0,
+    this.sharedTextRevision = 0,
+    this.sharedMediaRevision = 0,
+    this.stage = ComposeStage.choose,
+    Set<Destination> selected = const {},
+    this.shared = const PostContent._empty(),
+    Map<Destination, DestinationVersion> versions = const {},
+    this.deletedAt,
+  }) : selected = Set<Destination>.unmodifiable(selected),
+       versions = Map<Destination, DestinationVersion>.unmodifiable(versions);
+
+  final String id;
+  final DateTime updatedAt;
+  final int revision;
+  final int sharedTextRevision;
+  final int sharedMediaRevision;
+  final ComposeStage stage;
+  final Set<Destination> selected;
+  final PostContent shared;
+  final Map<Destination, DestinationVersion> versions;
+  final DateTime? deletedAt;
 
   factory Draft.fromJson(Map<String, dynamic> json) => _$DraftFromJson(json);
+
+  Map<String, dynamic> toJson() => _$DraftToJson(this);
 }
 
 @freezed

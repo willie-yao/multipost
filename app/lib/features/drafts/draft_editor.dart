@@ -16,7 +16,7 @@ Draft editSharedCaption(Draft d, String text, DateTime now) => d.copyWith(
 );
 
 Draft editOwnCaption(Draft d, Destination target, String text, DateTime now) {
-  final previous = d.versions[target] ?? const DestinationVersion();
+  final previous = d.versions[target] ?? DestinationVersion();
   return d.copyWith(
     revision: d.revision + 1,
     updatedAt: now,
@@ -31,7 +31,7 @@ Draft editOwnCaption(Draft d, Destination target, String text, DateTime now) {
 }
 
 Draft restoreSharedCaption(Draft d, Destination target, DateTime now) {
-  final previous = d.versions[target] ?? const DestinationVersion();
+  final previous = d.versions[target] ?? DestinationVersion();
   return d.copyWith(
     revision: d.revision + 1,
     updatedAt: now,
@@ -43,7 +43,7 @@ Draft restoreSharedCaption(Draft d, Destination target, DateTime now) {
 }
 
 Draft editSharedMedia(Draft d, List<Attachment> media, DateTime now) {
-  final shared = d.shared.copyWith(media: List<Attachment>.of(media));
+  final shared = d.shared.copyWith(media: media);
   return d.copyWith(
     revision: d.revision + 1,
     updatedAt: now,
@@ -58,14 +58,14 @@ Draft editOwnMedia(
   List<Attachment> media,
   DateTime now,
 ) {
-  final previous = d.versions[target] ?? const DestinationVersion();
+  final previous = d.versions[target] ?? DestinationVersion();
   return d.copyWith(
     revision: d.revision + 1,
     updatedAt: now,
     versions: {
       ...d.versions,
       target: previous.copyWith(
-        ownMedia: List<Attachment>.of(media),
+        ownMedia: media,
         baseMediaRevision: d.sharedMediaRevision,
       ),
     },
@@ -73,7 +73,7 @@ Draft editOwnMedia(
 }
 
 Draft restoreSharedMedia(Draft d, Destination target, DateTime now) {
-  final previous = d.versions[target] ?? const DestinationVersion();
+  final previous = d.versions[target] ?? DestinationVersion();
   return d.copyWith(
     revision: d.revision + 1,
     updatedAt: now,
