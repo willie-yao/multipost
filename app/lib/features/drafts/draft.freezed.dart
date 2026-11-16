@@ -930,7 +930,7 @@ as DateTime?,
 @override
 @pragma('vm:prefer-inline')
 $PostContentCopyWith<$Res> get shared {
-
+  
   return $PostContentCopyWith<$Res>(_self.shared, (value) {
     return _then(_self.copyWith(shared: value));
   });
@@ -1171,7 +1171,7 @@ as DateTime?,
 @override
 @pragma('vm:prefer-inline')
 $PostContentCopyWith<$Res> get shared {
-
+  
   return $PostContentCopyWith<$Res>(_self.shared, (value) {
     return _then(_self.copyWith(shared: value));
   });
