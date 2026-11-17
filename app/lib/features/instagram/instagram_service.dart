@@ -94,17 +94,6 @@ class InstagramPhotoPolicy implements DestinationValidator {
   }
 }
 
-/// Direct providers keep their existing conservative validators/readiness.
-class InstagramPreparationValidators implements ValidatorRegistry {
-  InstagramPreparationValidators(this.policy);
-  final InstagramPhotoPolicy policy;
-  @override
-  DestinationValidator forDestination(Destination destination) =>
-      destination == Destination.instagram
-      ? policy
-      : const LocalValidators().forDestination(destination);
-}
-
 class InstagramPreparationRejected implements Exception {
   InstagramPreparationRejected(List<ReviewIssue> issues)
     : issues = List<ReviewIssue>.unmodifiable(issues);
@@ -165,8 +154,10 @@ class InstagramService {
     this.ids,
     this.clock, {
     AndroidTransfer? transfer,
+    MediaProbe? probe,
     this.shareCapability = const InstagramShareCapability(),
-  }) : transfer =
+  }) : _probe = probe ?? MediaProbe(),
+       transfer =
            transfer ??
            MethodChannelAndroidTransfer(root, shareCapability: shareCapability);
   final InstagramRepository repository;
@@ -178,9 +169,14 @@ class InstagramService {
   final Ids ids;
   final Clock clock;
   final AndroidTransfer transfer;
+  final MediaProbe _probe;
   final InstagramShareCapability shareCapability;
   final _exporting = <String, Future<List<PhotoSaveResult>>>{};
   final _preparing = <String, Future<InstagramPackage>>{};
+
+  // Full image decodes can allocate many times the encoded file size. All
+  // creation/read/refresh callers on this service share one decode lane.
+  Future<void> _photoDecode = Future<void>.value();
 
   // Ephemeral evidence belongs only to a deliberate launch in this process.
   // Old opened events alone cannot prove that the user left and returned.
@@ -669,11 +665,20 @@ class InstagramService {
     } finally {
       await input.close();
     }
-    final metadata = await MediaProbe().inspect(file.path, expectedMime);
-    if ((width != null && metadata.width != width) ||
-        (height != null && metadata.height != height) ||
-        metadata.durationMs != null) {
-      throw const FormatException();
+    final previous = _photoDecode;
+    final released = Completer<void>();
+    _photoDecode = released.future;
+    await previous;
+    try {
+      final metadata = await _probe.inspect(file.path, expectedMime);
+      if ((width != null && metadata.width != width) ||
+          (height != null && metadata.height != height) ||
+          metadata.durationMs != null) {
+        throw const FormatException();
+      }
+    } finally {
+      // Release independently of this request's result; errors stay per photo.
+      released.complete();
     }
   }
 }

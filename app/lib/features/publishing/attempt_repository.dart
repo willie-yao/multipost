@@ -229,7 +229,18 @@ class AttemptRepository {
         : ReviewedPost.fromJson(
             jsonDecode(stored as String) as Map<String, dynamic>,
           );
-    if (review.draftId != group.snapshot.draftId ||
+    // Child reviews can belong to the original draft or the canonical recovery
+    // draft. The immutable row carries that ownership after edits/deletion.
+    final sourceMatches = attempt.parentId == null
+        ? review.draftId == group.snapshot.draftId
+        : stored != null &&
+              _childSourceMatches(
+                review.draftId,
+                group.snapshot.draftId,
+                attempt.parentId!,
+                rows.single['retry_operation'] as String?,
+              );
+    if (!sourceMatches ||
         review.posts[attempt.snapshot.destination] != attempt.snapshot ||
         review.capabilityVersions[attempt.snapshot.destination]?.isNotEmpty !=
             true ||
@@ -238,6 +249,17 @@ class AttemptRepository {
     }
     return _scope(review, attempt.snapshot.destination);
   }
+
+  bool _childSourceMatches(
+    String draftId,
+    String originalDraftId,
+    String parentId,
+    String? operationId,
+  ) =>
+      operationId != null &&
+      operationId.trim().isNotEmpty &&
+      (draftId == originalDraftId ||
+          draftId == 'retry:$parentId' && operationId == 'retry:$parentId');
 
   Future<bool> claim(String id) => database.db.transaction((tx) async {
     final rows = await tx.query(
@@ -459,7 +481,14 @@ class AttemptRepository {
     );
     final retryOwned = sourceDraft?.retryParentAttemptId != null;
     final sourceMatches = retryOwned
-        ? sourceDraft!.retryParentAttemptId == parentId &&
+        ? _childSourceMatches(
+                reviewed.draftId,
+                group.snapshot.draftId,
+                parentId,
+                operationId,
+              ) &&
+              reviewed.draftId == 'retry:$parentId' &&
+              sourceDraft!.retryParentAttemptId == parentId &&
               sourceDraft.retryOperationId == operationId &&
               reviewed.posts.length == 1 &&
               sourceDraft.selected.length == 1 &&

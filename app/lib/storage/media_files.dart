@@ -38,6 +38,12 @@ class MediaFiles {
     required int ordinal,
     required String expectedSha256,
   }) async {
+    final operations = await database.db.query(
+      'picker_imports',
+      where: 'id = ?',
+      whereArgs: [operationId],
+    );
+    _requireActiveImport(operations);
     final mapped = await database.db.query(
       'picker_import_items',
       where: 'operation_id = ? AND ordinal = ?',
@@ -221,13 +227,7 @@ class MediaFiles {
             where: 'id = ?',
             whereArgs: [operationId],
           );
-          if (operations.isEmpty ||
-              operations.single['state'] != 'pending' ||
-              operations.single['resolved'] != 0) {
-            throw const MediaFileException(
-              'This picker import is no longer active. Keep its saved results and choose again.',
-            );
-          }
+          _requireActiveImport(operations);
           final mapped = await txn.query(
             'picker_import_items',
             where: 'operation_id = ? AND ordinal = ?',
@@ -250,6 +250,11 @@ class MediaFiles {
             }
             return existing;
           }
+          if (operations.single['state'] != 'pending') {
+            throw const MediaFileException(
+              'This picker import is already ready. Keep its saved results and choose again.',
+            );
+          }
         }
         await txn.insert('assets', {
           'id': id,
@@ -269,6 +274,16 @@ class MediaFiles {
       // references and is deliberately a separate, explicit operation.
       throw const LocalStorageException(
         'Media storage could not commit. Your existing draft is safe; try again.',
+      );
+    }
+  }
+
+  void _requireActiveImport(List<Map<String, Object?>> operations) {
+    if (operations.isEmpty ||
+        !{'pending', 'ready'}.contains(operations.single['state']) ||
+        operations.single['resolved'] != 0) {
+      throw const MediaFileException(
+        'This picker import is no longer active. Keep its saved results and choose again.',
       );
     }
   }

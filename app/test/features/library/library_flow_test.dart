@@ -171,6 +171,12 @@ void main() {
     );
     await settleStorage(tester);
     expect(find.text('Your next post starts here.'), findsOneWidget);
+    expect(
+      find.text(
+        'Direct publishing to X and Bluesky is unavailable in this build. Instagram needs no sign-in here; you finish posts in Instagram.',
+      ),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(FilledButton, 'Create a draft'), findsOneWidget);
     await tester.tap(find.text('Results'));
     await tester.pumpAndSettle();

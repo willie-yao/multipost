@@ -75,10 +75,16 @@ flutter test --reporter expanded
 flutter build apk --debug --target lib/main.dart
 # After the build generates the Android wrapper/registrant:
 Set-Location android
-.\gradlew.bat :app:testDebugUnitTest --offline --max-workers=1 -Ptarget-platform=android-x64
+# First run allows Gradle to resolve JUnit and any missing dependencies.
+.\gradlew.bat :app:testDebugUnitTest --max-workers=1 -Ptarget-platform=android-x64
 Set-Location ../..
 git diff --exit-code -- app/pubspec.lock app/lib
 ```
+
+The recorded R3 validation used the same JVM task with `--offline` after its
+dependencies were cached. On later cached runs you may add `--offline`; a first
+checkout needs the online invocation above or a prepopulated Gradle cache. That
+recorded cached pass is not evidence of a cold-cache run.
 
 Check every exit code; stop on failure. `pubspec.lock` is committed and must stay
 unchanged. Generated `.freezed.dart`/`.g.dart` files are committed; regeneration
@@ -118,6 +124,7 @@ keystores or timestamps. See [recorded evidence](evidence.md).
 For local interactive inspection on a separately authorized test device:
 
 ```powershell
+Set-Location (Join-Path $repoRoot 'app')
 # Replace with the ID actually listed by flutter devices.
 flutter devices
 flutter run --debug --target lib/main.dart -d <authorized-device-id>

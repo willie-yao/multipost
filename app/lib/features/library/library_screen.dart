@@ -550,7 +550,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'X and Bluesky need accepted publishing setup and a connected account. Instagram never needs a sign-in here; you finish posts in Instagram.',
+                      'Direct publishing to X and Bluesky is unavailable in this build. Instagram needs no sign-in here; you finish posts in Instagram.',
                     ),
                   ] else ...[
                     for (final draft in _drafts!) ...[

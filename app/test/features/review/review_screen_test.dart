@@ -273,7 +273,7 @@ void main() {
       await settleEditor(tester);
       expect(confirms, 0);
       expect(
-        find.text('Publish only the versions reviewed below.'),
+        find.text('Publish only these reviewed versions.'),
         findsOneWidget,
       );
       expect(

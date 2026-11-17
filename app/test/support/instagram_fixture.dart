@@ -6,6 +6,7 @@ import 'package:cross_posting_app/features/instagram/instagram_service.dart';
 import 'package:cross_posting_app/features/instagram/android_transfer.dart';
 import 'package:cross_posting_app/features/instagram/instagram_repository.dart';
 import 'package:cross_posting_app/features/review/review.dart';
+import 'package:cross_posting_app/features/providers/capabilities.dart';
 import 'package:cross_posting_app/features/review/review_service.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
@@ -40,7 +41,7 @@ class InstagramTestServices {
   final AppServices app;
   InstagramRepository get instagramRepo => app.instagramRepo;
   late final policy = fixtureInstagramPolicy;
-  late final validators = InstagramPreparationValidators(policy);
+  late final validators = CapabilityRegistry({Destination.instagram: policy});
   late final review = ReviewService(
     app.drafts,
     app.media,

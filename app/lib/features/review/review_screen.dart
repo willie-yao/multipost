@@ -296,7 +296,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
             Text(
               draft.selected.any((d) => d != Destination.instagram)
                   ? result?.canProceed == true
-                        ? 'Publish only the versions reviewed below.'
+                        ? 'Publish only these reviewed versions.'
                         : 'Publishing setup required'
                   : 'Prepare a local photo package; finish in Instagram.',
               style: const TextStyle(

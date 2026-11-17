@@ -27,7 +27,7 @@ class BlueskyBrowser {
       return await FlutterWebAuth2.authenticate(
         url: authorizationUrl.toString(),
         callbackUrlScheme: configuration.blueskyCallbackScheme,
-      ).timeout(const Duration(minutes: 10));
+      );
     } on PlatformException catch (error) {
       if (error.code == 'CANCELED') throw const AccountConnectionCancelled();
       throw const AccountConnectionUnavailable();

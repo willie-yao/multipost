@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:cross_posting_app/features/drafts/draft.dart';
+import 'package:cross_posting_app/features/media/media_probe.dart';
 import 'package:cross_posting_app/features/drafts/draft_editor.dart';
 import 'package:cross_posting_app/features/instagram/instagram_package.dart';
 import 'package:cross_posting_app/features/instagram/instagram_repository.dart';
@@ -18,6 +20,73 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../../support/instagram_fixture.dart';
 
 void main() {
+  test('full integrity decodes are serial across reads refresh retries and preparation', () async {
+    final s = await instagramTestServices();
+    addTearDown(s.close);
+    final reviewed = await s.reviewTwoPhotos('Small frozen photos');
+    final package = await s.instagram.prepare(
+      reviewed,
+      operationId: 'original',
+    );
+    final probe = GatedPhotoProbe();
+    final service = InstagramService(
+      s.instagramRepo,
+      s.app.media,
+      s.app.instagramPackageRoot,
+      s.policy,
+      s.app.ids,
+      s.app.clock,
+      probe: probe,
+    );
+    final first = service
+        .fileFor(package, package.photos.first)
+        .then<Object>((file) => file, onError: (Object error) => error);
+    await probe.started.future;
+    final reads = [
+      for (var refresh = 0; refresh < 2; refresh++)
+        for (final photo in package.photos) service.fileFor(package, photo),
+      service.fileFor(package, package.photos.first), // per-photo retry
+    ];
+    final preparation = service.prepare(
+      reviewed,
+      operationId: 'overlapping-preparation',
+    );
+    final reuse = service.prepare(reviewed, operationId: 'original');
+    // The first decode stays held while concurrent callers reach integrity work.
+    // A competing entry is a failure; the bounded deadline permits the serial
+    // implementation to prove the absence of an entry without a hung test.
+    final competingEntry = await probe.overlapped.future.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () => false,
+    );
+    probe.release.complete();
+    final firstResult = await first;
+    await Future.wait(reads);
+    final created = await preparation;
+    expect(await reuse, package);
+    expect(created.photos, hasLength(2));
+    expect(firstResult, isA<InstagramPreparationException>());
+    expect((firstResult as InstagramPreparationException).photoOrdinal, 1);
+    expect(firstResult.message, contains('missing or damaged'));
+    expect(competingEntry, isFalse);
+    expect(probe.maximum, 1);
+    expect(probe.calls, 10); // failed read + 5 reads + 2 creation + 2 reuse
+    expect(probe.active, 0);
+    // A real later integrity check still rejects frozen bytes that are damaged.
+    final file = await service.fileFor(package, package.photos.last);
+    await file.writeAsBytes([1, 2, 3], flush: true);
+    await expectLater(
+      service.fileFor(package, package.photos.last),
+      throwsA(
+        isA<InstagramPreparationException>().having(
+          (e) => e.photoOrdinal,
+          'photo',
+          2,
+        ),
+      ),
+    );
+  });
+
   test('production local preparation freezes an actual decoded JPEG', () async {
     final s = await instagramTestServices();
     addTearDown(s.close);
@@ -716,4 +785,32 @@ class _FullDirectory implements Directory {
       );
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class GatedPhotoProbe extends MediaProbe {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  final overlapped = Completer<bool>();
+  int active = 0, maximum = 0, calls = 0;
+
+  @override
+  Future<({int width, int height, int? durationMs})> inspect(
+    String path,
+    String mimeType,
+  ) async {
+    final call = ++calls;
+    active++;
+    if (active > maximum) maximum = active;
+    if (active > 1 && !overlapped.isCompleted) overlapped.complete(true);
+    try {
+      if (call == 1) {
+        started.complete();
+        await release.future;
+        throw const MediaProbeException('Synthetic decode failure');
+      }
+      return await super.inspect(path, mimeType);
+    } finally {
+      active--;
+    }
+  }
 }

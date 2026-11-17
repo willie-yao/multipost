@@ -25,11 +25,6 @@ import 'capabilities.dart';
 import 'provider.dart';
 import 'provider_errors.dart';
 
-({int byteStart, int byteEnd}) utf8Range(String text, int start, int end) => (
-  byteStart: utf8.encode(text.substring(0, start)).length,
-  byteEnd: utf8.encode(text.substring(0, end)).length,
-);
-
 /// SDK rich text extracts offsets from the original caption. Never format,
 /// truncate, normalize or shorten the text that the user reviewed.
 class BlueskyPostEncoder {

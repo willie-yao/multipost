@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cross_posting_app/core/ids.dart';
+import 'package:crypto/crypto.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/media/picker_imports.dart';
 import 'package:cross_posting_app/storage/media_files.dart';
@@ -77,6 +78,100 @@ void main() {
   PickerImports imports() => PickerImports(fixture.files, const Ids());
   setUp(() async => fixture = await DatabaseFixture.create());
   tearDown(() => fixture.dispose());
+
+  for (final state in ['ready', 'resolved', 'cancelled']) {
+    test(
+      'in-flight identical picker completion respects $state committed mapping',
+      () async {
+        final selected = await fixture.photo('same.png');
+        final operation = await imports().begin(
+          draftId: 'draft',
+          draftRevision: 0,
+        );
+        final digest = sha256.convert(await selected.readAsBytes()).toString();
+        final started = Completer<void>();
+        final resume = Completer<void>();
+        final inFlight = fixture.files.importOperationItem(
+          PausedXFile(selected.path, started, resume),
+          operationId: operation.id,
+          ordinal: 0,
+          expectedSha256: digest,
+        );
+        // Attach rejection handling before releasing the competing import.
+        final result = inFlight.then<Object>(
+          (asset) => asset,
+          onError: (Object error) => error,
+        );
+        await started.future;
+        final committed = await imports().complete(operation.id, [selected]);
+        if (state != 'ready') {
+          await fixture.database.db.update(
+            'picker_imports',
+            {
+              if (state == 'resolved') 'resolved': 1,
+              if (state == 'cancelled') 'state': 'cancelled',
+            },
+            where: 'id = ?',
+            whereArgs: [operation.id],
+          );
+        }
+        resume.complete();
+        final actual = await result;
+        if (state == 'ready') {
+          expect(actual, committed.assets.single);
+          expect(await fixture.database.db.query('assets'), hasLength(1));
+        } else {
+          expect(actual, isA<MediaFileException>());
+          await expectLater(
+            fixture.files.importOperationItem(
+              selected,
+              operationId: operation.id,
+              ordinal: 0,
+              expectedSha256: digest,
+            ),
+            throwsA(isA<MediaFileException>()),
+          );
+        }
+      },
+    );
+  }
+  test(
+    'ready picker rejects conflicting in-flight bytes and a new ordinal',
+    () async {
+      final first = await fixture.photo('first.png', width: 3);
+      final conflicting = await fixture.photo('other.png', width: 9);
+      final operation = await imports().begin(
+        draftId: 'draft',
+        draftRevision: 0,
+      );
+      final digest = sha256.convert(await conflicting.readAsBytes()).toString();
+      final started = Completer<void>();
+      final resume = Completer<void>();
+      final result = fixture.files
+          .importOperationItem(
+            PausedXFile(conflicting.path, started, resume),
+            operationId: operation.id,
+            ordinal: 0,
+            expectedSha256: digest,
+          )
+          .then<Object>((asset) => asset, onError: (Object error) => error);
+      await started.future;
+      final committed = await imports().complete(operation.id, [first]);
+      resume.complete();
+      expect(await result, isA<MediaFileException>());
+      await expectLater(
+        fixture.files.importOperationItem(
+          conflicting,
+          operationId: operation.id,
+          ordinal: 1,
+          expectedSha256: digest,
+        ),
+        throwsA(isA<MediaFileException>()),
+      );
+      expect((await imports().unresolved())!.assets, committed.assets);
+      expect(await fixture.database.db.query('assets'), hasLength(1));
+    },
+  );
 
   test(
     'cancelled picker creates no media and permits another launch',

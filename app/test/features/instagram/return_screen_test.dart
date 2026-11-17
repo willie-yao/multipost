@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/app/services.dart';
@@ -10,6 +11,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cross_posting_app/features/instagram/android_transfer.dart';
 import 'package:cross_posting_app/features/instagram/instagram_package.dart';
 import 'package:cross_posting_app/features/instagram/instagram_screen.dart';
+import 'package:cross_posting_app/features/instagram/instagram_service.dart';
 import 'package:cross_posting_app/features/library/library_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -93,10 +95,7 @@ void main() {
             .where((e) => e.kind == InstagramEventKind.markedPosted),
         hasLength(1),
       );
-      expect(
-        await tester.runAsync(() => s.instagram.fileFor(p, p.photos.last)),
-        isNotNull,
-      );
+      await _expectFrozenPhotoReadable(tester, s.instagram, p);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -266,12 +265,7 @@ void main() {
             .state,
         InstagramState.ready,
       );
-      expect(
-        await tester.runAsync(
-          () => restarted.instagram.fileFor(p, p.photos.last),
-        ),
-        isNotNull,
-      );
+      await _expectFrozenPhotoReadable(tester, restarted.instagram, p);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -414,4 +408,26 @@ class _FailingRecheck extends FakeAndroidTransfer {
     if (fail) throw StateError('synthetic native availability failure');
     return super.reconcilePhotos(package, jobs);
   }
+}
+
+Future<void> _expectFrozenPhotoReadable(
+  WidgetTester tester,
+  InstagramService service,
+  InstagramPackage package,
+) async {
+  File? readable;
+  Object? failure;
+  // Preview work owns a future in Flutter's fake clock. Keep pumping that
+  // clock while this real file check joins the same serial decode lane.
+  unawaited(
+    service
+        .fileFor(package, package.photos.last)
+        .then<void>(
+          (file) => readable = file,
+          onError: (Object error) => failure = error,
+        ),
+  );
+  await settleEditorUntil(tester, () => readable != null || failure != null);
+  expect(failure, isNull);
+  expect(readable, isNotNull);
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/features/publishing/attempt.dart';
 import 'package:cross_posting_app/features/instagram/instagram_package.dart';
@@ -7,59 +9,152 @@ import 'package:cross_posting_app/features/publishing/retry_edits.dart';
 import 'package:cross_posting_app/features/publishing/results_screen.dart';
 import 'package:cross_posting_app/features/media/media_strip.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/app_fixture.dart';
 import '../../support/coordinator_fixture.dart';
+import '../../support/review_fixtures.dart';
 
 void main() {
-  for (final imageDestination in [Destination.bluesky, Destination.instagram]) {
-    testWidgets(
-      'Results header finds the first image in $imageDestination after text-only X',
-      (tester) async {
-        final h = (await tester.runAsync(() => coordinatorHarness()))!;
-        addTearDown(h.close);
-        final original = (await tester.runAsync(
-          () => h.app.drafts.get(h.review.draftId),
-        ))!;
-        final draft = original.copyWith(
-          revision: 1,
-          versions: {
-            Destination.x: DestinationVersion(ownMedia: []),
-            if (imageDestination == Destination.instagram)
-              Destination.bluesky: DestinationVersion(ownMedia: []),
-          },
-        );
-        final id = (await tester.runAsync(() async {
-          await h.app.drafts.save(draft, expectedRevision: 0);
-          final reviewed = await h.reviewDraft(draft);
-          return h.coordinator.confirm(reviewed, operationId: 'later-image');
-        }))!;
-        await tester.pumpWidget(
-          CaptionApp(
-            home: ResultsScreen(
-              groupId: id,
-              attempts: h.attempts,
-              coordinator: h.coordinator,
-              instagram: h.app.instagramRepo,
+  for (final earlierVideo in [false, true]) {
+    for (final imageDestination in [
+      Destination.bluesky,
+      Destination.instagram,
+    ]) {
+      testWidgets(
+        'Results header finds the first image in $imageDestination after ${earlierVideo ? 'video' : 'text-only'} X',
+        (tester) async {
+          final h = (await tester.runAsync(() => coordinatorHarness()))!;
+          addTearDown(h.close);
+          final original = (await tester.runAsync(
+            () => h.app.drafts.get(h.review.draftId),
+          ))!;
+          final video = earlierVideo
+              ? (await tester.runAsync(
+                  () => syntheticVideo(
+                    h.app.media.root,
+                    h.app.database.db.insert,
+                  ),
+                ))!
+              : null;
+          final draft = original.copyWith(
+            revision: 1,
+            versions: {
+              Destination.x: DestinationVersion(
+                ownMedia: [if (video != null) Attachment(assetId: video.id)],
+              ),
+              if (imageDestination == Destination.instagram)
+                Destination.bluesky: DestinationVersion(ownMedia: []),
+            },
+          );
+          final id = (await tester.runAsync(() async {
+            await h.app.drafts.save(draft, expectedRevision: 0);
+            final reviewed = await h.reviewDraft(draft);
+            return h.coordinator.confirm(reviewed, operationId: 'later-image');
+          }))!;
+          await tester.pumpWidget(
+            CaptionApp(
+              home: ResultsScreen(
+                groupId: id,
+                attempts: h.attempts,
+                coordinator: h.coordinator,
+                instagram: h.app.instagramRepo,
+              ),
             ),
-          ),
-        );
-        await settleEditor(tester);
-        final header = find.descendant(
-          of: find.byType(Stack).first,
-          matching: find.byType(MediaPreview),
-        );
-        expect(header, findsOneWidget);
-        expect(
-          tester.widget<MediaPreview>(header).attachment.assetId,
-          draft.shared.media.single.assetId,
-        );
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
-      },
-    );
+          );
+          await settleEditor(tester);
+          final header = find.descendant(
+            of: find.byType(Stack).first,
+            matching: find.byType(MediaPreview),
+          );
+          expect(header, findsOneWidget);
+          expect(
+            tester.widget<MediaPreview>(header).attachment.assetId,
+            draft.shared.media.single.assetId,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
   }
+  testWidgets(
+    'Results header uses distinct effective retry photo instead of original photo',
+    (tester) async {
+      final h = (await tester.runAsync(
+        () =>
+            coordinatorHarness(selected: {Destination.x, Destination.bluesky}),
+      ))!;
+      addTearDown(h.close);
+      final result = (await tester.runAsync(() async {
+        final original = (await h.app.drafts.get(h.review.draftId))!;
+        final source = original.copyWith(
+          revision: 1,
+          versions: {Destination.x: DestinationVersion(ownMedia: [])},
+        );
+        await h.app.drafts.save(source, expectedRevision: original.revision);
+        final groupId = await h.coordinator.confirm(
+          await h.reviewDraft(source),
+          operationId: 'original-photo',
+        );
+        final parent = (await h.attempts.effectiveAttempts(groupId)).last;
+        final draft = await RetryEdits(
+          h.app.drafts,
+          h.attempts,
+          h.clock,
+        ).open(parent.id);
+        final imageFile = File(
+          '${h.app.media.root.parent.path}/distinct-retry.png',
+        );
+        final image = img.Image(width: 11, height: 7);
+        img.fill(image, color: img.ColorRgb8(210, 40, 70));
+        await imageFile.writeAsBytes(img.encodePng(image));
+        final asset = await h.app.media.importFile(XFile(imageFile.path));
+        final edited = editOwnMedia(draft, Destination.bluesky, [
+          Attachment(assetId: asset.id, altText: 'Distinct retry image'),
+        ], h.clock.now());
+        await h.app.drafts.save(edited, expectedRevision: draft.revision);
+        await h.coordinator.retry(
+          parent.id,
+          await h.reviewDraft(edited),
+          operationId: draft.retryOperationId!,
+        );
+        expect(asset.id, isNot(source.shared.media.single.assetId));
+        expect(asset.sha256, isNot(parent.snapshot.assets.single.sha256));
+        expect(
+          (await h.attempts.getGroup(groupId))!
+              .snapshot
+              .posts[Destination.bluesky]!
+              .assets
+              .single
+              .id,
+          source.shared.media.single.assetId,
+        );
+        return (groupId, asset.id);
+      }))!;
+      await tester.pumpWidget(
+        CaptionApp(
+          home: ResultsScreen(
+            groupId: result.$1,
+            attempts: h.attempts,
+            coordinator: h.coordinator,
+            instagram: h.app.instagramRepo,
+          ),
+        ),
+      );
+      await settleEditor(tester);
+      final header = find.descendant(
+        of: find.byType(Stack).first,
+        matching: find.byType(MediaPreview),
+      );
+      expect(header, findsOneWidget);
+      expect(tester.widget<MediaPreview>(header).attachment.assetId, result.$2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'Instagram Results retains handoff through mark and Undo without claiming publication',
     (tester) async {
