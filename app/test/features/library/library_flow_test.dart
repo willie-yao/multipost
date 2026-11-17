@@ -5,6 +5,8 @@ import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/app/services.dart';
 import 'package:cross_posting_app/features/accounts/account.dart';
 import 'package:cross_posting_app/features/accounts/account_repository.dart';
+import 'package:cross_posting_app/features/accounts/accounts_screen.dart';
+import 'package:cross_posting_app/features/compose/draft_session.dart';
 import 'package:cross_posting_app/features/compose/choose_screen.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/drafts/draft_controller.dart';
@@ -727,6 +729,249 @@ void main() {
       expect(services.pickerRecoveryError, isNotNull);
     },
   );
+  testWidgets(
+    'delayed Back blocks competing Accounts navigation until its save completes',
+    (tester) async {
+      final services = (await tester.runAsync(localTestServices))!;
+      addTearDown(services.close);
+      final draft = Draft(
+        id: 'back-account-guard',
+        updatedAt: services.clock.now(),
+        selected: {Destination.x},
+      );
+      await tester.runAsync(
+        () => services.drafts.save(draft, expectedRevision: -1),
+      );
+      final delayed = _ControlledSaves(services.drafts);
+      final controller = DraftController(draft, delayed, services.clock);
+      try {
+        await showChooseRoute(tester, services, controller);
+        controller.change(
+          editSharedCaption(
+            controller.draft,
+            'Wait for this save',
+            services.clock.now(),
+          ),
+        );
+        await tester.tap(find.byTooltip('Back'));
+        await settleStorage(tester);
+        expect(delayed.started.isCompleted, isTrue);
+        expect(
+          tester
+              .widget<TextButton>(
+                find.widgetWithText(TextButton, 'Manage accounts'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(continueButton(tester).onPressed, isNull);
+        delayed.release.complete();
+        await settleStorage(tester);
+        expect(find.text('Open draft'), findsOneWidget);
+        expect(find.text('Accounts'), findsNothing);
+        expect(
+          (await tester.runAsync(() => services.drafts.get(draft.id)))!
+              .shared
+              .text,
+          'Wait for this save',
+        );
+      } finally {
+        if (!delayed.release.isCompleted) delayed.release.complete();
+        await settleStorage(tester);
+        await settleStorage(tester);
+        await tester.pumpWidget(const SizedBox.shrink());
+        controller.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'covered delayed Back stays guarded after Accounts return and a failed edit',
+    (tester) async {
+      final services = (await tester.runAsync(localTestServices))!;
+      addTearDown(services.close);
+      final draft = Draft(
+        id: 'cancelled-back',
+        updatedAt: services.clock.now(),
+        selected: {Destination.x},
+      );
+      await tester.runAsync(
+        () => services.drafts.save(draft, expectedRevision: -1),
+      );
+      final delayed = _ControlledSaves(services.drafts);
+      final controller = DraftController(draft, delayed, services.clock);
+      try {
+        await showChooseRoute(tester, services, controller);
+        final navigator = Navigator.of(
+          tester.element(find.text('Where should this go?')),
+        );
+        controller.change(
+          editSharedCaption(
+            controller.draft,
+            'Saved before Accounts',
+            services.clock.now(),
+          ),
+        );
+        await tester.tap(find.byTooltip('Back'));
+        await settleStorage(tester);
+        expect(delayed.started.isCompleted, isTrue);
+        // A route already queued by a platform callback can still cover Choose.
+        // Its cancelled Back must never leave permission for the next edit to pop.
+        unawaited(
+          navigator.push(
+            MaterialPageRoute<void>(
+              builder: (_) => DraftSession(
+                controller: controller,
+                child: AccountsScreen(
+                  accounts: services.accounts,
+                  controller: controller,
+                ),
+              ),
+            ),
+          ),
+        );
+        await settleStorage(tester);
+        delayed.release.complete();
+        await settleStorage(tester);
+        expect(find.text('Accounts'), findsOneWidget);
+        await tester.tap(find.byTooltip('Back'));
+        await settleStorage(tester);
+        expect(find.text('Where should this go?'), findsOneWidget);
+        delayed.fail = true;
+        controller.change(
+          setDestination(
+            controller.draft,
+            Destination.bluesky,
+            true,
+            services.clock.now(),
+          ),
+        );
+        await tester.tap(find.byTooltip('Back'));
+        await settleStorage(tester);
+        expect(find.text('Where should this go?'), findsOneWidget);
+        expect(
+          find.text("Couldn't save — keep this screen open"),
+          findsOneWidget,
+        );
+        expect(
+          (await tester.runAsync(() => services.drafts.get(draft.id)))!
+              .selected,
+          {Destination.x},
+        );
+      } finally {
+        if (!delayed.release.isCompleted) delayed.release.complete();
+        await settleStorage(tester);
+        await settleStorage(tester);
+        await tester.pumpWidget(const SizedBox.shrink());
+        controller.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'delayed recovery save blocks contradictory discard and retry commands',
+    (tester) async {
+      final base = (await tester.runAsync(localTestServices))!;
+      addTearDown(base.close);
+      await tester.runAsync(
+        () => base.drafts.save(
+          Draft(id: 'recover-guard', updatedAt: base.clock.now()),
+          expectedRevision: -1,
+        ),
+      );
+      final operation = (await tester.runAsync(() async {
+        final pending = await base.pickerImports.begin(
+          draftId: 'recover-guard',
+          draftRevision: 0,
+        );
+        return base.pickerImports.complete(pending.id, [await photo(base)]);
+      }))!;
+      final delayed = _ControlledSaves(base.drafts);
+      final services = withDrafts(base, delayed);
+      await tester.runAsync(() => services.recoverPicker(_FailedPicker()));
+      try {
+        await tester.pumpWidget(
+          CaptionApp(home: LibraryScreen(services: services)),
+        );
+        await settleStorage(tester);
+        final staleDiscard = tester
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Discard recovered selection'),
+            )
+            .onPressed!;
+        final staleRetry = tester
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Retry media recovery'),
+            )
+            .onPressed!;
+        await tester.tap(find.text('Review recovered selection'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Attach to original draft'));
+        await settleStorage(tester);
+        expect(delayed.started.isCompleted, isTrue);
+        expect(
+          tester
+              .widget<OutlinedButton>(
+                find.widgetWithText(
+                  OutlinedButton,
+                  'Review recovered selection',
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<TextButton>(
+                find.widgetWithText(TextButton, 'Discard recovered selection'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<TextButton>(
+                find.widgetWithText(TextButton, 'Retry media recovery'),
+              )
+              .onPressed,
+          isNull,
+        );
+        // A previously captured callback models a rapid action queued before repaint.
+        staleDiscard();
+        staleRetry();
+        await settleStorage(tester);
+        expect(find.text('Discard this selection?'), findsNothing);
+        expect(
+          (await tester.runAsync(services.pickerImports.unresolved))!.id,
+          operation.id,
+        );
+        expect(
+          (await tester.runAsync(() => services.drafts.get('recover-guard')))!
+              .shared
+              .media,
+          isEmpty,
+        );
+        delayed.release.complete();
+        await settleStorage(tester);
+        expect(
+          await tester.runAsync(services.pickerImports.unresolved),
+          isNull,
+        );
+        expect(
+          (await tester.runAsync(() => services.drafts.get('recover-guard')))!
+              .shared
+              .media
+              .single
+              .assetId,
+          operation.assets.single.id,
+        );
+      } finally {
+        if (!delayed.release.isCompleted) delayed.release.complete();
+        await settleStorage(tester);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 }
 
 FilledButton continueButton(WidgetTester tester) => tester.widget<FilledButton>(
@@ -807,4 +1052,55 @@ class _FailedPicker extends ImagePicker {
   Future<LostDataResponse> retrieveLostData() async {
     throw StateError('Recovery unavailable');
   }
+}
+
+Future<void> showChooseRoute(
+  WidgetTester tester,
+  AppServices services,
+  DraftController controller,
+) async {
+  await tester.pumpWidget(
+    CaptionApp(
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => ChooseScreen(
+                controller: controller,
+                accounts: services.accounts,
+                onContinue: () {},
+              ),
+            ),
+          ),
+          child: const Text('Open draft'),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open draft'));
+  await settleStorage(tester);
+}
+
+class _ControlledSaves implements DraftRepository {
+  _ControlledSaves(this.delegate);
+  final DraftRepository delegate;
+  final started = Completer<void>();
+  final release = Completer<void>();
+  bool fail = false;
+  @override
+  Future<List<Draft>> list() => delegate.list();
+  @override
+  Future<Draft?> get(String id) => delegate.get(id);
+  @override
+  Future<void> save(Draft draft, {required int expectedRevision}) async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    if (fail) throw const LocalStorageException('Storage unavailable');
+    await delegate.save(draft, expectedRevision: expectedRevision);
+  }
+
+  @override
+  Future<void> setDeleted(String id, DateTime? at) =>
+      delegate.setDeleted(id, at);
 }

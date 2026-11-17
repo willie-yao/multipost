@@ -13,16 +13,17 @@ class DraftSession extends StatefulWidget {
     super.key,
     required this.controller,
     required this.child,
+    this.onExitPendingChanged,
   });
   final DraftController controller;
   final Widget child;
+  final ValueChanged<bool>? onExitPendingChanged;
   @override
   State<DraftSession> createState() => _DraftSessionState();
 }
 
 class _DraftSessionState extends State<DraftSession>
     with WidgetsBindingObserver {
-  bool _allowPop = false;
   bool _leaving = false;
   @override
   void initState() {
@@ -43,24 +44,38 @@ class _DraftSessionState extends State<DraftSession>
     }
   }
 
+  void _setExitPending(bool pending) {
+    setState(() => _leaving = pending);
+    widget.onExitPendingChanged?.call(pending);
+  }
+
   Future<void> _leave() async {
     if (_leaving) return;
-    _leaving = true;
+    final route = ModalRoute.of(context);
+    _setExitPending(true);
     final saved = await widget.controller.flush();
-    if (mounted && saved) {
-      setState(() => _allowPop = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
-          Navigator.of(context).pop();
-        }
-      });
+    if (!mounted) return;
+    if (!saved) {
+      _setExitPending(false);
+      return;
     }
-    _leaving = false;
+    final revision = widget.controller.savedRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (identical(ModalRoute.of(context), route) &&
+          route?.isCurrent == true &&
+          widget.controller.saveState == SaveState.saved &&
+          widget.controller.savedRevision == revision &&
+          widget.controller.draft.revision == revision) {
+        Navigator.of(context).pop();
+      }
+      if (mounted) _setExitPending(false);
+    });
   }
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: _allowPop,
+    canPop: false,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop) unawaited(_leave());
     },
@@ -126,7 +141,9 @@ class _DraftSessionState extends State<DraftSession>
                   ),
                 ),
               ),
-            Expanded(child: widget.child),
+            Expanded(
+              child: AbsorbPointer(absorbing: _leaving, child: widget.child),
+            ),
           ],
         );
       },

@@ -27,6 +27,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Object? _error;
   bool _results = false;
   bool _busy = false;
+  bool _recovering = false;
   @override
   void initState() {
     super.initState();
@@ -49,8 +50,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _retryRecovery() async {
-    await widget.services.recoverPicker(ImagePicker());
-    if (mounted) await _load();
+    if (_recovering) return;
+    setState(() => _recovering = true);
+    try {
+      await widget.services.recoverPicker(ImagePicker());
+      if (mounted) await _load();
+    } finally {
+      if (mounted) setState(() => _recovering = false);
+    }
   }
 
   Future<void> _create() async {
@@ -121,33 +128,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
     PickerImportOperation operation, {
     required bool attach,
   }) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          attach ? 'Attach recovered media?' : 'Discard this selection?',
-        ),
-        content: Text(
-          attach
-              ? 'Attach to the original ${operation.destination == null ? 'shared media' : destinationName(operation.destination!)} in draft ${operation.draftId}. A changed draft will be kept without attaching.'
-              : 'The original draft and existing prepared packages stay available.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep selection'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              attach ? 'Attach to original draft' : 'Discard selection',
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
+    if (_recovering) return;
+    setState(() => _recovering = true);
     try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            attach ? 'Attach recovered media?' : 'Discard this selection?',
+          ),
+          content: Text(
+            attach
+                ? 'Attach to the original ${operation.destination == null ? 'shared media' : destinationName(operation.destination!)} in draft ${operation.draftId}. A changed draft will be kept without attaching.'
+                : 'The original draft and existing prepared packages stay available.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep selection'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                attach ? 'Attach to original draft' : 'Discard selection',
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
       if (attach) {
         await widget.services.attachRecovered(operation);
       } else {
@@ -156,6 +165,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (mounted) await _load();
     } catch (error) {
       if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _recovering = false);
     }
   }
 
@@ -194,7 +205,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Text('${widget.services.pickerRecoveryError}'),
             if (widget.services.pickerRecoveryError != null)
               TextButton(
-                onPressed: _retryRecovery,
+                onPressed: _recovering ? null : _retryRecovery,
                 child: const Text('Retry media recovery'),
               ),
             if (operation != null) ...[
@@ -208,11 +219,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               if (operation.isComplete)
                 OutlinedButton(
-                  onPressed: () => _recover(operation, attach: true),
+                  onPressed: _recovering
+                      ? null
+                      : () => _recover(operation, attach: true),
                   child: const Text('Review recovered selection'),
                 ),
               TextButton(
-                onPressed: () => _recover(operation, attach: false),
+                onPressed: _recovering
+                    ? null
+                    : () => _recover(operation, attach: false),
                 child: const Text('Discard recovered selection'),
               ),
             ],

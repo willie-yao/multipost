@@ -27,6 +27,8 @@ class _ChooseScreenState extends State<ChooseScreen> {
   List<AccountView>? _accounts;
   bool _assisted = true;
   bool _busy = false;
+  bool _exitPending = false;
+  bool get _blocked => _busy || _exitPending;
   Object? _error;
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _ChooseScreenState extends State<ChooseScreen> {
   }
 
   Future<void> _continue() async {
+    if (_blocked) return;
     setState(() => _busy = true);
     final controller = widget.controller;
     if (await controller.flush()) {
@@ -63,24 +66,33 @@ class _ChooseScreenState extends State<ChooseScreen> {
   }
 
   Future<void> _accountsScreen() async {
-    if (!await widget.controller.flush() || !mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DraftSession(
-          controller: widget.controller,
-          child: AccountsScreen(
-            accounts: widget.accounts,
+    if (_blocked) return;
+    setState(() => _busy = true);
+    try {
+      if (!await widget.controller.flush() || !mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DraftSession(
             controller: widget.controller,
+            child: AccountsScreen(
+              accounts: widget.accounts,
+              controller: widget.controller,
+            ),
           ),
         ),
-      ),
-    );
-    await _load();
+      );
+      await _load();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) => DraftSession(
     controller: widget.controller,
+    onExitPendingChanged: (pending) {
+      if (mounted) setState(() => _exitPending = pending);
+    },
     child: AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) => CaptionScaffold(
@@ -89,13 +101,13 @@ class _ChooseScreenState extends State<ChooseScreen> {
         actions: [
           IconButton(
             tooltip: 'Back',
-            onPressed: () => Navigator.maybePop(context),
+            onPressed: _blocked ? null : () => Navigator.maybePop(context),
             icon: const Icon(Icons.arrow_back),
           ),
         ],
         primaryAction: FilledButton(
           onPressed:
-              _busy ||
+              _blocked ||
                   widget.controller.draft.selected.isEmpty ||
                   _accounts == null
               ? null
@@ -142,7 +154,7 @@ class _ChooseScreenState extends State<ChooseScreen> {
                   account.destination,
                 ),
                 onChanged:
-                    _busy ||
+                    _blocked ||
                         (account.destination == Destination.instagram &&
                             !_assisted &&
                             !widget.controller.draft.selected.contains(
@@ -165,7 +177,7 @@ class _ChooseScreenState extends State<ChooseScreen> {
               ),
             const SizedBox(height: 24),
             TextButton.icon(
-              onPressed: _busy ? null : _accountsScreen,
+              onPressed: _blocked ? null : _accountsScreen,
               icon: const Icon(Icons.person_outline),
               label: const Text('Manage accounts'),
             ),
