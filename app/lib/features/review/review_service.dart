@@ -19,7 +19,7 @@ abstract interface class ValidatorRegistry {
   DestinationValidator forDestination(Destination destination);
 }
 
-/// No provider limits are inferred before verified profiles arrive in I1/P1.
+/// Conservative fallback; local Instagram preparation uses its explicit policy.
 class LocalValidators implements ValidatorRegistry {
   const LocalValidators();
   @override
@@ -201,6 +201,7 @@ class ReviewService {
       final post = ResolvedPost(
         destination: destination,
         content: content,
+        ownCaption: draft.versions[destination]?.ownText != null,
         assets: assets,
         account: identity,
       );

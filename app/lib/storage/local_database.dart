@@ -38,6 +38,18 @@ class LocalDatabase {
         'CREATE TABLE local_preferences(name TEXT PRIMARY KEY, value TEXT NOT NULL)',
       );
     },
+    (db) async {
+      await db.execute('''CREATE TABLE instagram_packages(id TEXT PRIMARY KEY,
+        operation_id TEXT UNIQUE NOT NULL, draft_id TEXT NOT NULL,
+        revision INTEGER NOT NULL, payload TEXT NOT NULL)''');
+      await db.execute('''CREATE TABLE instagram_events(id TEXT PRIMARY KEY,
+        package_id TEXT NOT NULL REFERENCES instagram_packages(id),
+        kind TEXT NOT NULL, at TEXT NOT NULL, payload TEXT NOT NULL)''');
+      await db.execute('''CREATE TABLE export_jobs(id TEXT PRIMARY KEY,
+        package_id TEXT NOT NULL REFERENCES instagram_packages(id),
+        ordinal INTEGER NOT NULL, uri TEXT, completed INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(package_id, ordinal))''');
+    },
   ];
 
   static Future<LocalDatabase> open(

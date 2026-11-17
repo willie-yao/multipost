@@ -12,7 +12,10 @@ import '../features/accounts/account_repository.dart';
 import '../features/drafts/draft.dart';
 import '../features/drafts/draft_editor.dart';
 import '../features/drafts/draft_repository.dart';
+import '../features/instagram/instagram_repository.dart';
+import '../features/instagram/instagram_service.dart';
 import '../features/media/picker_imports.dart';
+import '../features/review/review_service.dart';
 import '../storage/local_database.dart';
 import '../storage/media_files.dart';
 
@@ -24,6 +27,7 @@ class AppServices {
     required this.accounts,
     required this.clock,
     required this.ids,
+    required this.instagramPackageRoot,
     this.onClose,
   }) : pickerImports = PickerImports(media, ids);
   final LocalDatabase database;
@@ -33,6 +37,24 @@ class AppServices {
   final Clock clock;
   final Ids ids;
   final PickerImports pickerImports;
+  final Directory instagramPackageRoot;
+  late final instagramPolicy = InstagramPhotoPolicy.localPreparation();
+  late final instagramRepo = InstagramRepository(database);
+  late final review = ReviewService(
+    drafts,
+    media,
+    accounts,
+    InstagramPreparationValidators(instagramPolicy),
+    clock,
+  );
+  late final instagram = InstagramService(
+    instagramRepo,
+    media,
+    instagramPackageRoot,
+    instagramPolicy,
+    ids,
+    clock,
+  );
   final Future<void> Function()? onClose;
   bool pickerRecoveryReady = false;
   Object? pickerRecoveryError;
@@ -51,6 +73,11 @@ class AppServices {
       const Ids(),
     );
     return AppServices(
+      // path_provider_android 2.3.1 getApplicationSupportPath returns filesDir.
+      // I3 FileProvider must scope files-path to exactly instagram-packages/.
+      instagramPackageRoot: Directory(
+        p.join(support.path, 'instagram-packages'),
+      ),
       database: database,
       media: media,
       drafts: SqliteDraftRepository(database, media: media),

@@ -28,20 +28,20 @@ $ResolvedPostCopyWith<ResolvedPost> get copyWith => _$ResolvedPostCopyWithImpl<R
 @override
 bool operator ==(Object other) {
   final _this = this as ResolvedPost;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ResolvedPost&&(identical(other.destination, _this.destination) || other.destination == _this.destination)&&(identical(other.content, _this.content) || other.content == _this.content)&&const DeepCollectionEquality().equals(other.assets, _this.assets)&&(identical(other.account, _this.account) || other.account == _this.account));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ResolvedPost&&(identical(other.destination, _this.destination) || other.destination == _this.destination)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.ownCaption, _this.ownCaption) || other.ownCaption == _this.ownCaption)&&const DeepCollectionEquality().equals(other.assets, _this.assets)&&(identical(other.account, _this.account) || other.account == _this.account));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as ResolvedPost;
-  return Object.hash(runtimeType,_this.destination,_this.content,const DeepCollectionEquality().hash(_this.assets),_this.account);
+  return Object.hash(runtimeType,_this.destination,_this.content,_this.ownCaption,const DeepCollectionEquality().hash(_this.assets),_this.account);
 }
 
 @override
 String toString() {
   final _this = this as ResolvedPost;
-  return 'ResolvedPost(destination: ${_this.destination}, content: ${_this.content}, assets: ${_this.assets}, account: ${_this.account})';
+  return 'ResolvedPost(destination: ${_this.destination}, content: ${_this.content}, ownCaption: ${_this.ownCaption}, assets: ${_this.assets}, account: ${_this.account})';
 }
 
 
@@ -52,7 +52,7 @@ abstract mixin class $ResolvedPostCopyWith<$Res>  {
   factory $ResolvedPostCopyWith(ResolvedPost value, $Res Function(ResolvedPost) _then) = _$ResolvedPostCopyWithImpl;
 @useResult
 $Res call({
- Destination destination, PostContent content, List<MediaAsset> assets, AccountIdentity? account
+ Destination destination, PostContent content, bool ownCaption, List<MediaAsset> assets, AccountIdentity? account
 });
 
 
@@ -69,11 +69,12 @@ class _$ResolvedPostCopyWithImpl<$Res>
 
 /// Create a copy of ResolvedPost
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? destination = null,Object? content = null,Object? assets = null,Object? account = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? destination = null,Object? content = null,Object? ownCaption = null,Object? assets = null,Object? account = freezed,}) {
   return _then(ResolvedPost(
 destination: null == destination ? _self.destination : destination // ignore: cast_nullable_to_non_nullable
 as Destination,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as PostContent,assets: null == assets ? _self.assets : assets // ignore: cast_nullable_to_non_nullable
+as PostContent,ownCaption: null == ownCaption ? _self.ownCaption : ownCaption // ignore: cast_nullable_to_non_nullable
+as bool,assets: null == assets ? _self.assets : assets // ignore: cast_nullable_to_non_nullable
 as List<MediaAsset>,account: freezed == account ? _self.account : account // ignore: cast_nullable_to_non_nullable
 as AccountIdentity?,
   ));

@@ -12,12 +12,14 @@ class ResolvedPost with _$ResolvedPost {
   ResolvedPost({
     required this.destination,
     required this.content,
+    required this.ownCaption,
     required List<MediaAsset> assets,
     this.account,
   }) : assets = List<MediaAsset>.unmodifiable(assets);
 
   final Destination destination;
   final PostContent content;
+  final bool ownCaption;
   final List<MediaAsset> assets;
   final AccountIdentity? account;
 

@@ -27,7 +27,7 @@ void main() {
         'payload': '{"preserved":true}',
       });
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 2);
+      expect(await fixture.database.db.getVersion(), 3);
       expect((await fixture.database.db.query('drafts')).single['revision'], 7);
     },
   );
@@ -71,7 +71,7 @@ void main() {
     final newer = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: (db, _) => db.execute('CREATE TABLE keep_me(value TEXT)'),
       ),
     );
@@ -96,7 +96,7 @@ void main() {
     );
     expect(expectedDiagnostics, hasLength(1));
     final retained = await databaseFactoryFfi.openDatabase(path);
-    expect(await retained.getVersion(), 3);
+    expect(await retained.getVersion(), 4);
     expect((await retained.query('keep_me')).single['value'], 'original');
     await retained.close();
   });
@@ -154,15 +154,61 @@ void main() {
         'updated_at': 'original time',
         'payload': 'original bytes',
       });
+      await fixture.database.db.execute('DROP TABLE export_jobs');
+      await fixture.database.db.execute('DROP TABLE instagram_events');
+      await fixture.database.db.execute('DROP TABLE instagram_packages');
       await fixture.database.db.execute('DROP TABLE local_preferences');
       await fixture.database.db.setVersion(1);
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 2);
+      expect(await fixture.database.db.getVersion(), 3);
       expect(
         (await fixture.database.db.query('drafts')).single['payload'],
         'original bytes',
       );
       expect(await fixture.database.db.query('local_preferences'), isEmpty);
+    },
+  );
+  test(
+    'version two migration keeps preferences picker journal and draft bytes',
+    () async {
+      final fixture = await DatabaseFixture.create();
+      addTearDown(fixture.dispose);
+      await fixture.database.db.insert('drafts', {
+        'id': 'kept',
+        'revision': 4,
+        'updated_at': 'time',
+        'payload': 'original draft bytes',
+      });
+      await fixture.database.db.insert('local_preferences', {
+        'name': 'instagram_assisted_sharing',
+        'value': 'false',
+      });
+      await fixture.database.db.insert('picker_imports', {
+        'id': 'pending',
+        'draft_id': 'kept',
+        'draft_revision': 4,
+      });
+      await fixture.database.db.execute('DROP TABLE export_jobs');
+      await fixture.database.db.execute('DROP TABLE instagram_events');
+      await fixture.database.db.execute('DROP TABLE instagram_packages');
+      await fixture.database.db.setVersion(2);
+      await fixture.reopen();
+      expect(await fixture.database.db.getVersion(), 3);
+      expect(
+        (await fixture.database.db.query('drafts')).single['payload'],
+        'original draft bytes',
+      );
+      expect(
+        (await fixture.database.db.query('local_preferences')).single['value'],
+        'false',
+      );
+      expect(
+        (await fixture.database.db.query('picker_imports')).single['id'],
+        'pending',
+      );
+      expect(await fixture.database.db.query('instagram_packages'), isEmpty);
+      expect(await fixture.database.db.query('instagram_events'), isEmpty);
+      expect(await fixture.database.db.query('export_jobs'), isEmpty);
     },
   );
 }

@@ -23,6 +23,7 @@ Future<AppServices> localTestServices() async {
     const Ids(),
   );
   return AppServices(
+    instagramPackageRoot: Directory('${directory.path}/instagram-packages'),
     database: database,
     media: media,
     drafts: SqliteDraftRepository(database, media: media),

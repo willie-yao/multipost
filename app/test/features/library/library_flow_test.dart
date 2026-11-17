@@ -98,7 +98,7 @@ void main() {
       await tester.tap(find.text('Kept locally'));
       await settleStorage(tester);
       expect(find.text('Publish now'), findsOneWidget);
-      expect(find.text('Preparation setup required'), findsOneWidget);
+      expect(find.text('Publishing setup required'), findsOneWidget);
       await tester.tap(find.byTooltip('Back to library'));
       await settleStorage(tester);
       await tester.tap(find.byTooltip('Delete draft'));
@@ -510,6 +510,7 @@ void main() {
     addTearDown(reopened.close);
     final media = MediaFiles(reopened, services.media.root, services.ids);
     final recovered = AppServices(
+      instagramPackageRoot: services.instagramPackageRoot,
       database: reopened,
       media: media,
       drafts: SqliteDraftRepository(reopened, media: media),
@@ -1026,6 +1027,7 @@ Future<void> settleStorage(WidgetTester tester) async {
 }
 
 AppServices withDrafts(AppServices base, DraftRepository drafts) => AppServices(
+  instagramPackageRoot: base.instagramPackageRoot,
   database: base.database,
   media: base.media,
   drafts: drafts,

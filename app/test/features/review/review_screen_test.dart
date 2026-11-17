@@ -62,7 +62,7 @@ void main() {
       expect(find.text('Shared caption'), findsNWidgets(2));
       expect(find.text('Own caption'), findsOneWidget);
       expect(find.text('Approximate preview'), findsNWidgets(3));
-      expect(find.text('Preparation setup required'), findsOneWidget);
+      expect(find.text('Publishing setup required'), findsOneWidget);
       final button = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Publish & prepare'),
       );
@@ -216,7 +216,7 @@ void main() {
       online.value = true;
       await settleEditor(tester);
       expect(confirms, 0);
-      expect(find.text('Preparation setup required'), findsOneWidget);
+      expect(find.text('Publishing setup required'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
           (w) => w is CaptionText && w.text == 'Newest words',

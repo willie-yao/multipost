@@ -42,6 +42,9 @@ void main() {
         const Ids(),
       );
       final services = AppServices(
+        instagramPackageRoot: Directory(
+          p.join(root.path, 'instagram-packages'),
+        ),
         database: database,
         media: media,
         drafts: SqliteDraftRepository(database, media: media),

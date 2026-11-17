@@ -29,7 +29,7 @@ class ReviewScreen extends StatefulWidget {
   final DraftController controller;
   final ReviewService service;
 
-  /// Reserved for I1/P wiring. L7 never delegates or simulates a send.
+  /// Invoked only after flush, fresh revalidation and final local stale checks.
   final Future<void> Function(ReviewedPost) onConfirm;
   final ValueListenable<bool?>? directOnline;
 
@@ -196,6 +196,63 @@ class _ReviewScreenState extends State<ReviewScreen> {
     }
   }
 
+  bool _canPrepare(ReviewResult? result) =>
+      result != null &&
+      result.canProceed &&
+      result.snapshot.posts.length == 1 &&
+      result.snapshot.posts.containsKey(Destination.instagram);
+
+  Future<void> _confirm() async {
+    if (_blocked) return;
+    final reviewed = _result;
+    if (!_canPrepare(reviewed)) return;
+    final generation = _generation;
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
+    try {
+      if (!await widget.controller.flush()) return;
+      if (!mounted || generation != _generation) return;
+      final draft = widget.controller.draft;
+      final readiness = widget.directOnline?.value;
+      final checked = await widget.service.revalidate(
+        reviewed!.snapshot,
+        draft,
+        directOnline: readiness,
+      );
+      if (!mounted || generation != _generation) return;
+      if (widget.controller.draft != draft ||
+          widget.controller.savedRevision != draft.revision ||
+          widget.controller.saveState != SaveState.saved ||
+          widget.directOnline?.value != readiness) {
+        throw const StaleReviewException();
+      }
+      setState(() => _result = checked);
+      if (!_canPrepare(checked)) return;
+      await widget.onConfirm(checked.snapshot);
+    } on StaleReviewException {
+      if (mounted) {
+        setState(() => _notice = 'This post changed. Review it again.');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _notice =
+              'Instagram could not be prepared on this device. Your draft and earlier prepared versions are kept. $error',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        if (_refreshPending && !_exitPending) {
+          _refreshPending = false;
+          unawaited(_loadReview(_generation));
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = widget.controller.draft;
@@ -225,13 +282,18 @@ class _ReviewScreenState extends State<ReviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Preparation setup required',
-              style: TextStyle(fontSize: 14, color: CaptionTokens.secondary),
+            Text(
+              draft.selected.any((d) => d != Destination.instagram)
+                  ? 'Publishing setup required'
+                  : 'Prepare a local photo package; finish in Instagram.',
+              style: const TextStyle(
+                fontSize: 14,
+                color: CaptionTokens.secondary,
+              ),
             ),
             const SizedBox(height: 8),
             FilledButton(
-              onPressed: null,
+              onPressed: _blocked || !_canPrepare(result) ? null : _confirm,
               child: Text(
                 draft.selected.isEmpty
                     ? 'Choose destinations'
@@ -301,7 +363,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Publishing and Instagram preparation will become available after setup. Your draft stays on this device.',
+              'Your draft stays on this device. Instagram preparation keeps a reviewed local copy; you select and check the photos and finish in Instagram.',
               style: TextStyle(fontSize: 14, color: CaptionTokens.secondary),
             ),
             const SizedBox(height: 8),
@@ -344,7 +406,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          version?.ownText != null ? 'Own caption' : 'Shared caption',
+          post.ownCaption ? 'Own caption' : 'Shared caption',
           style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary),
         ),
         const Text(
@@ -355,10 +417,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         if (post.content.text.isEmpty)
           const Text('No caption')
         else
-          _ReviewCaption(
-            text: post.content.text,
-            own: version?.ownText != null,
-          ),
+          _ReviewCaption(text: post.content.text, own: post.ownCaption),
         const SizedBox(height: 8),
         Text(
           version?.ownMedia != null ? 'Own media' : 'Shared media',
@@ -414,14 +473,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                               : () => _edit(Destination.instagram),
                           child: const Text('Choose own photos for Instagram'),
                         ),
-                      TextButton(
-                        onPressed: _blocked
-                            ? null
-                            : () => _leaveOut(destination),
-                        child: Text(
-                          'Leave ${destinationName(destination)} out',
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -429,6 +480,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
             ),
           ),
         ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: _blocked ? null : () => _leaveOut(destination),
+            child: Text('Leave ${destinationName(destination)} out'),
+          ),
+        ),
         if (widget.onEdit != null)
           Align(
             alignment: Alignment.centerLeft,

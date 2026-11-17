@@ -107,6 +107,7 @@ void main() {
       expect(() => decoded.posts.clear(), throwsUnsupportedError);
       final incoming = <MediaAsset>[a];
       final post = ResolvedPost(
+        ownCaption: false,
         destination: Destination.x,
         content: PostContent(),
         assets: incoming,

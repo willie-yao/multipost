@@ -9,6 +9,7 @@ part of 'review.dart';
 ResolvedPost _$ResolvedPostFromJson(Map<String, dynamic> json) => ResolvedPost(
   destination: $enumDecode(_$DestinationEnumMap, json['destination']),
   content: PostContent.fromJson(json['content'] as Map<String, dynamic>),
+  ownCaption: json['ownCaption'] as bool,
   assets: (json['assets'] as List<dynamic>)
       .map((e) => MediaAsset.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -21,6 +22,7 @@ Map<String, dynamic> _$ResolvedPostToJson(ResolvedPost instance) =>
     <String, dynamic>{
       'destination': _$DestinationEnumMap[instance.destination]!,
       'content': instance.content.toJson(),
+      'ownCaption': instance.ownCaption,
       'assets': instance.assets.map((e) => e.toJson()).toList(),
       'account': instance.account?.toJson(),
     };

@@ -15,9 +15,11 @@ import '../compose/write_screen.dart';
 import '../compose/compose_stage.dart';
 import '../drafts/draft.dart';
 import '../drafts/draft_controller.dart';
+import '../instagram/instagram_package.dart';
+import '../instagram/instagram_screen.dart';
 import '../media/picker_imports.dart';
+import '../review/review.dart';
 import '../review/review_screen.dart';
-import '../review/review_service.dart';
 import 'library_repository.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -29,6 +31,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   List<Draft>? _drafts;
+  List<InstagramPackage> _packages = [];
   Object? _error;
   bool _results = false;
   bool _busy = false;
@@ -46,9 +49,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
     try {
       await widget.services.refreshPicker();
-      final drafts = await LibraryRepository(widget.services.drafts)
-          .listDrafts();
-      if (mounted) setState(() => _drafts = drafts);
+      final repository = LibraryRepository(
+        widget.services.drafts,
+        widget.services.instagramRepo,
+      );
+      final drafts = await repository.listDrafts();
+      final packages = await repository.pendingInstagram();
+      if (mounted) {
+        setState(() {
+          _drafts = drafts;
+          _packages = packages;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error);
     }
@@ -85,6 +97,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _ComposeHost(services: widget.services, initial: draft),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
+  Future<void> _openPackage(InstagramPackage package) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InstagramScreen(
+          package: package,
+          service: widget.services.instagram,
+        ),
       ),
     );
     if (mounted) await _load();
@@ -188,7 +212,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           icon: const Icon(Icons.person_outline),
         ),
       ],
-      primaryAction: _drafts != null && !_results && !empty
+      primaryAction:
+          _drafts != null && !_results && (!empty || _packages.isNotEmpty)
           ? FilledButton.icon(
               onPressed: _busy ? null : _create,
               icon: const Icon(Icons.add),
@@ -244,6 +269,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
             OutlinedButton(onPressed: _load, child: const Text('Retry')),
           ],
           if (_drafts != null) ...[
+            if (_packages.isNotEmpty) ...[
+              const CaptionText('Instagram needs finishing'),
+              const SizedBox(height: 8),
+              for (final package in _packages) ...[
+                Text(
+                  package.caption.isEmpty ? 'Prepared photos' : package.caption,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${package.photos.length} prepared photos · ${_savedTime(package.createdAt)} · finish in Instagram',
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => _openPackage(package),
+                    child: const Text('View prepared package'),
+                  ),
+                ),
+                const Divider(height: 32),
+              ],
+            ],
             Row(
               children: [
                 Expanded(
@@ -293,6 +342,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
             const SizedBox(height: 16),
             if (_results)
               const Text('No posting results yet')
+            else if (empty && _packages.isNotEmpty)
+              const Text('No drafts. Your prepared packages are kept above.')
             else if (empty) ...[
               const SizedBox(height: 16),
               const CaptionText('Write once.'),
@@ -383,6 +434,8 @@ class _ComposeHost extends StatefulWidget {
 class _ComposeHostState extends State<_ComposeHost> {
   late final DraftController _controller;
   late ComposeStage _visibleStage;
+  int? _preparationRevision;
+  String? _preparationOperationId;
   @override
   void initState() {
     super.initState();
@@ -448,18 +501,39 @@ class _ComposeHostState extends State<_ComposeHost> {
         )
       : ReviewScreen(
           controller: _controller,
-          service: ReviewService(
-            widget.services.drafts,
-            widget.services.media,
-            widget.services.accounts,
-            const LocalValidators(),
-            widget.services.clock,
-          ),
+          service: widget.services.review,
           onEdit: _editReview,
           onManageAccounts: _reviewAccounts,
-          // I1/P tasks will wire a real checked action. Review never calls this.
-          onConfirm: (_) async {},
+          onConfirm: _prepareInstagram,
         );
+
+  Future<void> _prepareInstagram(ReviewedPost reviewed) async {
+    // ReviewScreen has just flushed/revalidated and checked its exact controller.
+    if (reviewed.posts.length != 1 ||
+        !reviewed.posts.containsKey(Destination.instagram) ||
+        _controller.draft.revision != reviewed.revision ||
+        _controller.savedRevision != reviewed.revision ||
+        _controller.saveState != SaveState.saved) {
+      throw StateError('Review this post again before preparing.');
+    }
+    if (_preparationRevision != reviewed.revision) {
+      _preparationRevision = reviewed.revision;
+      _preparationOperationId = widget.services.ids.next();
+    }
+    final package = await widget.services.instagram.prepare(
+      reviewed,
+      operationId: _preparationOperationId!,
+    );
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => InstagramScreen(
+          package: package,
+          service: widget.services.instagram,
+        ),
+      ),
+    );
+  }
 
   Future<void> _editReview(Destination? destination) async {
     if (destination == null) {
