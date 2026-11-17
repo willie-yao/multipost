@@ -88,4 +88,33 @@ void main() {
       expect(result.errorCode, code);
     }
   });
+  test('known receipt survives gallery filename and folder changes', () async {
+    const savedUri = 'content://media/external_primary/images/media/42';
+    final renamedRow = <String, String>{
+      'uri': savedUri,
+      'displayName': 'A user renamed this photo.png',
+      'relativePath': 'Pictures/A different album/',
+    };
+    final savedJob = PhotoExportJob(
+      id: job.id,
+      packageId: package.id,
+      ordinal: 1,
+      uri: savedUri,
+      completed: true,
+    );
+    messenger.setMockMethodCallHandler(MethodChannelAndroidTransfer.channel, (
+      call,
+    ) async {
+      final args = call.arguments as Map;
+      if (args['uri'] == renamedRow['uri']) return {'uri': savedUri};
+      // Original generated metadata no longer identifies this still-valid row.
+      if (args['displayName'] != renamedRow['displayName']) {
+        return <String, String>{};
+      }
+      throw StateError('Unexpected fixture lookup');
+    });
+    final result = (await transfer.reconcilePhotos(package, [savedJob])).single;
+    expect(result.succeeded, isTrue);
+    expect(result.uri, savedUri);
+  });
 }

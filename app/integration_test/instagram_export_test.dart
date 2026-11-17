@@ -100,6 +100,56 @@ void main() {
       );
     }
     final frozen = package;
+    if (phase == 'gap-renamed') {
+      final before = await services.instagramRepo.progress(frozen.id);
+      expect(before.savedUris, hasLength(2));
+      final activityCount = (await services.instagramRepo.activity(frozen.id))
+          .length;
+      expect(
+        (await services.instagram.recheckSavedPhotos(frozen.id)).savedUris,
+        before.savedUris,
+      );
+      expect(await services.instagram.saveMissingPhotos(frozen.id), isEmpty);
+      expect(
+        (await services.instagramRepo.activity(frozen.id)).length,
+        activityCount,
+      );
+      final job = (await services.instagramRepo.exportJobs(frozen.id)).first;
+      final photo = frozen.photos.first;
+      final source = await services.instagram.fileFor(frozen, photo);
+      final args = <String, Object>{
+        'jobId': job.id,
+        'sourcePath': source.path,
+        'displayName': 'caption-${job.id}-01.png',
+        'mimeType': 'image/png',
+        'expectedHash': photo.sha256,
+      };
+      for (final uri in [
+        'content://unrelated/external_primary/images/media/15',
+        'content://media/external/images/media/15',
+        'content://media/external_primary/images/media/0',
+        'content://media/external_primary/images/media/15?includeTrashed=1',
+        'content://media/external_primary/images/media/15#fragment',
+      ]) {
+        await expectLater(
+          MethodChannelAndroidTransfer.channel.invokeMethod<Object>(
+            'reconcilePhoto',
+            {...args, 'uri': uri},
+          ),
+          throwsA(
+            isA<PlatformException>().having(
+              (e) => e.code,
+              'code',
+              'invalid-export',
+            ),
+          ),
+        );
+      }
+      debugPrint(
+        'I2 RENAMED preserved=${before.savedUris} no new photo save activity',
+      );
+      return;
+    }
     if (phase == 'gap-write') {
       final jobs = [
         for (final photo in frozen.photos)

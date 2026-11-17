@@ -67,6 +67,7 @@ class MethodChannelAndroidTransfer implements AndroidTransfer {
           'caption-${job.id}-${job.ordinal.toString().padLeft(2, '0')}$extension',
       'mimeType': extension == '.png' ? 'image/png' : 'image/jpeg',
       'expectedHash': photo.sha256,
+      if (job.uri != null) 'uri': job.uri!,
     };
   }
 

@@ -54,7 +54,7 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
         }
     }
 
-    private data class Request(val source: File, val displayName: String, val mimeType: String, val hash: String)
+    private data class Request(val source: File, val displayName: String, val mimeType: String, val hash: String, val receipt: Uri?)
 
     private fun request(call: MethodCall): Request {
         val jobId = call.argument<String>("jobId") ?: throw IllegalArgumentException()
@@ -76,7 +76,15 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
         val extension = file.extension
         require(displayName == "caption-$jobId-$ordinal.$extension")
         require(mimeType == if (extension == "png") "image/png" else "image/jpeg")
-        return Request(file, displayName, mimeType, hash)
+        val receipt = call.argument<String>("uri")?.let { value ->
+            val uri = Uri.parse(value)
+            val id = uri.lastPathSegment?.toLongOrNull() ?: throw IllegalArgumentException()
+            // Accept only this exporter's canonical primary-volume image item URIs.
+            // Equality also rejects alternate authorities, queries, fragments and encodings.
+            require(id > 0 && uri == ContentUris.withAppendedId(collection, id))
+            uri
+        }
+        return Request(file, displayName, mimeType, hash, receipt)
     }
 
     private fun hash(input: InputStream): String = input.use {
@@ -96,25 +104,40 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
         val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.IS_PENDING,
             MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.RELATIVE_PATH,
             MediaStore.Images.Media.OWNER_PACKAGE_NAME)
-        val selection = "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.RELATIVE_PATH} = ? AND ${MediaStore.Images.Media.OWNER_PACKAGE_NAME} = ?"
-        val args = arrayOf(request.displayName, relativePath, owner)
+        // A stored item URI remains stable when the user renames/moves a photo.
+        // Generated metadata identifies only no-receipt crash-recovery rows.
+        val target = request.receipt ?: collection
+        val selection = if (request.receipt == null)
+            "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.RELATIVE_PATH} = ? AND ${MediaStore.Images.Media.OWNER_PACKAGE_NAME} = ?"
+            else null
+        val args = if (request.receipt == null) arrayOf(request.displayName, relativePath, owner) else null
         val cursor = if (Build.VERSION.SDK_INT >= 30) {
-            resolver.query(collection, projection, Bundle().apply {
-                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+            resolver.query(target, projection, Bundle().apply {
+                if (selection != null) {
+                    putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                    putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                }
                 putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_EXCLUDE)
             }, null)
         } else {
             @Suppress("DEPRECATION")
-            val includingPending = MediaStore.setIncludePending(collection)
+            val includingPending = MediaStore.setIncludePending(target)
             resolver.query(includingPending, projection, selection, args, null)
         } ?: throw IOException("Media provider unavailable")
         return cursor.use {
             val result = mutableListOf<Row>()
             while (it.moveToNext()) {
-                // Recheck identity before any read/update/delete of this exact row.
-                require(it.getString(2) == request.displayName && it.getString(3) == relativePath && it.getString(4) == owner)
-                result.add(Row(ContentUris.withAppendedId(collection, it.getLong(0)), it.getInt(1) == 1))
+                // Verify ownership before any byte read/update/delete. Mutable
+                // display name/folder are not identity for a durable receipt.
+                val uri = ContentUris.withAppendedId(collection, it.getLong(0))
+                require(it.getString(4) == owner)
+                if (request.receipt != null) {
+                    require(uri == request.receipt)
+                } else {
+                    require(it.getString(2) == request.displayName && it.getString(3) == relativePath)
+                }
+                result.add(Row(uri, it.getInt(1) == 1))
             }
             result
         }
