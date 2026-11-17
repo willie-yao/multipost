@@ -346,17 +346,7 @@ class BlueskyPublisher implements PublishProvider {
     File file,
   ) async {
     if (context.uploadState['bluesky.video'] case final encoded?) {
-      final job = _videoEvidence(encoded, post);
-      if (job.state.toJson() == 'JOB_STATE_COMPLETED' ||
-          job.state.toJson() == 'JOB_STATE_FAILED') {
-        return job;
-      }
-      final current = await connection.videoJobStatus(
-        expectedDid: post.account!.subject,
-        jobId: job.jobId,
-      );
-      await _saveVideo(current, post, context);
-      return current;
+      return _readSavedVideoStatus(encoded, post, context);
     }
     final session = (await client.atproto.server.getSession()).data;
     if (session.did != post.account!.subject ||
@@ -382,6 +372,24 @@ class BlueskyPublisher implements PublishProvider {
     return job;
   }
 
+  Future<JobStatus> _readSavedVideoStatus(
+    String encoded,
+    ResolvedPost post,
+    PublishContext context,
+  ) async {
+    final job = _videoEvidence(encoded, post);
+    if (job.state.toJson() == 'JOB_STATE_COMPLETED' ||
+        job.state.toJson() == 'JOB_STATE_FAILED') {
+      return job;
+    }
+    final current = await connection.videoJobStatus(
+      expectedDid: post.account!.subject,
+      jobId: job.jobId,
+    );
+    await _saveVideo(current, post, context);
+    return current;
+  }
+
   Future<void> _saveVideo(
     JobStatus job,
     ResolvedPost post,
@@ -405,7 +413,9 @@ class BlueskyPublisher implements PublishProvider {
 
   JobStatus _videoEvidence(String encoded, ResolvedPost post) {
     final value = jsonDecode(encoded) as Map<String, dynamic>;
-    final job = JobStatus.fromJson(value['job'] as Map<String, dynamic>);
+    final job = const JobStatusConverter().fromJson(
+      value['job'] as Map<String, dynamic>,
+    );
     if (value['source'] != _source(post)) {
       throw const FormatException('Video source mismatch');
     }
@@ -422,6 +432,15 @@ class BlueskyPublisher implements PublishProvider {
         job.jobId.isEmpty ||
         job.jobId.length > 1024) {
       throw const FormatException('Video job mismatch');
+    }
+    // Failed jobs may report their ordinary error. Successful evidence may
+    // carry only the documented reusable-blob error, without a failure code.
+    if (_hasErrors(job.$unknown) ||
+        ((job.state.toJson() == 'JOB_STATE_COMPLETED' ||
+                job.error == 'already_exists') &&
+            (job.failureCode != null ||
+                (job.error != null && job.error != 'already_exists')))) {
+      throw const FormatException('Conflicting video job evidence');
     }
     if (job.blob case final blob?) {
       CID.parse(blob.ref.link);
@@ -445,15 +464,7 @@ class BlueskyPublisher implements PublishProvider {
           context.uploadState['bluesky.dispatched'] != 'true') {
         final encoded = context.uploadState['bluesky.video'];
         if (encoded == null) return previous;
-        var job = _videoEvidence(encoded, post);
-        if (job.state.toJson() != 'JOB_STATE_COMPLETED' &&
-            job.state.toJson() != 'JOB_STATE_FAILED') {
-          job = await connection.videoJobStatus(
-            expectedDid: post.account!.subject,
-            jobId: job.jobId,
-          );
-          await _saveVideo(job, post, context);
-        }
+        final job = await _readSavedVideoStatus(encoded, post, context);
         if (job.state.toJson() == 'JOB_STATE_FAILED' && !_videoReady(job)) {
           return _outcome(
             PublishStatus.notPublished,

@@ -235,7 +235,11 @@ class HostedATProtoOAuthDriver implements ATProtoOAuthDriver {
     );
     final result = await client.video.getJobStatus(jobId: jobId);
     stores.checkCurrent();
-    if (result.data.jobStatus.did != expectedDid ||
+    if ((result.data.$unknown?.keys.any(
+              (key) => key == 'error' || key == 'errors',
+            ) ??
+            false) ||
+        result.data.jobStatus.did != expectedDid ||
         result.data.jobStatus.jobId != jobId) {
       throw const AccountConnectionUnavailable();
     }
@@ -541,6 +545,7 @@ class _HostedHttp extends http.BaseClient {
       } else {
         value = body;
       }
+      if (value.containsKey('errors')) _reject();
       final job = JobStatus.fromJson(value);
       if (job.did != did || job.jobId.isEmpty || job.jobId.length > 1024) {
         _reject();

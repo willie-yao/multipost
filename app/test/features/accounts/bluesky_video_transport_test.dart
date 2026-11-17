@@ -73,4 +73,57 @@ void main() {
       expect(h.account.requests.length, count);
     },
   );
+  test(
+    'bare upload with mixed errors is rejected before SDK readiness',
+    () async {
+      final h = await blueskyPublisherHarness();
+      addTearDown(h.close);
+      await h.prepareVideo();
+      h.videoState = 'JOB_STATE_COMPLETED';
+      final original = h.account.override!;
+      h.account.override = (request) {
+        if (request.url.path == '/xrpc/app.bsky.video.uploadVideo') {
+          return h.account.json({
+            ...h.job,
+            'errors': 'synthetic ambiguous envelope',
+          });
+        }
+        return original(request);
+      };
+      final client = await h.account.connection.authorizedClient(
+        expectedDid: blueskyDid,
+      );
+      final token = (await client.video.getUploadVideoAuth()).data.token;
+      await expectLater(
+        client.video.uploadVideoWithAuthToken(token, bytes: Uint8List(4)),
+        throwsA(anything),
+      );
+    },
+  );
+  test(
+    'status envelope with mixed errors cannot return successful job evidence',
+    () async {
+      final h = await blueskyPublisherHarness();
+      addTearDown(h.close);
+      await h.prepareVideo();
+      h.videoState = 'JOB_STATE_COMPLETED';
+      final original = h.account.override!;
+      h.account.override = (request) {
+        if (request.url.path == '/xrpc/app.bsky.video.getJobStatus') {
+          return h.account.json({
+            'jobStatus': h.job,
+            'errors': 'synthetic ambiguous envelope',
+          });
+        }
+        return original(request);
+      };
+      await expectLater(
+        h.account.connection.videoJobStatus(
+          expectedDid: blueskyDid,
+          jobId: 'synthetic-job',
+        ),
+        throwsA(anything),
+      );
+    },
+  );
 }
