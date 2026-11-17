@@ -97,7 +97,8 @@ void main() {
       expect(find.textContaining('Bluesky · Review'), findsOneWidget);
       await tester.tap(find.text('Kept locally'));
       await settleStorage(tester);
-      expect(find.text('Review · draft saved on this device'), findsOneWidget);
+      expect(find.text('Publish now'), findsOneWidget);
+      expect(find.text('Preparation setup required'), findsOneWidget);
       await tester.tap(find.byTooltip('Back to library'));
       await settleStorage(tester);
       await tester.tap(find.byTooltip('Delete draft'));

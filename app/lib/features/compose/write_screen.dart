@@ -202,7 +202,7 @@ class _WriteScreenState extends State<WriteScreen> {
           actions: [
             IconButton(
               tooltip: widget.repairOnly
-                  ? 'Return to destinations'
+                  ? 'Return to draft'
                   : 'Back to library',
               onPressed: _blocked ? null : () => Navigator.maybePop(context),
               icon: const Icon(Icons.arrow_back),

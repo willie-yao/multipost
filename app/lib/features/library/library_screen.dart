@@ -5,15 +5,19 @@ import '../../app/services.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
+import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_screen.dart';
 import '../compose/choose_screen.dart';
 import '../compose/draft_session.dart';
+import '../compose/version_screen.dart';
 import '../compose/write_screen.dart';
 import '../compose/compose_stage.dart';
 import '../drafts/draft.dart';
 import '../drafts/draft_controller.dart';
 import '../media/picker_imports.dart';
+import '../review/review_screen.dart';
+import '../review/review_service.dart';
 import 'library_repository.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -367,8 +371,7 @@ String _stageName(ComposeStage stage) => switch (stage) {
   ComposeStage.review => 'Review',
 };
 
-// L6/L7 replace the saved-stage continuation with their concrete Write/Review
-// screens here. The controller belongs to this route for its entire lifetime.
+// The controller belongs to this route through Choose, Write and Review.
 class _ComposeHost extends StatefulWidget {
   const _ComposeHost({required this.services, required this.initial});
   final AppServices services;
@@ -443,34 +446,56 @@ class _ComposeHostState extends State<_ComposeHost> {
           onReview: _syncSavedStage,
           onChangeDestinations: _choose,
         )
-      : DraftSession(
+      : ReviewScreen(
           controller: _controller,
-          child: CaptionScaffold(
-            title: 'New post',
-            stageIndicator: CaptionStageIndicator(
-              currentStage: _visibleStage.index + 1,
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Back to library',
-                onPressed: () => Navigator.maybePop(context),
-                icon: const Icon(Icons.arrow_back),
-              ),
-            ],
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '${_stageName(_visibleStage)} · draft saved on this device',
-                ),
-                const SizedBox(height: 16),
-                SelectableText(_controller.draft.shared.text),
-                TextButton(
-                  onPressed: _choose,
-                  child: const Text('Change destinations'),
-                ),
-              ],
-            ),
+          service: ReviewService(
+            widget.services.drafts,
+            widget.services.media,
+            widget.services.accounts,
+            const LocalValidators(),
+            widget.services.clock,
           ),
+          onEdit: _editReview,
+          onManageAccounts: _reviewAccounts,
+          // I1/P tasks will wire a real checked action. Review never calls this.
+          onConfirm: (_) async {},
         );
+
+  Future<void> _editReview(Destination? destination) async {
+    if (destination == null) {
+      if (_controller.lastError is MediaFileException) {
+        await _repairMedia();
+      } else {
+        final saved = await saveComposeStage(_controller, ComposeStage.write);
+        if (!saved && mounted && _controller.lastError is MediaFileException) {
+          await _repairMedia();
+        }
+      }
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => VersionScreen(
+          controller: _controller,
+          destination: destination,
+          media: widget.services.media,
+          pickerImports: widget.services.pickerImports,
+          canLaunchPicker: widget.services.pickerRecoveryReady,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reviewAccounts() => Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => DraftSession(
+        controller: _controller,
+        child: AccountsScreen(
+          accounts: widget.services.accounts,
+          controller: _controller,
+        ),
+      ),
+    ),
+  );
 }
