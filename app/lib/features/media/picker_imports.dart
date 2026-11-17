@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../../core/ids.dart';
 import '../../storage/local_database.dart';
@@ -47,7 +48,7 @@ class PickerImports {
     required int draftRevision,
     Destination? destination,
     String? replacementAssetId,
-  }) async {
+  }) => _withStorageErrors(() async {
     if (draftId.isEmpty || draftRevision < 0) {
       throw ArgumentError('An original draft and revision are required.');
     }
@@ -68,22 +69,22 @@ class PickerImports {
       });
     });
     return _load(id);
-  }
+  });
 
-  Future<PickerImportOperation?> unresolved() async {
+  Future<PickerImportOperation?> unresolved() => _withStorageErrors(() async {
     final rows = await _database.db.query(
       'picker_imports',
       where: 'resolved = 0',
     );
     return rows.isEmpty ? null : _load(rows.single['id'] as String);
-  }
+  });
 
   /// Calling this again with the same ordered bytes reuses the saved assets.
   /// A changed file or selection never silently reuses a different result.
   Future<PickerImportOperation> complete(
     String operationId,
     List<XFile> selected,
-  ) async {
+  ) => _withStorageErrors(() async {
     final manifest = <Map<String, String>>[];
     try {
       for (final file in selected) {
@@ -107,6 +108,17 @@ class PickerImports {
         );
       }
       final row = rows.single;
+      if (row['state'] == 'cancelled') {
+        if (manifest.isEmpty) return;
+        throw const MediaFileException(
+          'This picker operation was cancelled. Choose again.',
+        );
+      }
+      if (row['state'] == 'pending' && row['resolved'] != 0) {
+        throw const MediaFileException(
+          'This picker import is no longer active.',
+        );
+      }
       if (row['sources'] != null) {
         final previous = _sources(row);
         if (previous.length != manifest.length ||
@@ -126,16 +138,9 @@ class PickerImports {
           whereArgs: [operationId],
         );
       }
-      if (row['state'] == 'cancelled') {
-        if (manifest.isNotEmpty) {
-          throw const MediaFileException(
-            'This picker operation was cancelled. Choose again.',
-          );
-        }
-      }
     });
     return _resume(operationId, manifest);
-  }
+  });
 
   Future<PickerImportOperation> _resume(
     String operationId,
@@ -153,94 +158,112 @@ class PickerImports {
         expectedSha256: source['sha256']!,
       );
     }
-    await _database.db.update(
+    final updated = await _database.db.update(
       'picker_imports',
       {'state': 'ready'},
-      where: 'id = ?',
+      where: "id = ? AND state = 'pending' AND resolved = 0",
       whereArgs: [operationId],
     );
-    return _load(operationId);
+    final latest = await _load(operationId);
+    if (updated == 0 && !latest.isComplete) {
+      throw const MediaFileException(
+        'This picker import is no longer active. Keep its saved results and choose again.',
+      );
+    }
+    return latest;
   }
 
   /// Central Android bootstrap port, using image_picker's documented API.
   /// The plugin clears its cache while returning results. We persist a source
   /// manifest before importing so a later restart can resume cached sources;
   /// a crash before this manifest commits still requires honest reselection.
-  Future<PickerImportOperation?> recoverLost(ImagePicker picker) async {
-    final operation = await unresolved();
-    late final LostDataResponse response;
-    try {
-      response = await picker.retrieveLostData();
-    } on PlatformException {
-      throw const MediaFileException(
-        'The previous picker could not recover its result. Keep the pending import and choose again.',
-      );
-    }
-    if (response.exception != null) {
-      throw const MediaFileException(
-        'The previous picker could not recover its result. Keep the pending import and choose again.',
-      );
-    }
-    final selected =
-        response.files ??
-        (response.file == null ? <XFile>[] : [response.file!]);
-    if (operation == null) {
-      if (!response.isEmpty && selected.isNotEmpty) {
-        throw const MediaFileException(
-          'The recovered selection has no saved draft target. Choose it again from the intended draft.',
+  Future<PickerImportOperation?> recoverLost(ImagePicker picker) =>
+      _withStorageErrors(() async {
+        final operation = await unresolved();
+        late final LostDataResponse response;
+        try {
+          response = await picker.retrieveLostData();
+        } on PlatformException {
+          throw const MediaFileException(
+            'The previous picker could not recover its result. Keep the pending import and choose again.',
+          );
+        }
+        if (response.exception != null) {
+          throw const MediaFileException(
+            'The previous picker could not recover its result. Keep the pending import and choose again.',
+          );
+        }
+        final selected =
+            response.files ??
+            (response.file == null ? <XFile>[] : [response.file!]);
+        if (operation == null) {
+          if (!response.isEmpty && selected.isNotEmpty) {
+            throw const MediaFileException(
+              'The recovered selection has no saved draft target. Choose it again from the intended draft.',
+            );
+          }
+          return null;
+        }
+        if (selected.isNotEmpty) return complete(operation.id, selected);
+        if (operation.isComplete) return operation;
+        final rows = await _database.db.query(
+          'picker_imports',
+          where: 'id = ?',
+          whereArgs: [operation.id],
         );
-      }
-      return null;
-    }
-    if (selected.isNotEmpty) return complete(operation.id, selected);
-    if (operation.isComplete) return operation;
-    final rows = await _database.db.query(
-      'picker_imports',
-      where: 'id = ?',
-      whereArgs: [operation.id],
-    );
-    if (rows.single['sources'] != null) {
-      return _resume(operation.id, _sources(rows.single));
-    }
-    if (!response.isEmpty) return complete(operation.id, []);
-    throw const MediaFileException(
-      'The picker was interrupted before its result was saved. Keep the pending import, or cancel it and choose again.',
-    );
-  }
+        if (rows.single['sources'] != null) {
+          return _resume(operation.id, _sources(rows.single));
+        }
+        if (!response.isEmpty) return complete(operation.id, []);
+        throw const MediaFileException(
+          'The picker was interrupted before its result was saved. Keep the pending import, or cancel it and choose again.',
+        );
+      });
 
   /// Explicitly abandon an interrupted/failed selection. Imported successes
   /// remain durable and can still be inspected; this never deletes media.
-  Future<PickerImportOperation> cancel(String operationId) async {
-    final operation = await _load(operationId);
-    if (operation.isComplete) {
-      throw const MediaFileException(
-        'This import is ready. Attach or discard its result explicitly.',
-      );
-    }
-    await _database.db.update(
-      'picker_imports',
-      {'state': 'cancelled', 'resolved': 1},
-      where: 'id = ?',
-      whereArgs: [operationId],
-    );
-    return _load(operationId);
-  }
+  Future<PickerImportOperation> cancel(String operationId) =>
+      _withStorageErrors(() async {
+        final updated = await _database.db.update(
+          'picker_imports',
+          {'state': 'cancelled', 'resolved': 1},
+          where: "id = ? AND state = 'pending' AND resolved = 0",
+          whereArgs: [operationId],
+        );
+        final operation = await _load(operationId);
+        if (updated == 0 && !operation.cancelled) {
+          throw const MediaFileException(
+            'This import is ready. Attach or discard its result explicitly.',
+          );
+        }
+        return operation;
+      });
 
   /// Call only after explicit attach/discard. The app owns the revision check
   /// and draft-save acknowledgment; ready results remain recoverable until then.
-  Future<void> acknowledge(String operationId) async {
-    final operation = await _load(operationId);
-    if (!operation.isComplete) {
+  Future<void> acknowledge(String operationId) => _withStorageErrors(() async {
+    final updated = await _database.db.update(
+      'picker_imports',
+      {'resolved': 1},
+      where: "id = ? AND state = 'ready'",
+      whereArgs: [operationId],
+    );
+    if (updated == 0) {
+      await _load(operationId);
       throw const MediaFileException(
         'This import is incomplete. Resolve the failed item first.',
       );
     }
-    await _database.db.update(
-      'picker_imports',
-      {'resolved': 1},
-      where: 'id = ?',
-      whereArgs: [operationId],
-    );
+  });
+
+  Future<T> _withStorageErrors<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on DatabaseException {
+      throw const LocalStorageException(
+        'The picker import could not be saved or read. Keep your draft and try again.',
+      );
+    }
   }
 
   List<Map<String, String>> _sources(Map<String, Object?> row) {

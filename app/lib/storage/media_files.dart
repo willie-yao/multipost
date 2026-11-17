@@ -216,6 +216,18 @@ class MediaFiles {
     try {
       return await database.db.transaction((txn) async {
         if (operationId != null) {
+          final operations = await txn.query(
+            'picker_imports',
+            where: 'id = ?',
+            whereArgs: [operationId],
+          );
+          if (operations.isEmpty ||
+              operations.single['state'] != 'pending' ||
+              operations.single['resolved'] != 0) {
+            throw const MediaFileException(
+              'This picker import is no longer active. Keep its saved results and choose again.',
+            );
+          }
           final mapped = await txn.query(
             'picker_import_items',
             where: 'operation_id = ? AND ordinal = ?',
