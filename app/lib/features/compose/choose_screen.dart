@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
+import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../accounts/account_repository.dart';
 import '../accounts/accounts_screen.dart';
@@ -8,6 +9,7 @@ import '../drafts/draft.dart';
 import '../drafts/draft_controller.dart';
 import '../drafts/draft_editor.dart';
 import 'draft_session.dart';
+import 'compose_stage.dart';
 
 class ChooseScreen extends StatefulWidget {
   const ChooseScreen({
@@ -15,10 +17,12 @@ class ChooseScreen extends StatefulWidget {
     required this.controller,
     required this.accounts,
     required this.onContinue,
+    this.onRepairMedia,
   });
   final DraftController controller;
   final AccountRepository accounts;
   final VoidCallback onContinue;
+  final Future<void> Function()? onRepairMedia;
   @override
   State<ChooseScreen> createState() => _ChooseScreenState();
 }
@@ -56,11 +60,8 @@ class _ChooseScreenState extends State<ChooseScreen> {
     if (_blocked) return;
     setState(() => _busy = true);
     final controller = widget.controller;
-    if (await controller.flush()) {
-      controller.change(
-        setStage(controller.draft, ComposeStage.write, DateTime.now().toUtc()),
-      );
-      if (await controller.flush() && mounted) widget.onContinue();
+    if (await saveComposeStage(controller, ComposeStage.write) && mounted) {
+      widget.onContinue();
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -87,9 +88,24 @@ class _ChooseScreenState extends State<ChooseScreen> {
     }
   }
 
+  Future<void> _repairMedia() async {
+    if (_blocked ||
+        widget.onRepairMedia == null ||
+        widget.controller.lastError is! MediaFileException) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.onRepairMedia!();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => DraftSession(
     controller: widget.controller,
+    exitBlocked: _busy,
     onExitPendingChanged: (pending) {
       if (mounted) setState(() => _exitPending = pending);
     },
@@ -182,6 +198,12 @@ class _ChooseScreenState extends State<ChooseScreen> {
               label: const Text('Manage accounts'),
             ),
             const SizedBox(height: 8),
+            if (widget.controller.lastError is MediaFileException &&
+                widget.onRepairMedia != null)
+              OutlinedButton(
+                onPressed: _blocked ? null : _repairMedia,
+                child: const Text('Repair draft media'),
+              ),
             Text(switch (widget.controller.saveState) {
               SaveState.saving => 'Saving on this device…',
               SaveState.saved => 'Saved on this device',

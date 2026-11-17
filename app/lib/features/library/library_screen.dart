@@ -9,9 +9,10 @@ import '../accounts/account.dart';
 import '../accounts/accounts_screen.dart';
 import '../compose/choose_screen.dart';
 import '../compose/draft_session.dart';
+import '../compose/write_screen.dart';
+import '../compose/compose_stage.dart';
 import '../drafts/draft.dart';
 import '../drafts/draft_controller.dart';
-import '../drafts/draft_editor.dart';
 import '../media/picker_imports.dart';
 import 'library_repository.dart';
 
@@ -395,16 +396,23 @@ class _ComposeHostState extends State<_ComposeHost> {
   }
 
   Future<void> _choose() async {
-    if (!await _controller.flush()) return;
-    _controller.change(
-      setStage(
-        _controller.draft,
-        ComposeStage.choose,
-        widget.services.clock.now(),
-      ),
-    );
-    if (await _controller.flush() && mounted) setState(() {});
+    if (await saveComposeStage(_controller, ComposeStage.choose) && mounted) {
+      setState(() {});
+    }
   }
+
+  Future<void> _repairMedia() => Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => WriteScreen(
+        controller: _controller,
+        media: widget.services.media,
+        pickerImports: widget.services.pickerImports,
+        canLaunchPicker: widget.services.pickerRecoveryReady,
+        repairOnly: true,
+        onReview: () {},
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) =>
@@ -413,6 +421,16 @@ class _ComposeHostState extends State<_ComposeHost> {
           controller: _controller,
           accounts: widget.services.accounts,
           onContinue: () => setState(() {}),
+          onRepairMedia: _repairMedia,
+        )
+      : _controller.draft.stage == ComposeStage.write
+      ? WriteScreen(
+          controller: _controller,
+          media: widget.services.media,
+          pickerImports: widget.services.pickerImports,
+          canLaunchPicker: widget.services.pickerRecoveryReady,
+          onReview: () => setState(() {}),
+          onChangeDestinations: _choose,
         )
       : DraftSession(
           controller: _controller,

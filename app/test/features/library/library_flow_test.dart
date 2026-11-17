@@ -50,7 +50,8 @@ void main() {
     expect(continueButton(tester).onPressed, isNotNull);
     await tester.tap(find.text('Continue to writing'));
     await settleStorage(tester);
-    expect(find.text('Write · draft saved on this device'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Shared caption'), findsOneWidget);
+    expect(find.text('Review post'), findsOneWidget);
     final writing = await tester.runAsync(services.drafts.list);
     expect(writing!.single.stage, ComposeStage.write);
     expect(writing.single.selected, {Destination.instagram});
@@ -784,6 +785,40 @@ void main() {
       }
     },
   );
+
+  testWidgets('Back cannot abandon a pending Continue stage save', (
+    tester,
+  ) async {
+    final services = (await tester.runAsync(localTestServices))!;
+    addTearDown(services.close);
+    final draft = Draft(
+      id: 'continue-back-guard',
+      updatedAt: services.clock.now(),
+      selected: {Destination.x},
+    );
+    await tester.runAsync(
+      () => services.drafts.save(draft, expectedRevision: -1),
+    );
+    final delayed = _ControlledSaves(services.drafts);
+    final controller = DraftController(draft, delayed, services.clock);
+    try {
+      await showChooseRoute(tester, services, controller);
+      await tester.tap(find.text('Continue to writing'));
+      await settleStorage(tester);
+      expect(delayed.started.isCompleted, isTrue);
+      await tester.binding.handlePopRoute();
+      await settleStorage(tester);
+      delayed.release.complete();
+      await settleStorage(tester);
+      expect(find.text('Where should this go?'), findsOneWidget);
+      expect(controller.draft.stage, ComposeStage.write);
+    } finally {
+      if (!delayed.release.isCompleted) delayed.release.complete();
+      await settleStorage(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    }
+  });
 
   testWidgets(
     'covered delayed Back stays guarded after Accounts return and a failed edit',

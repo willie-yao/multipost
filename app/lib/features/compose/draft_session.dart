@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_tokens.dart';
+import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../drafts/draft_controller.dart';
+import '../drafts/draft_repository.dart';
 
 /// Shared editor exit/lifecycle guard. L6/L7 keep this around the active editor.
 class DraftSession extends StatefulWidget {
@@ -14,10 +16,18 @@ class DraftSession extends StatefulWidget {
     required this.controller,
     required this.child,
     this.onExitPendingChanged,
+    this.exitBlocked = false,
+    this.allowMediaRepairReturn = false,
   });
   final DraftController controller;
   final Widget child;
   final ValueChanged<bool>? onExitPendingChanged;
+  final bool exitBlocked;
+
+  /// Only inner editor routes whose parent retains this same controller.
+  /// A failed-media save may return to that editor to repair another target.
+  /// Root library exits must always leave this false.
+  final bool allowMediaRepairReturn;
   @override
   State<DraftSession> createState() => _DraftSessionState();
 }
@@ -25,6 +35,7 @@ class DraftSession extends StatefulWidget {
 class _DraftSessionState extends State<DraftSession>
     with WidgetsBindingObserver {
   bool _leaving = false;
+  bool _reloading = false;
   @override
   void initState() {
     super.initState();
@@ -50,27 +61,73 @@ class _DraftSessionState extends State<DraftSession>
   }
 
   Future<void> _leave() async {
-    if (_leaving) return;
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
+    }
+    if (_leaving || _reloading || widget.exitBlocked) return;
     final route = ModalRoute.of(context);
     _setExitPending(true);
     final saved = await widget.controller.flush();
     if (!mounted) return;
-    if (!saved) {
+    final repairReturn =
+        !saved &&
+        widget.allowMediaRepairReturn &&
+        widget.controller.lastError is MediaFileException;
+    if (!saved && !repairReturn) {
       _setExitPending(false);
       return;
     }
-    final revision = widget.controller.savedRevision;
+    final revision = widget.controller.draft.revision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (identical(ModalRoute.of(context), route) &&
           route?.isCurrent == true &&
-          widget.controller.saveState == SaveState.saved &&
-          widget.controller.savedRevision == revision &&
-          widget.controller.draft.revision == revision) {
+          widget.controller.draft.revision == revision &&
+          ((widget.controller.saveState == SaveState.saved &&
+                  widget.controller.savedRevision == revision) ||
+              (repairReturn &&
+                  widget.controller.saveState == SaveState.failed &&
+                  widget.controller.lastError is MediaFileException))) {
         Navigator.of(context).pop();
       }
       if (mounted) _setExitPending(false);
     });
+  }
+
+  Future<void> _reload() async {
+    if (_leaving || _reloading || widget.exitBlocked) return;
+    final local = widget.controller.draft;
+    setState(() => _reloading = true);
+    FocusManager.instance.primaryFocus?.unfocus();
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reload the saved draft?'),
+          content: const Text(
+            'This replaces your unsaved captions and media edits with the saved copy. Use Copy text first to keep your words.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep editing'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Replace with saved copy'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true && mounted) {
+        await widget.controller.reloadAfterConflict(
+          expectedLocalRevision: local.revision,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
   }
 
   @override
@@ -124,9 +181,17 @@ class _DraftSessionState extends State<DraftSession>
                                   child: const Text('Copy text'),
                                 ),
                                 TextButton(
-                                  onPressed: widget.controller.retrySave,
+                                  onPressed: _reloading
+                                      ? null
+                                      : widget.controller.retrySave,
                                   child: const Text('Retry saving'),
                                 ),
+                                if (widget.controller.lastError
+                                    is DraftConflict)
+                                  TextButton(
+                                    onPressed: _reloading ? null : _reload,
+                                    child: const Text('Reload saved draft'),
+                                  ),
                               ],
                             ),
                             for (final entry in captions.entries) ...[
@@ -142,11 +207,28 @@ class _DraftSessionState extends State<DraftSession>
                 ),
               ),
             Expanded(
-              child: AbsorbPointer(absorbing: _leaving, child: widget.child),
+              child: AbsorbPointer(
+                absorbing: _leaving || _reloading,
+                child: widget.child,
+              ),
             ),
           ],
         );
       },
     ),
+  );
+}
+
+class DraftSaveStatus extends StatelessWidget {
+  const DraftSaveStatus({super.key, required this.controller});
+  final DraftController controller;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Text(switch (controller.saveState) {
+      SaveState.saving => 'Saving on this device…',
+      SaveState.saved => 'Saved on this device',
+      SaveState.failed => 'Unsaved changes',
+    }, style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary)),
   );
 }

@@ -78,6 +78,52 @@ class DraftController extends ChangeNotifier {
   /// In particular this never reloads/rebases after a conflict.
   Future<bool> retrySave() => flush();
 
+  /// Explicit destructive recovery, after the user has kept any local words.
+  /// Shares the save lane: neither an old acknowledgment nor a concurrent edit
+  /// may replace this read's local snapshot or label it Saved.
+  Future<bool> reloadAfterConflict({required int expectedLocalRevision}) {
+    if (_disposed ||
+        _lane != null ||
+        _lastError is! DraftConflict ||
+        _draft.revision != expectedLocalRevision) {
+      return Future.value(false);
+    }
+    _debounce?.cancel();
+    final local = _draft;
+    return _lane =
+        Future<bool>.microtask(() async {
+          try {
+            final stored = await _repo.get(local.id);
+            if (_disposed || !identical(_draft, local)) return false;
+            if (stored == null || stored.deletedAt != null) {
+              throw DraftConflict(local.id);
+            }
+            _draft = stored;
+            _initialized = true;
+            _savedRevision = stored.revision;
+            _saveState = SaveState.saved;
+            _lastError = null;
+            _notify();
+            return _saveState == SaveState.saved &&
+                _savedRevision == _draft.revision;
+          } catch (error) {
+            if (!_disposed && identical(_draft, local)) {
+              _lastError = error;
+              _saveState = SaveState.failed;
+              _notify();
+            }
+            return false;
+          }
+        }).whenComplete(() {
+          _lane = null;
+          if (!_disposed &&
+              !identical(_draft, local) &&
+              _saveState != SaveState.saved) {
+            _scheduleSave();
+          }
+        });
+  }
+
   Future<bool> _saveLatest() async {
     _saveState = SaveState.saving;
     _lastError = null;
