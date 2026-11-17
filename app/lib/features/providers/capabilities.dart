@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../drafts/draft.dart';
@@ -84,7 +85,13 @@ class ProviderCapabilities {
 /// Implementations must match the provider's counting rules and conformance
 /// data. Grapheme counting alone is not X's weighted twitter-text algorithm.
 abstract interface class TextCounter {
-  int count(String text);
+  FutureOr<TextMeasurement> measure(String text);
+}
+
+class TextMeasurement {
+  const TextMeasurement({required this.units, required this.valid});
+  final int units;
+  final bool valid;
 }
 
 class CapabilityValidator implements DestinationValidator {
@@ -109,7 +116,7 @@ class CapabilityValidator implements DestinationValidator {
       _validRange(profile.minAspectRatio, profile.maxAspectRatio);
 
   @override
-  List<ReviewIssue> validate(ResolvedPost post) {
+  Future<List<ReviewIssue>> validate(ResolvedPost post) async {
     ReviewIssue issue(String code, String message) => ReviewIssue(
       destination: post.destination,
       code: code,
@@ -164,8 +171,19 @@ class CapabilityValidator implements DestinationValidator {
       );
     } else if (profile.text) {
       try {
-        final units = counter.count(post.content.text);
+        final measurement = await counter.measure(post.content.text);
+        final units = measurement.units;
         if (units < 0) throw StateError('Invalid counter result');
+        if (!measurement.valid &&
+            units <= profile.maxTextUnits &&
+            post.content.text.isNotEmpty) {
+          issues.add(
+            issue(
+              'text-invalid',
+              'Edit the caption; this destination cannot accept this text.',
+            ),
+          );
+        }
         if (units > profile.maxTextUnits) {
           issues.add(
             issue(
@@ -193,23 +211,12 @@ class CapabilityValidator implements DestinationValidator {
         );
       }
     }
-    if (post.content.text.trim().isEmpty && post.assets.isEmpty) {
-      issues.add(
-        issue('content-required', 'Add text or supported media for $name.'),
-      );
-    }
     if (photos.length > profile.maxPhotos) {
       issues.add(
         issue(
           'photo-count',
           '$name supports at most ${profile.maxPhotos} photos in this profile.',
         ),
-      );
-    }
-    // This app only supports a photo set OR one video per destination.
-    if (videos.length > 1 || (videos.isNotEmpty && photos.isNotEmpty)) {
-      issues.add(
-        issue('media-combination', 'Choose photos or one video for $name.'),
       );
     }
     for (final asset in post.assets) {
@@ -307,6 +314,6 @@ class CapabilityRegistry implements ValidatorRegistry {
 class _UnavailableCounter implements TextCounter {
   const _UnavailableCounter();
   @override
-  int count(String text) =>
+  TextMeasurement measure(String text) =>
       throw StateError('Official text counter not accepted');
 }

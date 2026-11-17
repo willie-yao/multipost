@@ -45,7 +45,8 @@ ProviderCapabilities fixtureCapabilities({
 // Fixture graphemes only. This is explicitly not production X counting.
 class FixtureTextCounter implements TextCounter {
   @override
-  int count(String text) => text.characters.length;
+  TextMeasurement measure(String text) =>
+      TextMeasurement(units: text.characters.length, valid: true);
 }
 
 MediaAsset fixtureAsset({

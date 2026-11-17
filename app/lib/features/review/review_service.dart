@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,7 +14,7 @@ import 'review.dart';
 
 abstract interface class DestinationValidator {
   String get version;
-  List<ReviewIssue> validate(ResolvedPost post);
+  FutureOr<List<ReviewIssue>> validate(ResolvedPost post);
 }
 
 abstract interface class ValidatorRegistry {
@@ -206,54 +208,13 @@ class ReviewService {
         account: identity,
       );
       posts[destination] = post;
-      if (content.text.trim().isEmpty && content.media.isEmpty) {
-        issues.add(
-          _issue(
-            destination,
-            'empty-post',
-            'Add a caption or media to this version.',
-          ),
-        );
-      }
-      final videos = assets
-          .where((asset) => asset.mimeType.startsWith('video/'))
-          .length;
-      final photos = assets
-          .where((asset) => asset.mimeType.startsWith('image/'))
-          .length;
-      if (videos > 0 && photos > 0) {
-        issues.add(
-          _issue(
-            destination,
-            'mixed-media',
-            'Use photos or one video in this version.',
-          ),
-        );
-      }
-      if (videos > 1) {
-        issues.add(
-          _issue(
-            destination,
-            'multiple-videos',
-            'Use only one video in this version.',
-          ),
-        );
-      }
-      if (videos + photos != assets.length) {
-        issues.add(
-          _issue(
-            destination,
-            'unsupported-media',
-            'This media type is unsupported. Replace or remove it.',
-          ),
-        );
-      }
+      issues.addAll(sharedContentIssues(post));
       try {
         final validator = _validators.forDestination(destination);
         final version = validator.version;
         if (version.isEmpty) throw StateError('Missing capability version');
         versions[destination] = version;
-        final checked = validator.validate(post);
+        final checked = await validator.validate(post);
         if (checked.any((issue) => issue.destination != destination)) {
           throw StateError('Mismatched validation destination');
         }
@@ -321,4 +282,33 @@ String reviewActionLabel(Set<Destination> destinations) {
   return direct.length == 1
       ? 'Publish to ${destinationName(direct.single)}'
       : 'Publish to ${direct.length} accounts';
+}
+
+/// Single owner for app-wide content rules, also used by provider.send.
+List<ReviewIssue> sharedContentIssues(ResolvedPost post) {
+  final issues = <ReviewIssue>[];
+  void issue(String code, String message) =>
+      issues.add(_issue(post.destination, code, message));
+  if (post.content.text.trim().isEmpty && post.content.media.isEmpty) {
+    issue('empty-post', 'Add a caption or media to this version.');
+  }
+  final videos = post.assets
+      .where((a) => a.mimeType.startsWith('video/'))
+      .length;
+  final photos = post.assets
+      .where((a) => a.mimeType.startsWith('image/'))
+      .length;
+  if (videos > 0 && photos > 0) {
+    issue('mixed-media', 'Use photos or one video in this version.');
+  }
+  if (videos > 1) {
+    issue('multiple-videos', 'Use only one video in this version.');
+  }
+  if (videos + photos != post.assets.length) {
+    issue(
+      'unsupported-media',
+      'This media type is unsupported. Replace or remove it.',
+    );
+  }
+  return issues;
 }

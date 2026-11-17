@@ -1,0 +1,6 @@
+{
+  "create": {"data": {"id": "999", "text": "fixture"}},
+  "upload": {"data": {"id": "101", "expires_after_secs": 86400}},
+  "initialize": {"data": {"id": "201", "expires_after_secs": 86400}},
+  "append": {"data": {}}
+}

@@ -361,6 +361,48 @@ class XConnection implements AccountConnection {
     }
   }
 
+  /// Captured before preparation and checked synchronously immediately before
+  /// dispatch. Reconnect/disconnect invalidate even the same subject's session.
+  int get authorizationGeneration => _generation;
+  void requireAuthorizationGeneration(int generation) => _current(generation);
+
+  /// Tokens and public metadata are read in the same serialized operation.
+  /// A mismatched reviewed subject never returns the new account's credential.
+  Future<String> accessToken({required String expectedSubject}) async {
+    final generation = _generation;
+    await ensureAuthorized();
+    _current(generation);
+    return _serial(() async {
+      _current(generation);
+      final account = await accounts.get(Destination.x);
+      final stored = await vault.read(Destination.x);
+      _current(generation);
+      if (account.state != AccountState.connected ||
+          account.identity?.subject != expectedSubject ||
+          stored == null) {
+        throw const AccountConnectionExpired();
+      }
+      try {
+        final data = jsonDecode(stored) as Map<String, dynamic>;
+        final identity = AccountIdentity.fromJson(
+          data['identity'] as Map<String, dynamic>,
+        );
+        final tokens = _decodeTokens(data);
+        if (data['version'] != 1 ||
+            data['clientId'] != configuration.xClientId ||
+            data['redirectUri'] != configuration.xRedirectUri.toString() ||
+            identity != account.identity ||
+            identity.subject != expectedSubject) {
+          throw const FormatException();
+        }
+        _validateTokens(tokens);
+        return tokens.accessToken;
+      } catch (_) {
+        throw const AccountConnectionExpired();
+      }
+    });
+  }
+
   XTokenSet _decodeTokens(Map<String, dynamic> data) => XTokenSet(
     accessToken: data['accessToken'] as String,
     refreshToken: data['refreshToken'] as String,

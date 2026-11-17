@@ -1,0 +1,10 @@
+Caption includes the unmodified official Twitter Text Java library 3.1.0
+(com.twitter.twittertext:twitter-text) and its jsr305 2.0.1 annotation dependency
+(com.google.code.findbugs:jsr305). Both published POMs declare Apache License 2.0.
+
+Twitter Text: Copyright 2011 Twitter, Inc.
+Source: https://github.com/twitter/twitter-text
+License: twitter-text-LICENSE.txt in this directory.
+
+The library is called through an X-only native channel. Caption does not copy
+or modify its Unicode, emoji, or URL parsing algorithm.
