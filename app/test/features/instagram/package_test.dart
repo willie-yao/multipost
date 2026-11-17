@@ -535,6 +535,9 @@ void main() {
           photoOrdinal: ordinal,
           uri: uri,
           launchId: 'launch-1',
+          targetPackage: kind == InstagramEventKind.targetDispatched
+              ? 'com.instagram.android'
+              : null,
         ),
       );
       await event('copy', InstagramEventKind.captionCopied);

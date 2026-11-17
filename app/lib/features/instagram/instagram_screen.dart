@@ -7,6 +7,7 @@ import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
 import 'instagram_package.dart';
+import 'android_transfer.dart';
 import 'instagram_service.dart';
 
 /// Frozen snapshot with explicit local copy/save actions; resume never exports.
@@ -29,6 +30,7 @@ class _InstagramScreenState extends State<InstagramScreen>
   InstagramProgress? _progress;
   String? _error;
   String? _copyMessage;
+  String? _transferMessage;
   bool _copyFailed = false;
   bool _busy = false;
   bool _checkFailed = false;
@@ -67,6 +69,7 @@ class _InstagramScreenState extends State<InstagramScreen>
     _generation++;
     _progress = null;
     _copyMessage = null;
+    _transferMessage = null;
     _copyFailed = false;
     _busy = false;
     _cachePhotos();
@@ -140,6 +143,7 @@ class _InstagramScreenState extends State<InstagramScreen>
     setState(() {
       _busy = true;
       _copyMessage = null;
+      _transferMessage = null;
     });
     try {
       await service.copyCaption(package.id);
@@ -190,6 +194,48 @@ class _InstagramScreenState extends State<InstagramScreen>
     }
   }
 
+  Future<void> _handoff({bool share = false}) async {
+    if (_busy) return;
+    final generation = _generation;
+    setState(() {
+      _busy = true;
+      _transferMessage = null;
+    });
+    try {
+      final message = share
+          ? switch (await service.share(package.id)) {
+              ShareDispatch.dispatchedToInstagram => 'Photo share requested. Check in Instagram that every photo arrived in order, paste your caption and finish there. Publication is not verified.',
+              ShareDispatch.chooserOpened => 'Share chooser opened. Selecting a target does not confirm that Instagram received your photos. You can still save photos below.',
+              ShareDispatch.cancelled =>
+                'Share cancelled. Your prepared photos and caption are kept.',
+              ShareDispatch.unavailable => 'Photo sharing is unavailable. Save photos, copy your caption and select the photos inside Instagram.',
+              ShareDispatch.failed => 'Photos could not be sent. Save photos and select them inside Instagram.',
+            }
+          : switch (await service.open(package.id)) {
+              LaunchResult.opened => 'Instagram opened. Select your saved photos, paste your caption and finish there. Publication is not verified.',
+              LaunchResult.unavailable => 'Open Instagram yourself. Start it from your device, select the saved photos in order and paste your caption. Your prepared package is kept here.',
+              LaunchResult.failed => 'Instagram could not be opened. Open it yourself from your device and use your saved photos and copied caption.',
+            };
+      final progress = await service.repository.progress(package.id);
+      if (mounted && generation == _generation) {
+        setState(() {
+          _transferMessage = message;
+          _progress = progress;
+        });
+      }
+    } catch (error) {
+      if (mounted && generation == _generation) {
+        setState(() {
+          _transferMessage = error is InstagramPreparationException
+              ? error.toString()
+              : 'Instagram activity could not be recorded. Check Instagram before trying again. Your prepared photos and caption are kept.';
+        });
+      }
+    } finally {
+      _finish(generation);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final saved = _progress?.savedUris.length ?? 0;
@@ -209,13 +255,20 @@ class _InstagramScreenState extends State<InstagramScreen>
     return CaptionScaffold(
       title: 'Finish in Instagram',
       primaryAction: FilledButton(
-        onPressed:
-            _busy || (!_checkFailed && (_progress == null || remaining == 0))
+        onPressed: _busy || (!_checkFailed && _progress == null)
             ? null
             : _checkFailed
             ? _check
+            : remaining == 0
+            ? () => _handoff()
             : _save,
-        child: Text(_busy ? 'Working…' : saveLabel),
+        child: Text(
+          _busy
+              ? 'Working…'
+              : remaining == 0 && !_checkFailed
+              ? 'Open Instagram'
+              : saveLabel,
+        ),
       ),
       actions: [
         IconButton(
@@ -250,6 +303,27 @@ class _InstagramScreenState extends State<InstagramScreen>
           if (_error != null) ...[
             const SizedBox(height: 12),
             Semantics(liveRegion: true, child: Text(_error!)),
+          ],
+          const SizedBox(height: 20),
+          if (remaining > 0 || _checkFailed)
+            OutlinedButton(
+              onPressed: _busy ? null : () => _handoff(),
+              child: const Text('Open Instagram'),
+            ),
+          if (service.shareCapability.supports(package.photos.length)) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _busy ? null : () => _handoff(share: true),
+              child: const Text('Send photos to Instagram'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Copy the caption separately. Sending photos does not confirm their import or publication.',
+            ),
+          ],
+          if (_transferMessage != null) ...[
+            const SizedBox(height: 12),
+            Semantics(liveRegion: true, child: Text(_transferMessage!)),
           ],
           const SizedBox(height: 24),
           Text(

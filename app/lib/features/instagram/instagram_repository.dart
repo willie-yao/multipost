@@ -79,6 +79,8 @@ class InstagramRepository {
     }
   }
 
+  Future<List<InstagramEvent>> events(String packageId) => activity(packageId);
+
   Future<List<InstagramEvent>> activity(String packageId) async {
     final package = await get(packageId);
     if (package == null) {
@@ -389,6 +391,14 @@ class InstagramRepository {
 
   void _validateEvent(InstagramEvent event, InstagramPackage package) {
     if (event.id.isEmpty) throw const FormatException();
+    if (event.kind == InstagramEventKind.targetDispatched &&
+        event.targetPackage != 'com.instagram.android') {
+      throw const FormatException();
+    }
+    if (event.kind != InstagramEventKind.targetDispatched &&
+        event.targetPackage != null) {
+      throw const FormatException();
+    }
     if ({
           InstagramEventKind.photoSaved,
           InstagramEventKind.photoUnavailable,

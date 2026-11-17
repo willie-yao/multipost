@@ -4,6 +4,22 @@ import 'package:cross_posting_app/features/instagram/instagram_package.dart';
 class FakeAndroidTransfer implements AndroidTransfer {
   FakeAndroidTransfer({Set<int> failOrdinals = const {}})
     : failOrdinals = {...failOrdinals};
+  LaunchResult launchResult = LaunchResult.opened;
+  ShareDispatch shareResult = ShareDispatch.dispatchedToInstagram;
+  int openCalls = 0;
+  final sharedPackages = <InstagramPackage>[];
+  @override
+  Future<LaunchResult> openInstagram() async {
+    openCalls++;
+    return launchResult;
+  }
+
+  @override
+  Future<ShareDispatch> sharePhotos(InstagramPackage package) async {
+    sharedPackages.add(package);
+    return shareResult;
+  }
+
   final Set<int> failOrdinals;
   final savedBatches = <Set<int>>[];
   final receipts = <String, String>{};

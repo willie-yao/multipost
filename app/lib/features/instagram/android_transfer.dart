@@ -5,6 +5,39 @@ import 'package:path/path.dart' as p;
 
 import 'instagram_package.dart';
 
+enum LaunchResult { opened, unavailable, failed }
+
+enum ShareDispatch {
+  dispatchedToInstagram,
+  chooserOpened,
+  cancelled,
+  unavailable,
+  failed,
+}
+
+/// Receiving-app evidence is deliberately separate from local preparation.
+/// No path is enabled until a dated device/Instagram import check exists.
+class InstagramShareCapability {
+  const InstagramShareCapability({
+    this.singlePhoto = false,
+    this.carousel = false,
+    this.checkedAt,
+    this.device,
+    this.instagramVersion,
+  });
+  final bool singlePhoto;
+  final bool carousel;
+  final DateTime? checkedAt;
+  final String? device;
+  final String? instagramVersion;
+
+  bool supports(int count) =>
+      checkedAt != null &&
+      (device?.trim().isNotEmpty ?? false) &&
+      (instagramVersion?.trim().isNotEmpty ?? false) &&
+      (count == 1 ? singlePhoto : count > 1 && count <= 20 && carousel);
+}
+
 class PhotoSaveResult {
   const PhotoSaveResult({required this.ordinal, this.uri, this.errorCode});
   final int ordinal;
@@ -35,6 +68,8 @@ class PhotoExportJob {
 }
 
 abstract interface class AndroidTransfer {
+  Future<LaunchResult> openInstagram();
+  Future<ShareDispatch> sharePhotos(InstagramPackage package);
   Future<void> copyCaption(String caption);
   Future<List<PhotoSaveResult>> savePhotos(
     InstagramPackage package,
@@ -49,12 +84,70 @@ abstract interface class AndroidTransfer {
 }
 
 class MethodChannelAndroidTransfer implements AndroidTransfer {
-  MethodChannelAndroidTransfer(this.root);
+  MethodChannelAndroidTransfer(
+    this.root, {
+    this.shareCapability = const InstagramShareCapability(),
+  });
+  final InstagramShareCapability shareCapability;
   final Directory root;
   static const channel = MethodChannel('crossposting/instagram');
   @override
   Future<void> copyCaption(String caption) =>
       Clipboard.setData(ClipboardData(text: caption));
+
+  @override
+  Future<LaunchResult> openInstagram() async {
+    try {
+      return switch (await channel.invokeMethod<String>('openInstagram')) {
+        'opened' => LaunchResult.opened,
+        'unavailable' => LaunchResult.unavailable,
+        _ => LaunchResult.failed,
+      };
+    } on PlatformException {
+      return LaunchResult.failed;
+    } on MissingPluginException {
+      return LaunchResult.unavailable;
+    }
+  }
+
+  @override
+  Future<ShareDispatch> sharePhotos(InstagramPackage package) async {
+    if (!shareCapability.supports(package.photos.length)) {
+      return ShareDispatch.unavailable;
+    }
+    try {
+      final result = await channel.invokeMapMethod<String, dynamic>(
+        'sharePhotos',
+        {
+          'packageId': package.id,
+          'supported': true,
+          'photos': [
+            for (final photo in package.photos)
+              {
+                'sourcePath': p.join(root.absolute.path, photo.relativePath),
+                'expectedHash': photo.sha256,
+                'mimeType': photo.relativePath.endsWith('.png')
+                    ? 'image/png'
+                    : 'image/jpeg',
+              },
+          ],
+        },
+      );
+      return switch (result?['status']) {
+        'dispatchedToInstagram'
+            when result?['targetPackage'] == 'com.instagram.android' =>
+          ShareDispatch.dispatchedToInstagram,
+        'chooserOpened' => ShareDispatch.chooserOpened,
+        'cancelled' => ShareDispatch.cancelled,
+        'unavailable' => ShareDispatch.unavailable,
+        _ => ShareDispatch.failed,
+      };
+    } on PlatformException {
+      return ShareDispatch.failed;
+    } on MissingPluginException {
+      return ShareDispatch.unavailable;
+    }
+  }
 
   Map<String, Object> _arguments(InstagramPackage package, PhotoExportJob job) {
     if (job.packageId != package.id) throw StateError('Export package changed');

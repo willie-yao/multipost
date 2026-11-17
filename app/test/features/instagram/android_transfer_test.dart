@@ -117,4 +117,157 @@ void main() {
     expect(result.succeeded, isTrue);
     expect(result.uri, savedUri);
   });
+  test(
+    'launch maps absent plugin and malformed outcomes conservatively',
+    () async {
+      expect(await transfer.openInstagram(), LaunchResult.unavailable);
+      for (final entry in {
+        'opened': LaunchResult.opened,
+        'unavailable': LaunchResult.unavailable,
+        'unknown': LaunchResult.failed,
+      }.entries) {
+        messenger.setMockMethodCallHandler(
+          MethodChannelAndroidTransfer.channel,
+          (call) async => entry.key,
+        );
+        expect(await transfer.openInstagram(), entry.value);
+      }
+    },
+  );
+  test('share cannot use a capability for the wrong photo count', () async {
+    var calls = 0;
+    messenger.setMockMethodCallHandler(MethodChannelAndroidTransfer.channel, (
+      _,
+    ) async {
+      calls++;
+      return {
+        'status': 'dispatchedToInstagram',
+        'targetPackage': 'com.instagram.android',
+      };
+    });
+    final carouselOnly = MethodChannelAndroidTransfer(
+      Directory('/private/instagram-packages'),
+      shareCapability: InstagramShareCapability(
+        carousel: true,
+        checkedAt: DateTime.utc(2026),
+        device: 'fixture',
+        instagramVersion: 'fixture',
+      ),
+    );
+    expect(await carouselOnly.sharePhotos(package), ShareDispatch.unavailable);
+    expect(await transfer.sharePhotos(package), ShareDispatch.unavailable);
+    expect(calls, 0);
+  });
+  test('targeted dispatch requires the exact Instagram target', () async {
+    final enabled = MethodChannelAndroidTransfer(
+      Directory('/private/instagram-packages'),
+      shareCapability: InstagramShareCapability(
+        singlePhoto: true,
+        carousel: true,
+        checkedAt: DateTime.utc(2026),
+        device: 'fixture',
+        instagramVersion: 'fixture',
+      ),
+    );
+    for (final target in [null, 'other.app', 'com.instagram.android']) {
+      messenger.setMockMethodCallHandler(
+        MethodChannelAndroidTransfer.channel,
+        (_) async => {
+          'status': 'dispatchedToInstagram',
+          'targetPackage': target,
+        },
+      );
+      expect(
+        await enabled.sharePhotos(package),
+        target == 'com.instagram.android'
+            ? ShareDispatch.dispatchedToInstagram
+            : ShareDispatch.failed,
+      );
+    }
+    for (final status in [
+      'chooserOpened',
+      'cancelled',
+      'unavailable',
+      'failed',
+      'unknown',
+    ]) {
+      messenger.setMockMethodCallHandler(
+        MethodChannelAndroidTransfer.channel,
+        (_) async => {'status': status},
+      );
+      final expected = switch (status) {
+        'chooserOpened' => ShareDispatch.chooserOpened,
+        'cancelled' => ShareDispatch.cancelled,
+        'unavailable' => ShareDispatch.unavailable,
+        _ => ShareDispatch.failed,
+      };
+      expect(await enabled.sharePhotos(package), expected);
+    }
+  });
+  test(
+    'photo handoff sends every ordered frozen file and no caption',
+    () async {
+      final enabled = MethodChannelAndroidTransfer(
+        Directory('/private/instagram-packages'),
+        shareCapability: InstagramShareCapability(
+          carousel: true,
+          checkedAt: DateTime.utc(2026),
+          device: 'fixture',
+          instagramVersion: 'fixture',
+        ),
+      );
+      final multiple = package.copyWith(
+        photos: [
+          package.photos.single,
+          package.photos.single.copyWith(
+            ordinal: 2,
+            relativePath: '${package.id}/02.jpg',
+          ),
+        ],
+      );
+      MethodCall? sent;
+      messenger.setMockMethodCallHandler(MethodChannelAndroidTransfer.channel, (
+        call,
+      ) async {
+        sent = call;
+        return {
+          'status': 'dispatchedToInstagram',
+          'targetPackage': 'com.instagram.android',
+        };
+      });
+      expect(
+        await enabled.sharePhotos(multiple),
+        ShareDispatch.dispatchedToInstagram,
+      );
+      expect(sent!.method, 'sharePhotos');
+      final arguments = sent!.arguments as Map;
+      final photos = arguments['photos'] as List;
+      expect(photos.length, 2);
+      expect((photos[0] as Map)['mimeType'], 'image/png');
+      expect((photos[1] as Map)['mimeType'], 'image/jpeg');
+      expect((photos[1] as Map)['sourcePath'], endsWith('02.jpg'));
+      expect(arguments.containsKey('caption'), isFalse);
+      expect(arguments.containsKey('text'), isFalse);
+    },
+  );
+  test(
+    'revoked photo URI or Android error is never a successful dispatch',
+    () async {
+      final enabled = MethodChannelAndroidTransfer(
+        Directory('/private/instagram-packages'),
+        shareCapability: InstagramShareCapability(
+          singlePhoto: true,
+          checkedAt: DateTime.utc(2026),
+          device: 'fixture',
+          instagramVersion: 'fixture',
+        ),
+      );
+      messenger.setMockMethodCallHandler(
+        MethodChannelAndroidTransfer.channel,
+        (_) async => throw PlatformException(code: 'access-revoked'),
+      );
+      expect(await enabled.sharePhotos(package), ShareDispatch.failed);
+      expect(await enabled.openInstagram(), LaunchResult.failed);
+    },
+  );
 }

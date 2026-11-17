@@ -15,13 +15,11 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
-import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 /** Per-job scoped MediaStore work. Never queries, edits or deletes unrelated media. */
-class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChannel.MethodCallHandler {
-    private val root = File(context.filesDir, "instagram-packages").canonicalFile
+class MediaExporter(context: Context, messenger: BinaryMessenger, private val instagram: InstagramTransfer) : MethodChannel.MethodCallHandler {
+    private val files = PreparedPhotoFiles(context)
     private val resolver = context.contentResolver
     private val owner = context.packageName
     private val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -34,22 +32,31 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
     init { channel.setMethodCallHandler(this) }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method != "savePhoto" && call.method != "reconcilePhoto") {
+        if (call.method == "openInstagram") {
+            instagram.open(result)
+            return
+        }
+        if (call.method != "savePhoto" && call.method != "reconcilePhoto" && call.method != "sharePhotos") {
             result.notImplemented()
             return
         }
         worker.execute {
             try {
+                if (call.method == "sharePhotos") {
+                    val intent = instagram.prepareShare(call)
+                    main.post { instagram.dispatch(intent, result) }
+                    return@execute
+                }
                 val request = request(call)
                 val existing = reconcile(request)
                 val uri = existing ?: if (call.method == "savePhoto") save(request) else null
                 main.post { result.success(if (uri == null) emptyMap<String, String>() else mapOf("uri" to uri.toString())) }
             } catch (_: IllegalArgumentException) {
-                main.post { result.error("invalid-export", "A valid prepared photo and export job are required.", null) }
+                main.post { result.error(if (call.method == "sharePhotos") "invalid-share" else "invalid-export", "Valid prepared photos and operation details are required.", null) }
             } catch (_: SecurityException) {
                 main.post { result.error("access-revoked", "This app cannot access that saved photo. Check gallery access and retry.", null) }
             } catch (_: Exception) {
-                main.post { result.error("export-unavailable", "This photo could not be saved or checked. Check storage and retry.", null) }
+                main.post { result.error(if (call.method == "sharePhotos") "share-unavailable" else "export-unavailable", "Prepared photos could not be transferred or checked. Keep the package and try again.", null) }
             }
         }
     }
@@ -63,19 +70,10 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
         val mimeType = call.argument<String>("mimeType") ?: throw IllegalArgumentException()
         val hash = call.argument<String>("expectedHash") ?: throw IllegalArgumentException()
         require(Regex("^$uuid$").matches(jobId))
-        require(Regex("^[0-9a-f]{64}$").matches(hash))
-        val source = File(sourcePath)
-        require(source.isAbsolute && sourcePath.split(File.separatorChar).none { it == "." || it == ".." })
-        // Android aliases /data/user/0 and /data/data. Compare canonical paths,
-        // then require the exact package/ordinal shape under this private root.
-        val file = source.canonicalFile
-        require(file.path.startsWith(root.path + File.separator))
-        val relative = file.relativeTo(root).invariantSeparatorsPath
-        require(Regex("^$uuid/(0[1-9]|1[0-9]|20)\\.(png|jpg)$").matches(relative))
+        val file = files.file(sourcePath, mimeType, hash)
         val ordinal = file.name.substringBefore('.')
         val extension = file.extension
         require(displayName == "caption-$jobId-$ordinal.$extension")
-        require(mimeType == if (extension == "png") "image/png" else "image/jpeg")
         val receipt = call.argument<String>("uri")?.let { value ->
             val uri = Uri.parse(value)
             val id = uri.lastPathSegment?.toLongOrNull() ?: throw IllegalArgumentException()
@@ -85,17 +83,6 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
             uri
         }
         return Request(file, displayName, mimeType, hash, receipt)
-    }
-
-    private fun hash(input: InputStream): String = input.use {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val buffer = ByteArray(64 * 1024)
-        while (true) {
-            val count = it.read(buffer)
-            if (count < 0) break
-            digest.update(buffer, 0, count)
-        }
-        digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
     private data class Row(val uri: Uri, val pending: Boolean)
@@ -148,7 +135,7 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
         var complete: Uri? = null
         for (row in rows(request)) {
             val input = resolver.openInputStream(row.uri) ?: throw IOException("Media stream unavailable")
-            val matches = hash(input) == request.hash
+            val matches = files.hash(input) == request.hash
             if (matches) {
                 if (complete != null) throw IOException("Multiple completed rows require recovery")
                 if (row.pending) publish(row.uri)
@@ -171,8 +158,7 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
     }
 
     private fun save(request: Request): Uri {
-        require(request.source.isFile && request.source.canRead())
-        require(hash(request.source.inputStream()) == request.hash)
+        files.verify(request.source, request.hash)
         val uri = resolver.insert(collection, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, request.displayName)
             put(MediaStore.Images.Media.MIME_TYPE, request.mimeType)
@@ -186,7 +172,7 @@ class MediaExporter(context: Context, messenger: BinaryMessenger) : MethodChanne
                 it.flush()
             }
             val written = resolver.openInputStream(uri) ?: throw IOException("Media stream unavailable")
-            if (hash(written) != request.hash) throw IOException("Photo write incomplete")
+            if (files.hash(written) != request.hash) throw IOException("Photo write incomplete")
             publish(uri)
             return uri
         } catch (error: Exception) {

@@ -22,11 +22,20 @@ final fixtureInstagramPolicy = InstagramPhotoPolicy(
 
 Future<InstagramTestServices> instagramTestServices({
   AndroidTransfer? transfer,
-}) async =>
-    InstagramTestServices(await localTestServices(), transfer: transfer);
+  InstagramShareCapability shareCapability = const InstagramShareCapability(),
+}) async => InstagramTestServices(
+  await localTestServices(),
+  transfer: transfer,
+  shareCapability: shareCapability,
+);
 
 class InstagramTestServices {
-  InstagramTestServices(this.app, {this.transfer});
+  InstagramTestServices(
+    this.app, {
+    this.transfer,
+    this.shareCapability = const InstagramShareCapability(),
+  });
+  final InstagramShareCapability shareCapability;
   final AndroidTransfer? transfer;
   final AppServices app;
   InstagramRepository get instagramRepo => app.instagramRepo;
@@ -47,6 +56,7 @@ class InstagramTestServices {
     app.ids,
     app.clock,
     transfer: transfer,
+    shareCapability: shareCapability,
   );
 
   Future<ReviewedPost> reviewTwoPhotos(String caption) async {

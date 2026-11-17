@@ -164,7 +164,10 @@ class InstagramService {
     this.ids,
     this.clock, {
     AndroidTransfer? transfer,
-  }) : transfer = transfer ?? MethodChannelAndroidTransfer(root);
+    this.shareCapability = const InstagramShareCapability(),
+  }) : transfer =
+           transfer ??
+           MethodChannelAndroidTransfer(root, shareCapability: shareCapability);
   final InstagramRepository repository;
   final MediaFiles media;
 
@@ -174,6 +177,7 @@ class InstagramService {
   final Ids ids;
   final Clock clock;
   final AndroidTransfer transfer;
+  final InstagramShareCapability shareCapability;
   final _exporting = <String, Future<List<PhotoSaveResult>>>{};
   final _preparing = <String, Future<InstagramPackage>>{};
 
@@ -181,6 +185,57 @@ class InstagramService {
     final package = await repository.get(id);
     if (package == null) throw StateError('Prepared package unavailable.');
     return package;
+  }
+
+  Future<LaunchResult> open(String packageId) async {
+    await _package(packageId);
+    final launchId = ids.next();
+    final outcome = await transfer.openInstagram();
+    if (outcome == LaunchResult.opened) {
+      await repository.append(
+        packageId,
+        InstagramEvent(
+          id: ids.next(),
+          kind: InstagramEventKind.opened,
+          at: clock.now(),
+          launchId: launchId,
+        ),
+      );
+    }
+    return outcome;
+  }
+
+  Future<ShareDispatch> share(String packageId) async {
+    final package = await _package(packageId);
+    if (!shareCapability.supports(package.photos.length)) {
+      return ShareDispatch.unavailable;
+    }
+    for (final photo in package.photos) {
+      await fileFor(package, photo);
+    }
+    final launchId = ids.next();
+    final outcome = await transfer.sharePhotos(package);
+    final kind = switch (outcome) {
+      ShareDispatch.dispatchedToInstagram =>
+        InstagramEventKind.targetDispatched,
+      ShareDispatch.chooserOpened => InstagramEventKind.chooserOpened,
+      _ => null,
+    };
+    if (kind != null) {
+      await repository.append(
+        packageId,
+        InstagramEvent(
+          id: ids.next(),
+          kind: kind,
+          at: clock.now(),
+          launchId: launchId,
+          targetPackage: outcome == ShareDispatch.dispatchedToInstagram
+              ? 'com.instagram.android'
+              : null,
+        ),
+      );
+    }
+    return outcome;
   }
 
   Future<void> copyCaption(String packageId) async {
