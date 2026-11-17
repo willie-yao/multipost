@@ -25,6 +25,9 @@ class MemoryCredentialVault implements CredentialVault {
   bool deleteFails = false;
   Completer<void>? writeBarrier;
   Completer<void>? writeStarted;
+  Completer<void>? repairStarted;
+  Completer<void>? repairBarrier;
+  bool repairFails = false;
   @override
   Future<String?> read(Destination destination) async {
     if (readFails) throw const CredentialStorageFailure();
@@ -37,6 +40,17 @@ class MemoryCredentialVault implements CredentialVault {
     await writeBarrier?.future;
     if (writeFails) throw const CredentialStorageFailure();
     value = session;
+  }
+
+  @override
+  Future<void> repair(Destination destination) async {
+    repairStarted?.complete();
+    await repairBarrier?.future;
+    if (repairFails) throw const CredentialStorageFailure();
+    value = null;
+    readFails = false;
+    writeFails = false;
+    deleteFails = false;
   }
 
   @override
@@ -54,6 +68,7 @@ class FakeXOAuthDriver implements XOAuthDriver {
   Completer<XTokenSet>? authorization;
   Completer<XTokenSet>? rotation;
   int refreshCalls = 0;
+  int authorizeCalls = 0;
   final refreshStarted = Completer<void>();
   XTokenSet tokens([String suffix = 'initial']) => XTokenSet(
     accessToken: 'opaque-access-$suffix',
@@ -62,6 +77,7 @@ class FakeXOAuthDriver implements XOAuthDriver {
   );
   @override
   Future<XTokenSet> authorize() async {
+    authorizeCalls++;
     if (authorizeError case final error?) throw error;
     return authorization == null ? tokens() : authorization!.future;
   }

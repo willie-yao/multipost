@@ -213,9 +213,10 @@ Cold-process OAuth resumption is not claimed. Normal native activity recreation
 and actual external-browser return/cancel still require device/provider tests.
 
 Secure storage uses package RSA-OAEP key wrapping backed by Android Keystore and
-AES-GCM ciphertext under the fixed caption_credentials namespace. Automatic
-reset-on-error is disabled; invalidation expires the public account and requires
-reconnection while retaining drafts/results. Session JSON binds version1,
+AES-GCM ciphertext under fixed, separate caption_x_credentials and caption_bluesky_credentials
+namespaces. Ordinary operations disable reset-on-error; unavailable secure storage
+marks the public account repairRequired and requires explicit repair confirmation
+before a fresh reconnect, while retaining drafts/results. Session JSON binds version1,
 public client ID, exact redirect, stable identity, access/refresh tokens and expiry.
 Public metadata alone lives in SQLite accounts (schema4).
 
@@ -223,8 +224,9 @@ The pinned package's FlutterSecureStorage.writeUnsafe calls Editor.apply and
 returns before the disk write; the wrapped key and namespaced cipher config also
 use preferences. Caption awaits its package write/delete, then invokes one
 accounts-owned background commit barrier covering the three artifacts in that
-single namespace: FlutterSecureKeyStorage:caption_credentials,
-FlutterSecureStorageConfiguration:caption_credentials, caption_credentials.
+affected provider namespace: FlutterSecureKeyStorage:<namespace>,
+FlutterSecureStorageConfiguration:<namespace>, <namespace>. The native bridge
+accepts only fixed x/bluesky destination values, never arbitrary namespace names.
 Each empty editor.commit waits for preceding applies in that file and returns a
 boolean; false/native failures become CredentialStorageFailure. This reuses
 package encryption and Android's durability contract, without custom crypto.
@@ -242,7 +244,8 @@ network completions by generation. Disconnect increments the fence before
 awaiting metadata clear and secure deletion, preventing late connect/refresh
 resurrection. A rejected/revoked refresh expires the account; offline/timeout
 retains its credentials and reports unavailable connectivity. Failed rotation
-storage expires the account and blocks healthy authorization until reconnect.
+storage marks repairRequired and blocks healthy authorization until deliberate repair
+and a fresh reconnect.
 Changed subject invalidates the immutable reviewed account through the existing
 ReviewService revalidation comparison. No content/results are deleted.
 
@@ -256,3 +259,54 @@ release-only R8 stripping plus artifact/device evidence before accepting that
 boundary. This task does not use reflection, SDK test hooks or an SDK fork.
 Registered callback/owner access and billing decisions, actual browser/MFA/cancel,
 logcat privacy, release artifact routing and real account checks remain unresolved.
+
+### P2 review fix: deliberate repair and durable removal
+
+CredentialVault adds repair(Destination); AccountConnection adds
+repairCredentials(). These are exceptional destructive operations called only
+after the user confirms the provider-specific Accounts dialog. Reset never
+reports Connected: it durably clears only that provider's secure session, leaves
+public state disconnected, and requires a separate ordinary Connect action.
+No raw SDK exception parsing is used to infer permission for deletion.
+
+AccountState.repairRequired and removalPending are narrow durable metadata
+states. Ordinary secure-storage errors mark repairRequired; a disconnect first
+saves removalPending with identity cleared, then deletes credentials durably,
+then saves disconnected. Both states block authorization and reconnect. Accounts
+offers Retry removing <provider> after failure and on a fresh open, without
+requiring sign-in; repair is also available if deletion cannot initialize the
+broken key. Retrying deletion is idempotent. Explicit repair preserves an existing
+removalPending intent on failure. SQLite schema remains 4: only additive enum
+serialization changed; no old enum values were renamed. P3 must honor these
+states, the explicit confirmation contract and the vault-wide operation queue.
+
+Pinned native namespace evidence: FlutterSecureStorageConfig
+getEffectiveDataPrefsName/getEffectiveKeyStoragePrefsName/getKeyAliasSuffix
+scope data prefs, wrapped-key prefs and alias suffix to storageNamespace.
+NamespacedConfigSource writes FlutterSecureStorageConfiguration:<namespace>.
+KeyCipherImplementationRSAOAEP appends .<namespace> to the package's
+FlutterSecureStoragePluginKeyOAEP alias. StorageCipherFactory passes that config
+to the key/storage cipher, so repairing X cannot delete Bluesky's RSA alias,
+wrapped key, config or ciphertext. No migration from the old unreleased shared
+namespace is provided: the old synthetic session was explicitly deleted, and
+production connections have never been enabled.
+
+flutter_secure_storage 11.2.0 initialize() short-circuits when already initialized
+and retains resetOnError. Explicit repair therefore uses the official Flutter
+plugin detach/attach lifecycle around package deleteAll with resetOnError:true
+and migrateOnAlgorithmChange:false. The accounts channel marshals only
+FlutterSecureStoragePlugin removal/recreation to Android's UI thread. A private,
+static SecureCredentialVault queue covers every package call across all vault
+instances/providers, so none overlaps this cache boundary. The existing background
+commit barrier awaits the affected namespace before success. A finally block
+recreates the plugin again; ordinary calls then use resetOnError:false. If final
+cache restoration fails, a shared in-memory guard blocks normal calls until a
+successful explicit repair or process restart rather than allowing inherited
+destructive configuration. Other providers' disk material remains intact; no
+credentials are copied, logged or put in public metadata.
+
+This lifecycle coupling should be removed when a maintained package exposes a
+supported per-namespace reinitialization/reset API that restores non-destructive
+configuration. Reinspect exact names/cache/reset semantics on package upgrades.
+The real key-loss fixture and two-provider process-persistence evidence are in
+task-13-report.md; synthetic test-only instrumentation is excluded from production.

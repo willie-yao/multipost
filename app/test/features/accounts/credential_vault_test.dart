@@ -23,12 +23,13 @@ void main() {
       final commits = Completer<bool>();
       final commitStarted = Completer<void>();
       final calls = <String>[];
+      String? namespace;
       messenger.setMockMethodCallHandler(storage, (call) async {
         calls.add(call.method);
         final args = call.arguments as Map;
         expect(args['key'], 'session.x');
         final options = args['options'] as Map;
-        expect(options['storageNamespace'], 'caption_credentials');
+        namespace = options['storageNamespace'] as String?;
         expect(options['resetOnError'], 'false');
         return null;
       });
@@ -45,6 +46,7 @@ void main() {
       expect(done, isFalse);
       commits.complete(true);
       await writing;
+      expect(namespace, 'caption_x_credentials');
       expect(calls, ['write', 'commitCredentials']);
     },
   );
@@ -112,6 +114,113 @@ void main() {
     await expectLater(
       vault.read(Destination.x),
       throwsA(isA<CredentialStorageFailure>()),
+    );
+  });
+  test('explicit repair resets only its provider then restores non-destructive calls', () async {
+    final calls = <String>[];
+    final namespaces = <String>[];
+    final resetFlags = <String>[];
+    final commit = Completer<bool>();
+    final started = Completer<void>();
+    messenger.setMockMethodCallHandler(storage, (call) async {
+      calls.add(call.method);
+      final options = (call.arguments as Map)['options'] as Map;
+      namespaces.add(options['storageNamespace'] as String);
+      resetFlags.add(options['resetOnError'] as String);
+      return null;
+    });
+    messenger.setMockMethodCallHandler(accounts, (call) async {
+      calls.add(call.method);
+      if (call.method == 'commitCredentials') {
+        expect(call.arguments, 'x');
+        started.complete();
+        return commit.future;
+      }
+      return true;
+    });
+    var done = false;
+    final repairing = vault.repair(Destination.x).then((_) => done = true);
+    await started.future;
+    final otherProviderRead = const SecureCredentialVault().read(
+      Destination.bluesky,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, isNot(contains("read")));
+    expect(done, isFalse);
+    commit.complete(true);
+    await repairing;
+    await otherProviderRead;
+    await vault.read(Destination.x);
+    expect(calls, [
+      'reinitializeCredentialStorage',
+      'deleteAll',
+      'commitCredentials',
+      'reinitializeCredentialStorage',
+      'read',
+      'read',
+    ]);
+    expect(namespaces, [
+      'caption_x_credentials',
+      'caption_bluesky_credentials',
+      'caption_x_credentials',
+    ]);
+    expect(resetFlags, ['true', 'false', 'false']);
+  });
+
+  test(
+    'repair failure still discards destructive cache and returns safe error',
+    () async {
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(
+        storage,
+        (_) async => throw PlatformException(
+          code: 'key_lost',
+          message: 'private key data',
+        ),
+      );
+      messenger.setMockMethodCallHandler(accounts, (call) async {
+        calls.add(call.method);
+        return true;
+      });
+      await expectLater(
+        vault.repair(Destination.x),
+        throwsA(isA<CredentialStorageFailure>()),
+      );
+      expect(calls, [
+        'reinitializeCredentialStorage',
+        'reinitializeCredentialStorage',
+      ]);
+    },
+  );
+  test('failed final cache restoration blocks every normal vault instance until repair', () async {
+    var reinitializations = 0;
+    var packageCalls = 0;
+    messenger.setMockMethodCallHandler(storage, (_) async {
+      packageCalls++;
+      return null;
+    });
+    messenger.setMockMethodCallHandler(accounts, (call) async {
+      if (call.method == 'reinitializeCredentialStorage') {
+        reinitializations++;
+        return reinitializations != 2;
+      }
+      return true;
+    });
+    await expectLater(
+      vault.repair(Destination.x),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    final before = packageCalls;
+    await expectLater(
+      const SecureCredentialVault().read(Destination.bluesky),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    expect(packageCalls, before);
+    // A successful explicit retry restores the shared cache for all vaults.
+    await vault.repair(Destination.x);
+    expect(
+      await const SecureCredentialVault().read(Destination.bluesky),
+      isNull,
     );
   });
 }

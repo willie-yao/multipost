@@ -46,6 +46,9 @@ class _Connection implements AccountConnection {
   Object? error;
   Completer<void>? barrier;
   int connectCalls = 0;
+  int disconnectCalls = 0;
+  int repairCalls = 0;
+  bool deleteFails = false;
   @override
   Future<AccountIdentity> connect({String? handle}) async {
     connectCalls++;
@@ -65,6 +68,23 @@ class _Connection implements AccountConnection {
 
   @override
   Future<void> disconnect() async {
+    disconnectCalls++;
+    if (deleteFails) {
+      accounts.value = accounts.value.copyWith(
+        state: AccountState.removalPending,
+        identity: null,
+      );
+      throw const CredentialStorageFailure();
+    }
+    accounts.value = accounts.value.copyWith(
+      state: AccountState.disconnected,
+      identity: null,
+    );
+  }
+
+  @override
+  Future<void> repairCredentials() async {
+    repairCalls++;
     accounts.value = accounts.value.copyWith(
       state: AccountState.disconnected,
       identity: null,
@@ -193,4 +213,97 @@ void main() {
     await tester.scrollUntilVisible(find.textContaining('Sign-in uses'), 200);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'failed removal can be retried after reopening at 320dp 200 percent',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final accounts = _Accounts();
+      final connection = _Connection(accounts);
+      await connection.connect();
+      connection.deleteFails = true;
+      Widget screen(Key key) => CaptionApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: AccountsScreen(
+            key: key,
+            accounts: accounts,
+            connections: {Destination.x: connection},
+          ),
+        ),
+      );
+      await tester.pumpWidget(screen(const ValueKey(1)));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Reconnect X'));
+      await tester.ensureVisible(find.text('Disconnect X'));
+      await tester.tap(find.text('Disconnect X'));
+      await tester.pumpAndSettle();
+      expect(find.text('Removal pending'), findsOneWidget);
+      expect(find.text('Connect X'), findsNothing);
+      expect(find.text('Retry'), findsNothing);
+      await tester.ensureVisible(find.text('Retry removing X'));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(screen(const ValueKey(2)));
+      await tester.pumpAndSettle();
+      connection.deleteFails = false;
+      await tester.ensureVisible(find.text('Retry removing X'));
+      await tester.tap(find.text('Retry removing X'));
+      await tester.pumpAndSettle();
+      expect(connection.disconnectCalls, 2);
+      expect(find.text('Not connected'), findsOneWidget);
+      expect(connection.connectCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'repair requires confirmation and leaves fresh connect explicit at 320dp 200 percent',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final accounts = _Accounts();
+      accounts.value = accounts.value.copyWith(
+        state: AccountState.repairRequired,
+      );
+      final connection = _Connection(accounts);
+      await tester.pumpWidget(
+        CaptionApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: AccountsScreen(
+              accounts: accounts,
+              connections: {Destination.x: connection},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Repair X connection storage'));
+      await tester.tap(find.text('Repair X connection storage'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Only this X connection'), findsOneWidget);
+      await tester.ensureVisible(find.text('Keep connection data'));
+      await tester.tap(find.text('Keep connection data'));
+      await tester.pumpAndSettle();
+      expect(connection.repairCalls, 0);
+      await tester.ensureVisible(find.text('Repair X connection storage'));
+      await tester.tap(find.text('Repair X connection storage'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Repair storage'));
+      await tester.tap(find.text('Repair storage'));
+      await tester.pumpAndSettle();
+      expect(connection.repairCalls, 1);
+      expect(connection.connectCalls, 0);
+      expect(find.text('Connected'), findsNothing);
+      await tester.ensureVisible(find.text('Connect X'));
+      await tester.tap(find.text('Connect X'));
+      await tester.pumpAndSettle();
+      expect(find.text('Connected'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

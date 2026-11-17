@@ -49,4 +49,6 @@ const _$AccountStateEnumMap = {
   AccountState.connected: 'connected',
   AccountState.expired: 'expired',
   AccountState.unavailable: 'unavailable',
+  AccountState.repairRequired: 'repairRequired',
+  AccountState.removalPending: 'removalPending',
 };

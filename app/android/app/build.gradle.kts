@@ -35,6 +35,7 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "org.example.crossposting"
+        testInstrumentationRunner = "org.example.crossposting.CredentialKeyLossInstrumentation"
         manifestPlaceholders["appAuthRedirectScheme"] = "org.example.crossposting.unconfigured"
         manifestPlaceholders["captionXCallbackEnabled"] = xRedirectTarget.isNotEmpty().toString()
         manifestPlaceholders["captionXCustomScheme"] = if (xRedirect?.scheme != "https")

@@ -181,6 +181,15 @@ class XConnection implements AccountConnection {
 
   Future<AccountIdentity> _connect(int generation) async {
     try {
+      await _serial(() async {
+        _current(generation);
+        final state = (await accounts.get(Destination.x)).state;
+        if (state == AccountState.removalPending ||
+            state == AccountState.repairRequired) {
+          throw const CredentialStorageFailure();
+        }
+      });
+      _current(generation);
       final tokens = await driver.authorize();
       _current(generation);
       _validateTokens(tokens);
@@ -202,7 +211,7 @@ class XConnection implements AccountConnection {
             }),
           );
         } catch (_) {
-          await accounts.setState(Destination.x, AccountState.expired);
+          await accounts.setState(Destination.x, AccountState.repairRequired);
           throw const CredentialStorageFailure();
         }
         _current(generation);
@@ -284,7 +293,7 @@ class XConnection implements AccountConnection {
         try {
           stored = await vault.read(Destination.x);
         } catch (_) {
-          await accounts.setState(Destination.x, AccountState.expired);
+          await accounts.setState(Destination.x, AccountState.repairRequired);
           throw const CredentialStorageFailure();
         }
         try {
@@ -336,7 +345,7 @@ class XConnection implements AccountConnection {
             }),
           );
         } catch (_) {
-          await accounts.setState(Destination.x, AccountState.expired);
+          await accounts.setState(Destination.x, AccountState.repairRequired);
           throw const CredentialStorageFailure();
         }
         _current(generation);
@@ -371,14 +380,42 @@ class XConnection implements AccountConnection {
   });
 
   @override
-  Future<void> disconnect() {
-    ++_generation;
+  Future<void> repairCredentials() {
+    final generation = ++_generation;
     return _serial(() async {
-      // Clear identity even when secure deletion fails; never show Connected.
+      _current(generation);
+      final before = await accounts.get(Destination.x);
+      await accounts.save(
+        AccountView(
+          destination: Destination.x,
+          state: before.state == AccountState.removalPending
+              ? AccountState.removalPending
+              : AccountState.repairRequired,
+          capability: configuration.connection(Destination.x).reason,
+        ),
+      );
+      await vault.repair(Destination.x);
+      _current(generation);
       await accounts.save(
         AccountView(
           destination: Destination.x,
           state: AccountState.disconnected,
+          capability: configuration.connection(Destination.x).reason,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> disconnect() {
+    ++_generation;
+    return _serial(() async {
+      // Persist the removal intent before touching secrets. It remains discoverable
+      // after failure/process death; authorization is blocked until completion.
+      await accounts.save(
+        AccountView(
+          destination: Destination.x,
+          state: AccountState.removalPending,
           capability: configuration.connection(Destination.x).reason,
         ),
       );
@@ -387,6 +424,13 @@ class XConnection implements AccountConnection {
       } catch (_) {
         throw const CredentialStorageFailure();
       }
+      await accounts.save(
+        AccountView(
+          destination: Destination.x,
+          state: AccountState.disconnected,
+          capability: configuration.connection(Destination.x).reason,
+        ),
+      );
     });
   }
 }

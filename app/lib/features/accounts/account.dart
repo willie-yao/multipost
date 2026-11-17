@@ -4,7 +4,15 @@ import '../drafts/draft.dart';
 part 'account.freezed.dart';
 part 'account.g.dart';
 
-enum AccountState { disconnected, connecting, connected, expired, unavailable }
+enum AccountState {
+  disconnected,
+  connecting,
+  connected,
+  expired,
+  unavailable,
+  repairRequired,
+  removalPending,
+}
 
 @freezed
 abstract class AccountIdentity with _$AccountIdentity {
@@ -39,6 +47,7 @@ String destinationName(Destination value) => switch (value) {
 abstract interface class AccountConnection {
   Future<AccountIdentity> connect({String? handle});
   Future<void> disconnect();
+  Future<void> repairCredentials();
   Future<void> ensureAuthorized();
 }
 

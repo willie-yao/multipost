@@ -27,6 +27,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   bool _assisted = true;
   String? _error;
   bool _busy = false;
+  bool _loadFailed = false;
   @override
   void initState() {
     super.initState();
@@ -39,6 +40,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       final assisted = await widget.accounts.instagramAssistedSharing();
       if (mounted) {
         setState(() {
+          _loadFailed = false;
           _accounts = accounts;
           _assisted = assisted;
           _error = null;
@@ -46,9 +48,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = 'Accounts could not load or save. Try again. Your drafts are safe.',
-        );
+        setState(() {
+          _loadFailed = true;
+          _error = 'Accounts could not load or save. Try again. Your drafts are safe.';
+        });
       }
     }
   }
@@ -105,9 +108,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = 'Accounts could not load or save. Try again. Your drafts are safe.',
-        );
+        setState(() {
+          _loadFailed = true;
+          _error = 'Accounts could not load or save. Try again. Your drafts are safe.';
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -117,19 +121,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
   Future<void> _connectionAction(
     AccountView account, {
     bool disconnect = false,
+    bool repair = false,
   }) async {
     if (_busy) return;
     final connection = widget.connections[account.destination];
     if (connection == null) return;
     setState(() {
       _busy = true;
+      _loadFailed = false;
       _error = null;
     });
     try {
       if (widget.controller != null && !await widget.controller!.flush()) {
         return;
       }
-      if (disconnect) {
+      if (repair) {
+        await connection.repairCredentials();
+      } else if (disconnect) {
         await connection.disconnect();
       } else {
         await connection.connect();
@@ -140,7 +148,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
       if (mounted) {
         setState(
           () => _error = switch (error) {
-            CredentialStorageFailure() => error.toString(),
+            CredentialStorageFailure() =>
+              repair
+                  ? "Couldn't repair connection storage. Try again. Your drafts are safe."
+                  : disconnect
+                  ? "Couldn't remove this connection. Retry removal below. Your drafts are safe."
+                  : error.toString(),
             AccountConnectionCancelled() =>
               'Connection cancelled. Your drafts are safe.',
             AccountConnectionExpired() =>
@@ -158,6 +171,34 @@ class _AccountsScreenState extends State<AccountsScreen> {
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _repairConnection(AccountView account) async {
+    if (_busy) return;
+    final name = destinationName(account.destination);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: Text('Repair $name connection storage?'),
+        content: Text(
+          'Only this $name connection will be removed from this phone and its secure storage reset. Other connections, drafts, results and media stay. You will need to connect $name again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep connection data'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Repair storage'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _connectionAction(account, repair: true);
     }
   }
 
@@ -192,7 +233,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
         if (_error != null) ...[
           Text(_error!),
-          TextButton(onPressed: _load, child: const Text('Retry')),
+          if (_loadFailed)
+            TextButton(
+              onPressed: _busy ? null : _load,
+              child: const Text('Retry'),
+            ),
         ],
         if (_accounts == null && _error == null)
           const Center(child: CircularProgressIndicator()),
@@ -224,29 +269,59 @@ class _AccountsScreenState extends State<AccountsScreen> {
               AccountState.connected => 'Connected',
               AccountState.expired => 'Connection expired',
               AccountState.unavailable => 'Unavailable',
+              AccountState.repairRequired =>
+                'Connection storage needs attention',
+              AccountState.removalPending => 'Removal pending',
             }),
             Text(account.capability),
             if (account.identity != null) Text(account.identity!.handle),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : account.state == AccountState.unavailable ||
-                          !widget.connections.containsKey(account.destination)
-                    ? () => _connectionSetup(account)
-                    : () => _connectionAction(account),
-                child: Text(
-                  account.state == AccountState.unavailable ||
-                          !widget.connections.containsKey(account.destination)
-                      ? 'Connection setup required'
-                      : account.state == AccountState.connected ||
-                            account.state == AccountState.expired
-                      ? 'Reconnect ${destinationName(account.destination)}'
-                      : 'Connect ${destinationName(account.destination)}',
+            if (account.state != AccountState.removalPending &&
+                account.state != AccountState.repairRequired)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : account.state == AccountState.unavailable ||
+                            !widget.connections.containsKey(account.destination)
+                      ? () => _connectionSetup(account)
+                      : () => _connectionAction(account),
+                  child: Text(
+                    account.state == AccountState.unavailable ||
+                            !widget.connections.containsKey(account.destination)
+                        ? 'Connection setup required'
+                        : account.state == AccountState.connected ||
+                              account.state == AccountState.expired
+                        ? 'Reconnect ${destinationName(account.destination)}'
+                        : 'Connect ${destinationName(account.destination)}',
+                  ),
                 ),
               ),
-            ),
+            if (account.state == AccountState.removalPending &&
+                widget.connections.containsKey(account.destination))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _connectionAction(account, disconnect: true),
+                  child: Text(
+                    'Retry removing ${destinationName(account.destination)}',
+                  ),
+                ),
+              ),
+            if ((account.state == AccountState.repairRequired ||
+                    account.state == AccountState.removalPending) &&
+                widget.connections.containsKey(account.destination))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _busy ? null : () => _repairConnection(account),
+                  child: Text(
+                    'Repair ${destinationName(account.destination)} connection storage',
+                  ),
+                ),
+              ),
             if (account.identity != null &&
                 widget.connections.containsKey(account.destination))
               Align(

@@ -10,7 +10,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        accountsChannel = AccountsChannel(this, flutterEngine.dartExecutor.binaryMessenger)
+        accountsChannel = AccountsChannel(this, flutterEngine)
         mediaProbe = MediaProbe(this, flutterEngine.dartExecutor.binaryMessenger)
         mediaExporter = MediaExporter(this, flutterEngine.dartExecutor.binaryMessenger, InstagramTransfer(this))
     }

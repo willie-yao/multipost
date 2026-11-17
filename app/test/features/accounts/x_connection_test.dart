@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cross_posting_app/features/accounts/account.dart';
+import 'package:cross_posting_app/features/accounts/account_repository.dart';
+import 'package:cross_posting_app/features/drafts/draft_repository.dart';
 import 'package:cross_posting_app/features/accounts/credential_vault.dart';
 import 'package:cross_posting_app/features/accounts/x_connection.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
@@ -149,7 +151,10 @@ void main() {
         h.x.ensureAuthorized(),
         throwsA(isA<CredentialStorageFailure>()),
       );
-      expect((await h.accounts.get(Destination.x)).state, AccountState.expired);
+      expect(
+        (await h.accounts.get(Destination.x)).state,
+        AccountState.repairRequired,
+      );
       h.vault.writeFails = false;
       await expectLater(
         h.x.ensureAuthorized(),
@@ -160,7 +165,7 @@ void main() {
   );
 
   test(
-    'keystore read failure requires reconnection and preserves draft',
+    'keystore read failure requires deliberate repair and preserves draft',
     () async {
       final h = await accountHarness();
       addTearDown(h.close);
@@ -170,7 +175,10 @@ void main() {
         h.x.ensureAuthorized(),
         throwsA(isA<CredentialStorageFailure>()),
       );
-      expect((await h.accounts.get(Destination.x)).state, AccountState.expired);
+      expect(
+        (await h.accounts.get(Destination.x)).state,
+        AccountState.repairRequired,
+      );
       expect(await h.drafts.get('draft-1'), isNotNull);
     },
   );
@@ -272,7 +280,7 @@ void main() {
       );
       expect(
         (await h.accounts.get(Destination.x)).state,
-        AccountState.disconnected,
+        AccountState.removalPending,
       );
       expect((await h.accounts.get(Destination.x)).identity, isNull);
       await expectLater(
@@ -355,4 +363,206 @@ void main() {
       expect(h.vault.value, isNull);
     },
   );
+  test(
+    'failed removal remains durable and can retry without reauthorization',
+    () async {
+      final h = await accountHarness();
+      addTearDown(h.close);
+      await h.x.connect();
+      h.vault.deleteFails = true;
+      await expectLater(
+        h.x.disconnect(),
+        throwsA(isA<CredentialStorageFailure>()),
+      );
+      expect(
+        (await h.accounts.get(Destination.x)).state.name,
+        'removalPending',
+      );
+      expect((await h.accounts.get(Destination.x)).identity, isNull);
+      final stored = await h.fixture.database.db.query('accounts');
+      expect(stored.single['payload'], contains('removalPending'));
+      await expectLater(
+        h.x.ensureAuthorized(),
+        throwsA(isA<AccountConnectionExpired>()),
+      );
+      h.vault.deleteFails = false;
+      await h.x.disconnect();
+      expect(h.vault.value, isNull);
+      expect(
+        (await h.accounts.get(Destination.x)).state,
+        AccountState.disconnected,
+      );
+      expect((await h.drafts.get('draft-1'))!.shared.text, 'Kept draft');
+    },
+  );
+  test('deliberate repair fences old authorization and never connects by resetting', () async {
+    final h = await accountHarness();
+    addTearDown(h.close);
+    await h.x.connect();
+    h.vault.readFails = true;
+    h.vault.writeFails = true;
+    await expectLater(
+      h.x.ensureAuthorized(),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    expect((await h.accounts.get(Destination.x)).state.name, 'repairRequired');
+    await h.x.repairCredentials();
+    expect(h.vault.value, isNull);
+    expect(
+      (await h.accounts.get(Destination.x)).state,
+      AccountState.disconnected,
+    );
+    await expectLater(
+      h.x.ensureAuthorized(),
+      throwsA(isA<AccountConnectionExpired>()),
+    );
+    await h.x.connect();
+    expect((await h.accounts.get(Destination.x)).state, AccountState.connected);
+    expect(h.vault.value, isNotNull);
+    expect((await h.drafts.get('draft-1'))!.shared.text, 'Kept draft');
+  });
+
+  test('repair cancels late browser and refresh writes; disconnect wins during repair', () async {
+    final h = await accountHarness();
+    addTearDown(h.close);
+    h.oauth.authorization = Completer<XTokenSet>();
+    final connecting = h.x.connect();
+    final cancelled = expectLater(
+      connecting,
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+    await h.x.repairCredentials();
+    h.oauth.authorization!.complete(h.oauth.tokens());
+    await cancelled;
+    expect(h.vault.value, isNull);
+    h.oauth.authorization = null;
+    await h.x.connect();
+    h.clock.value = h.clock.value.add(const Duration(hours: 3));
+    h.oauth.rotation = Completer<XTokenSet>();
+    final refreshing = h.x.ensureAuthorized();
+    final refreshCancelled = expectLater(
+      refreshing,
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+    await h.oauth.refreshStarted.future;
+    await h.x.repairCredentials();
+    h.oauth.rotation!.complete(h.oauth.tokens('too-late'));
+    await refreshCancelled;
+    expect(h.vault.value, isNull);
+    h.vault.repairStarted = Completer<void>();
+    h.vault.repairBarrier = Completer<void>();
+    final repairing = h.x.repairCredentials();
+    final repairCancelled = expectLater(
+      repairing,
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+    await h.vault.repairStarted!.future;
+    final disconnecting = h.x.disconnect();
+    h.vault.repairBarrier!.complete();
+    await repairCancelled;
+    await disconnecting;
+    expect(h.vault.value, isNull);
+    expect(
+      (await h.accounts.get(Destination.x)).state,
+      AccountState.disconnected,
+    );
+  });
+  test('removal and failed repair survive database reopen without changing content', () async {
+    final h = await accountHarness();
+    addTearDown(h.close);
+    await h.accounts.setInstagramAssistedSharing(false);
+    await h.fixture.database.db.insert('instagram_packages', {
+      'id': 'kept-package',
+      'operation_id': 'kept-op',
+      'draft_id': 'draft-1',
+      'revision': 0,
+      'payload': 'original Instagram package',
+    });
+    await h.fixture.database.db.insert('instagram_events', {
+      'id': 'kept-event',
+      'package_id': 'kept-package',
+      'kind': 'userConfirmed',
+      'at': 'time',
+      'payload': 'original Instagram result',
+    });
+    await h.fixture.database.db.insert('export_jobs', {
+      'id': 'kept-job',
+      'package_id': 'kept-package',
+      'ordinal': 0,
+      'uri': 'content://synthetic/kept',
+      'completed': 1,
+    });
+    await h.x.connect();
+    h.vault.deleteFails = true;
+    await expectLater(
+      h.x.disconnect(),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    await h.fixture.reopen();
+    var accounts = LocalAccountRepository(
+      h.fixture.database,
+      configuration: h.configuration,
+    );
+    XConnection connection() => XConnection(
+      configuration: h.configuration,
+      driver: h.oauth,
+      vault: h.vault,
+      accounts: accounts,
+      client: h.client,
+      clock: h.clock,
+    );
+    expect(
+      (await accounts.get(Destination.x)).state,
+      AccountState.removalPending,
+    );
+    final requests = h.identityRequests;
+    await expectLater(
+      connection().connect(),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    expect(h.identityRequests, requests);
+    h.vault.repairFails = true;
+    await expectLater(
+      connection().repairCredentials(),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    await h.fixture.reopen();
+    accounts = LocalAccountRepository(
+      h.fixture.database,
+      configuration: h.configuration,
+    );
+    expect(
+      (await accounts.get(Destination.x)).state,
+      AccountState.removalPending,
+    );
+    h.vault.deleteFails = false;
+    await connection().disconnect();
+    await connection().disconnect();
+    expect(h.vault.value, isNull);
+    expect(
+      (await accounts.get(Destination.x)).state,
+      AccountState.disconnected,
+    );
+    expect(await accounts.instagramAssistedSharing(), isFalse);
+    expect(
+      (await SqliteDraftRepository(
+        h.fixture.database,
+        media: h.fixture.files,
+      ).get('draft-1'))!.shared.text,
+      'Kept draft',
+    );
+    expect(
+      (await h.fixture.database.db.query('instagram_packages'))
+          .single['payload'],
+      'original Instagram package',
+    );
+    expect(
+      (await h.fixture.database.db.query('instagram_events')).single['payload'],
+      'original Instagram result',
+    );
+    expect(
+      (await h.fixture.database.db.query('export_jobs')).single['uri'],
+      'content://synthetic/kept',
+    );
+  });
 }
