@@ -119,3 +119,65 @@ no duplicate assembly was run solely to attach a later commit number. This is
 repeatable source/generation/build evidence, not a byte-identical APK claim
 across machines, paths, timestamps or debug keystores. The AVD stayed off and no
 native/device acceptance was repeated.
+
+
+## Final correction wave and current ordinary app
+
+The current application source is commit `69001de07526609f419cabda40c0b94057952e69`, app tree
+`8cc5e8305093cd3836bcaac9583180cbe98fccb1`. It corrects frozen retry-owned
+continuation, serializes full Instagram integrity decoding per service instance,
+and includes the final review's picker, copy, cleanup and setup corrections.
+Original draft retries and full integrity validation remain supported.
+
+The R3 clean-export section above remains historical evidence for dff6789 and its
+preserved `.tools/task21-caption-main-debug.apk`. It does not validate this changed
+application source. This bounded correction reused the accepted workspace and
+installed tools/caches; a new clean export, generator/JVM pass or device/emulator
+run was not performed. Earlier native/JVM/generation evidence retains its stated
+scope and limits.
+
+| Current correction check | Result |
+| --- | --- |
+| `flutter test --reporter expanded` | PASS, 560 tests; 1m21s test body / 90.676s wall |
+| `flutter analyze` | PASS, no issues; 40.490s wall |
+| `dart format --output=none --set-exit-if-changed` on all 15 touched Dart files | PASS, 0 changes |
+| `flutter build apk --debug --target lib/main.dart` | PASS; 161.8s Gradle / 166.225s wall |
+| Post-build tracked app input proof | All 208 files match the checked input manifest, workspace and exact code-commit archive; 0 mismatches |
+
+The checked input manifest SHA256 is
+`B89461F945E92E35D84DD4281C36F9C0FE86A03FAA791B3D450A803194A23EC1`.
+The ordinary build used Flutter 3.50.0 / Dart 3.14.0 and the existing process-local
+JDK/SDK/cache and memory-cap setup in [setup](setup.md), with no Dart define or
+define-file arguments. No lockfile or generated app source changed during checks
+or assembly. The existing flutter_web_auth_2 Built-in Kotlin migration warning
+remains; this correction does not upgrade the pinned toolchain.
+
+The current ordinary debug artifact is `.tools/final-fix-caption-main-debug.apk`:
+
+| Artifact field | Verified value |
+| --- | --- |
+| Source / entrypoint | `69001de07526609f419cabda40c0b94057952e69`; `lib/main.dart` |
+| Build / configuration | Debug, default targets, no public metadata configured |
+| Provider callbacks | Compiled X and Bluesky callback activities disabled; generated native redirect strings empty |
+| Package / version | `org.example.crossposting`, `0.1.0+1`, min API 29 / target API 36 |
+| Included native ABIs | arm64-v8a, armeabi-v7a, x86_64 |
+| Signer | Android Debug, development only; debuggable=true |
+| Bytes | 255,989,378 |
+| APK SHA256 | `C66F4FDB76CE63579FC19601DF5AB058E4336ACBFFEFF6F1B740D1A971084267` |
+| Debug certificate SHA256 | `04dff4fb727d7b43b4f77cf71d6c96ed6ed9d7f6b0ec1ca83ce80213b95e43b9` |
+
+Build-tools 36.0.0 aapt2 badging/compiled-manifest and apksigner verification each
+exited 0 on these exact frozen bytes. The larger incremental workspace APK has
+450 indexed ZIP members with 198,776,869 compressed member bytes, compared with
+450 / 198,775,748 in the earlier clean-export APK; unused regions between ZIP
+members account for the large file-size difference. This is the actual default
+build output, not a byte-identical or fresh-export reproduction claim. No second
+assembly was run solely to change packaging size or attach a documentation SHA.
+The prior R3 artifact/hash is unchanged.
+
+These host/build/configuration checks do not establish device, native fault,
+TalkBack/IME/default renderer, live-provider, Instagram receiving-app or public
+release acceptance. The [release checklist](release-checklist.md) still owns
+identity, MIT holder, signing, distribution and external acceptance gates. A
+subsequent evidence-only documentation commit leaves the application tree above
+unchanged and does not require another build.
