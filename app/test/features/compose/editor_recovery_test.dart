@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cross_posting_app/app/app.dart';
+import 'package:cross_posting_app/features/compose/choose_screen.dart';
 import 'package:cross_posting_app/features/compose/write_screen.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/drafts/draft_controller.dart';
@@ -16,6 +17,92 @@ import '../../support/app_fixture.dart';
 import '../../support/draft_fixtures.dart';
 
 void main() {
+  for (final initialStage in [ComposeStage.write, ComposeStage.choose]) {
+    final restoredStage = initialStage == ComposeStage.write
+        ? ComposeStage.choose
+        : ComposeStage.write;
+    testWidgets(
+      'confirmed conflict reload synchronizes host from ${initialStage.name} to ${restoredStage.name}',
+      (tester) async {
+        final s = await tester.runAsync(localTestServices);
+        addTearDown(s!.close);
+        final initial = sampleDraft().copyWith(stage: initialStage);
+        await tester.runAsync(
+          () => s.drafts.save(initial, expectedRevision: -1),
+        );
+        await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s)));
+        await settleEditor(tester);
+        await tester.tap(find.text(initial.shared.text));
+        await settleEditor(tester);
+        final controller = initialStage == ComposeStage.write
+            ? tester.widget<WriteScreen>(find.byType(WriteScreen)).controller
+            : tester.widget<ChooseScreen>(find.byType(ChooseScreen)).controller;
+        expect(controller.saveState, SaveState.saved);
+        final competing = setStage(
+          editSharedCaption(initial, 'Competing saved words', s.clock.now()),
+          restoredStage,
+          s.clock.now(),
+        );
+        await tester.runAsync(
+          () => s.drafts.save(competing, expectedRevision: initial.revision),
+        );
+        controller.change(
+          setStage(
+            editSharedCaption(
+              controller.draft,
+              'Unsaved local words',
+              s.clock.now(),
+            ),
+            restoredStage,
+            s.clock.now(),
+          ),
+        );
+        await tester.pump();
+        final initialScreen = find.byType(
+          initialStage == ComposeStage.choose ? ChooseScreen : WriteScreen,
+        );
+        expect(initialScreen, findsOneWidget);
+        final save = controller.flush();
+        await settleEditor(tester);
+        expect(await save, isFalse);
+        expect(initialScreen, findsOneWidget);
+        await tester.tap(find.text('Reload saved draft'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Replace with saved copy'));
+        await settleEditor(tester);
+        expect(controller.draft.stage, restoredStage);
+        expect(controller.draft.shared.text, competing.shared.text);
+        expect(controller.saveState, SaveState.saved);
+        expect(controller.savedRevision, competing.revision);
+        expect(
+          await tester.runAsync(() => s.drafts.get(initial.id)),
+          controller.draft,
+        );
+        expect(
+          find.byType(
+            restoredStage == ComposeStage.choose ? ChooseScreen : WriteScreen,
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byType(
+            initialStage == ComposeStage.choose ? ChooseScreen : WriteScreen,
+          ),
+          findsNothing,
+        );
+        expect(
+          find.text(
+            restoredStage == ComposeStage.choose
+                ? 'Where should this go?'
+                : 'Review post',
+          ),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets(
     'conflict keeps labeled copy recovery until explicit reload confirmation',
     (tester) async {

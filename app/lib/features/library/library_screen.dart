@@ -379,6 +379,7 @@ class _ComposeHost extends StatefulWidget {
 
 class _ComposeHostState extends State<_ComposeHost> {
   late final DraftController _controller;
+  late ComposeStage _visibleStage;
   @override
   void initState() {
     super.initState();
@@ -387,18 +388,29 @@ class _ComposeHostState extends State<_ComposeHost> {
       widget.services.drafts,
       widget.services.clock,
     );
+    _visibleStage = widget.initial.stage;
+    _controller.addListener(_syncSavedStage);
+  }
+
+  void _syncSavedStage() {
+    final draft = _controller.draft;
+    if (mounted &&
+        _controller.saveState == SaveState.saved &&
+        _controller.savedRevision == draft.revision &&
+        _visibleStage != draft.stage) {
+      setState(() => _visibleStage = draft.stage);
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_syncSavedStage);
     _controller.dispose();
     super.dispose();
   }
 
   Future<void> _choose() async {
-    if (await saveComposeStage(_controller, ComposeStage.choose) && mounted) {
-      setState(() {});
-    }
+    await saveComposeStage(_controller, ComposeStage.choose);
   }
 
   Future<void> _repairMedia() => Navigator.of(context).push<void>(
@@ -415,21 +427,20 @@ class _ComposeHostState extends State<_ComposeHost> {
   );
 
   @override
-  Widget build(BuildContext context) =>
-      _controller.draft.stage == ComposeStage.choose
+  Widget build(BuildContext context) => _visibleStage == ComposeStage.choose
       ? ChooseScreen(
           controller: _controller,
           accounts: widget.services.accounts,
-          onContinue: () => setState(() {}),
+          onContinue: _syncSavedStage,
           onRepairMedia: _repairMedia,
         )
-      : _controller.draft.stage == ComposeStage.write
+      : _visibleStage == ComposeStage.write
       ? WriteScreen(
           controller: _controller,
           media: widget.services.media,
           pickerImports: widget.services.pickerImports,
           canLaunchPicker: widget.services.pickerRecoveryReady,
-          onReview: () => setState(() {}),
+          onReview: _syncSavedStage,
           onChangeDestinations: _choose,
         )
       : DraftSession(
@@ -437,7 +448,7 @@ class _ComposeHostState extends State<_ComposeHost> {
           child: CaptionScaffold(
             title: 'New post',
             stageIndicator: CaptionStageIndicator(
-              currentStage: _controller.draft.stage.index + 1,
+              currentStage: _visibleStage.index + 1,
             ),
             actions: [
               IconButton(
@@ -450,7 +461,7 @@ class _ComposeHostState extends State<_ComposeHost> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '${_stageName(_controller.draft.stage)} · draft saved on this device',
+                  '${_stageName(_visibleStage)} · draft saved on this device',
                 ),
                 const SizedBox(height: 16),
                 SelectableText(_controller.draft.shared.text),
