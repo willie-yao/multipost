@@ -111,6 +111,7 @@ Map<String, dynamic> _$InstagramEventToJson(_InstagramEvent instance) =>
 const _$InstagramEventKindEnumMap = {
   InstagramEventKind.captionCopied: 'captionCopied',
   InstagramEventKind.photoSaved: 'photoSaved',
+  InstagramEventKind.photoUnavailable: 'photoUnavailable',
   InstagramEventKind.opened: 'opened',
   InstagramEventKind.chooserOpened: 'chooserOpened',
   InstagramEventKind.targetDispatched: 'targetDispatched',

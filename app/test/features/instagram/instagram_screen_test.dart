@@ -193,8 +193,8 @@ void main() {
       );
       expect(find.byType(SelectableText), findsWidgets);
       expect((await tester.runAsync(s.instagramRepo.pending))!, hasLength(1));
-      expect(find.text('Copy caption'), findsNothing);
-      expect(find.text('Save photos'), findsNothing);
+      expect(find.text('Copy caption'), findsOneWidget);
+      expect(find.text('Save photos'), findsOneWidget);
       await tester.tap(find.byTooltip('Back'));
       await settleEditor(tester);
       await tester.tap(find.byTooltip('Back to library'));

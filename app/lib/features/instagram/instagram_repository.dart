@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../storage/local_database.dart';
 import 'instagram_package.dart';
+import 'android_transfer.dart';
 
 /// Snapshot rows are immutable. Events, never draft edits, project progress.
 class InstagramRepository {
@@ -78,6 +79,29 @@ class InstagramRepository {
     }
   }
 
+  Future<List<InstagramEvent>> activity(String packageId) async {
+    final package = await get(packageId);
+    if (package == null) {
+      throw const LocalStorageException('Prepared package unavailable.');
+    }
+    final rows = await database.db.query(
+      'instagram_events',
+      where: 'package_id = ?',
+      whereArgs: [packageId],
+      orderBy: 'rowid ASC',
+    );
+    return [for (final row in rows) _checkedEvent(row, package)];
+  }
+
+  InstagramEvent _checkedEvent(
+    Map<String, Object?> row,
+    InstagramPackage package,
+  ) {
+    final event = _decodeEvent(row);
+    _validateEvent(event, package);
+    return event;
+  }
+
   Future<InstagramProgress> progress(String packageId) async {
     final package = await get(packageId);
     if (package == null) {
@@ -105,6 +129,12 @@ class InstagramRepository {
             result = result.copyWith(
               savedUris: {...result.savedUris, event.photoOrdinal!: event.uri!},
             );
+          case InstagramEventKind.photoUnavailable:
+            if (result.savedUris[event.photoOrdinal] == event.uri) {
+              result = result.copyWith(
+                savedUris: {...result.savedUris}..remove(event.photoOrdinal),
+              );
+            }
           case InstagramEventKind.opened:
           case InstagramEventKind.chooserOpened:
             result = result.copyWith(activeLaunchId: event.launchId);
@@ -141,6 +171,142 @@ class InstagramRepository {
         'This Instagram activity needs recovery. Its saved package has been kept.',
       );
     }
+  }
+
+  Future<List<PhotoExportJob>> exportJobs(String packageId) async {
+    final package = await get(packageId);
+    if (package == null) {
+      throw const LocalStorageException('Package unavailable.');
+    }
+    final latestReceipts = <int, String>{};
+    for (final event in await activity(packageId)) {
+      if ({
+        InstagramEventKind.photoSaved,
+        InstagramEventKind.photoUnavailable,
+      }.contains(event.kind)) {
+        latestReceipts[event.photoOrdinal!] = event.id;
+      }
+    }
+    final rows = await database.db.query(
+      'export_jobs',
+      where: 'package_id = ?',
+      whereArgs: [packageId],
+      orderBy: 'ordinal ASC',
+    );
+    return rows.map((row) {
+      final id = row['id'] as String;
+      final ordinal = row['ordinal'] as int;
+      final uri = row['uri'] as String?;
+      final completed = row['completed'];
+      if (!RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          ).hasMatch(id) ||
+          ordinal < 1 ||
+          ordinal > package.photos.length ||
+          (completed != 0 && completed != 1) ||
+          (completed == 1 &&
+              (uri == null || Uri.tryParse(uri)?.scheme != 'content')) ||
+          (completed == 0 && uri != null)) {
+        throw const LocalStorageException(
+          'Photo save activity needs recovery. Its data is kept.',
+        );
+      }
+      return PhotoExportJob(
+        id: id,
+        packageId: packageId,
+        ordinal: ordinal,
+        uri: uri,
+        completed: completed == 1,
+        receiptEventId: latestReceipts[ordinal],
+      );
+    }).toList();
+  }
+
+  Future<PhotoExportJob> ensureExportJob(
+    String packageId,
+    int ordinal,
+    String id,
+  ) async {
+    final package = await get(packageId);
+    if (package == null || !package.photos.any((p) => p.ordinal == ordinal)) {
+      throw const LocalStorageException('Prepared photo unavailable.');
+    }
+    await database.db.insert('export_jobs', {
+      'id': id,
+      'package_id': packageId,
+      'ordinal': ordinal,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    return (await exportJobs(packageId))
+        .singleWhere((j) => j.ordinal == ordinal);
+  }
+
+  /// Receipt and activity commit together. On failure the original job survives.
+  Future<void> recordExportResult(
+    PhotoExportJob job,
+    String? uri,
+    InstagramEvent event,
+  ) async {
+    await database.db.transaction((tx) async {
+      final rows = await tx.query(
+        'export_jobs',
+        where: 'id = ? AND package_id = ? AND ordinal = ?',
+        whereArgs: [job.id, job.packageId, job.ordinal],
+      );
+      if (rows.length != 1) {
+        throw const LocalStorageException('Photo save job unavailable.');
+      }
+      final current = rows.single;
+      if (current['uri'] != job.uri ||
+          current['completed'] != (job.completed ? 1 : 0)) {
+        return;
+      }
+      final receiptRows = await tx.query(
+        'instagram_events',
+        where: 'package_id = ? AND kind IN (?, ?)',
+        whereArgs: [
+          job.packageId,
+          InstagramEventKind.photoSaved.name,
+          InstagramEventKind.photoUnavailable.name,
+        ],
+        orderBy: 'rowid DESC',
+      );
+      String? latestReceiptId;
+      for (final row in receiptRows) {
+        final receipt = _decodeEvent(row);
+        if (receipt.photoOrdinal == job.ordinal) {
+          latestReceiptId = receipt.id;
+          break;
+        }
+      }
+      if (latestReceiptId != job.receiptEventId) return;
+      final packageRows = await tx.query(
+        'instagram_packages',
+        where: 'id = ?',
+        whereArgs: [job.packageId],
+      );
+      if (event.kind !=
+              (uri == null
+                  ? InstagramEventKind.photoUnavailable
+                  : InstagramEventKind.photoSaved) ||
+          event.uri != (uri ?? job.uri) ||
+          event.photoOrdinal != job.ordinal) {
+        throw const FormatException();
+      }
+      _validateEvent(event, _decodePackage(packageRows.single));
+      await tx.insert('instagram_events', {
+        'id': event.id,
+        'package_id': job.packageId,
+        'kind': event.kind.name,
+        'at': event.at.toUtc().toIso8601String(),
+        'payload': jsonEncode(event.toJson()),
+      });
+      await tx.update(
+        'export_jobs',
+        {'uri': uri, 'completed': uri == null ? 0 : 1},
+        where: 'id = ?',
+        whereArgs: [job.id],
+      );
+    });
   }
 
   Future<List<InstagramPackage>> pending() async {
@@ -223,7 +389,10 @@ class InstagramRepository {
 
   void _validateEvent(InstagramEvent event, InstagramPackage package) {
     if (event.id.isEmpty) throw const FormatException();
-    if (event.kind == InstagramEventKind.photoSaved &&
+    if ({
+          InstagramEventKind.photoSaved,
+          InstagramEventKind.photoUnavailable,
+        }.contains(event.kind) &&
         (event.photoOrdinal == null ||
             event.photoOrdinal! < 1 ||
             event.photoOrdinal! > package.photos.length ||

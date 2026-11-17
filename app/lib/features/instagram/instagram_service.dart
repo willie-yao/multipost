@@ -11,6 +11,7 @@ import '../media/media_probe.dart';
 import '../review/review.dart';
 import '../review/review_service.dart';
 import 'instagram_package.dart';
+import 'android_transfer.dart';
 import 'instagram_repository.dart';
 
 /// Evidence for *local preparation*, never receiving-app or publication proof.
@@ -145,6 +146,15 @@ bool samePackageSource(InstagramPackage package, ReviewedPost reviewed) {
   return true;
 }
 
+class CaptionCopyException implements Exception {
+  const CaptionCopyException(this.clipboardWritten);
+  final bool clipboardWritten;
+  @override
+  String toString() => clipboardWritten
+      ? 'Caption copied, but activity could not be recorded. Retry copy to record it.'
+      : 'Caption could not be copied. Select the full caption below or retry copy.';
+}
+
 class InstagramService {
   InstagramService(
     this.repository,
@@ -152,8 +162,9 @@ class InstagramService {
     this.root,
     this.policy,
     this.ids,
-    this.clock,
-  );
+    this.clock, {
+    AndroidTransfer? transfer,
+  }) : transfer = transfer ?? MethodChannelAndroidTransfer(root);
   final InstagramRepository repository;
   final MediaFiles media;
 
@@ -162,7 +173,140 @@ class InstagramService {
   final InstagramPhotoPolicy policy;
   final Ids ids;
   final Clock clock;
+  final AndroidTransfer transfer;
+  final _exporting = <String, Future<List<PhotoSaveResult>>>{};
   final _preparing = <String, Future<InstagramPackage>>{};
+
+  Future<InstagramPackage> _package(String id) async {
+    final package = await repository.get(id);
+    if (package == null) throw StateError('Prepared package unavailable.');
+    return package;
+  }
+
+  Future<void> copyCaption(String packageId) async {
+    final package = await _package(packageId);
+    try {
+      await transfer.copyCaption(package.caption);
+    } catch (_) {
+      throw const CaptionCopyException(false);
+    }
+    try {
+      await repository.append(
+        packageId,
+        InstagramEvent(
+          id: ids.next(),
+          kind: InstagramEventKind.captionCopied,
+          at: clock.now(),
+        ),
+      );
+    } catch (_) {
+      throw const CaptionCopyException(true);
+    }
+  }
+
+  Future<void> _record(PhotoExportJob job, String? uri) =>
+      repository.recordExportResult(
+        job,
+        uri,
+        InstagramEvent(
+          id: ids.next(),
+          kind: uri == null
+              ? InstagramEventKind.photoUnavailable
+              : InstagramEventKind.photoSaved,
+          at: clock.now(),
+          photoOrdinal: job.ordinal,
+          uri: uri ?? job.uri,
+        ),
+      );
+
+  Future<InstagramProgress> recheckSavedPhotos(String packageId) async {
+    final running = _exporting[packageId];
+    if (running != null) await running;
+    return _recheck(await _package(packageId));
+  }
+
+  Future<InstagramProgress> _recheck(InstagramPackage package) async {
+    final jobs = await repository.exportJobs(package.id);
+    if (jobs.isNotEmpty) {
+      final results = await transfer.reconcilePhotos(package, jobs);
+      _validateResults(results, jobs.map((j) => j.ordinal).toSet());
+      for (final job in jobs) {
+        final result = results.singleWhere((r) => r.ordinal == job.ordinal);
+        if (result.succeeded) {
+          if (!job.completed || job.uri != result.uri) {
+            await _record(job, result.uri);
+          }
+        } else if (result.errorCode == 'missing' ||
+            result.errorCode == 'access-revoked') {
+          if (job.completed) await _record(job, null);
+        } else {
+          throw StateError(
+            'Saved photos could not be checked. Keep this package and retry checking.',
+          );
+        }
+      }
+    }
+    return repository.progress(package.id);
+  }
+
+  void _validateResults(List<PhotoSaveResult> results, Set<int> ordinals) {
+    if (results.length != ordinals.length ||
+        results.map((r) => r.ordinal).toSet().length != results.length ||
+        results.any(
+          (r) =>
+              !ordinals.contains(r.ordinal) ||
+              (r.succeeded &&
+                  (Uri.tryParse(r.uri!)?.scheme != 'content' ||
+                      Uri.tryParse(r.uri!)?.authority.isEmpty != false)),
+        )) {
+      throw StateError(
+        'Photo save result could not be verified. Keep this package.',
+      );
+    }
+  }
+
+  Future<List<PhotoSaveResult>> saveMissingPhotos(String packageId) async {
+    final running = _exporting[packageId];
+    if (running != null) return running;
+    final operation = _saveMissing(packageId);
+    _exporting[packageId] = operation;
+    try {
+      return await operation;
+    } finally {
+      _exporting.remove(packageId);
+    }
+  }
+
+  Future<List<PhotoSaveResult>> _saveMissing(String packageId) async {
+    final package = await _package(packageId);
+    final progress = await _recheck(package);
+    final missing = package.photos
+        .where((p) => !progress.savedUris.containsKey(p.ordinal))
+        .toList();
+    if (missing.isEmpty) return [];
+    // Validate frozen bytes before crossing native boundary, journal all jobs first.
+    for (final photo in missing) {
+      await fileFor(package, photo);
+    }
+    final jobs = <PhotoExportJob>[];
+    for (final photo in missing) {
+      jobs.add(
+        await repository.ensureExportJob(packageId, photo.ordinal, ids.next()),
+      );
+    }
+    final ordinals = missing.map((p) => p.ordinal).toSet();
+    final results = await transfer.savePhotos(package, jobs);
+    _validateResults(results, ordinals);
+    for (final result in results) {
+      if (result.succeeded) {
+        await _record(
+          jobs.singleWhere((j) => j.ordinal == result.ordinal),
+          result.uri,
+        );
+      }
+    }
+    return results;
+  }
 
   Future<InstagramPackage> prepare(
     ReviewedPost reviewed, {

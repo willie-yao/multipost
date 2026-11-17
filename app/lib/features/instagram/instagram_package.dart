@@ -8,6 +8,7 @@ enum InstagramState { preparing, ready, handedOff, userMarked }
 enum InstagramEventKind {
   captionCopied,
   photoSaved,
+  photoUnavailable,
   opened,
   chooserOpened,
   targetDispatched,

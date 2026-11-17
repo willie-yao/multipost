@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cross_posting_app/app/services.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/instagram/instagram_service.dart';
+import 'package:cross_posting_app/features/instagram/android_transfer.dart';
 import 'package:cross_posting_app/features/instagram/instagram_repository.dart';
 import 'package:cross_posting_app/features/review/review.dart';
 import 'package:cross_posting_app/features/review/review_service.dart';
@@ -19,11 +20,14 @@ final fixtureInstagramPolicy = InstagramPhotoPolicy(
   evidenceVersion: 'fixture-only-two-png-1',
 );
 
-Future<InstagramTestServices> instagramTestServices() async =>
-    InstagramTestServices(await localTestServices());
+Future<InstagramTestServices> instagramTestServices({
+  AndroidTransfer? transfer,
+}) async =>
+    InstagramTestServices(await localTestServices(), transfer: transfer);
 
 class InstagramTestServices {
-  InstagramTestServices(this.app);
+  InstagramTestServices(this.app, {this.transfer});
+  final AndroidTransfer? transfer;
   final AppServices app;
   InstagramRepository get instagramRepo => app.instagramRepo;
   late final policy = fixtureInstagramPolicy;
@@ -42,6 +46,7 @@ class InstagramTestServices {
     policy,
     app.ids,
     app.clock,
+    transfer: transfer,
   );
 
   Future<ReviewedPost> reviewTwoPhotos(String caption) async {
