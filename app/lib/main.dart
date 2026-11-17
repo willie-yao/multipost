@@ -1,12 +1,69 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'app/app.dart';
+import 'app/services.dart';
 import 'design/caption_scaffold.dart';
+import 'features/library/library_screen.dart';
 
 void main() {
-  runApp(
-    const CaptionApp(
-      home: CaptionScaffold(title: 'Caption', body: SizedBox.shrink()),
-    ),
-  );
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const CaptionApp(home: _Bootstrap()));
+}
+
+class _Bootstrap extends StatefulWidget {
+  const _Bootstrap();
+  @override
+  State<_Bootstrap> createState() => _BootstrapState();
+}
+
+class _BootstrapState extends State<_Bootstrap> {
+  AppServices? _services;
+  Object? _error;
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  Future<void> _open() async {
+    setState(() => _error = null);
+    try {
+      final services = await AppServices.open();
+      // Android consumes the lost-data cache centrally before any new launch.
+      await services.recoverPicker(ImagePicker());
+      if (mounted) {
+        setState(() => _services = services);
+      } else {
+        await services.close();
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _services == null
+      ? CaptionScaffold(
+          title: 'Caption',
+          body: _error == null
+              ? const Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    Text('Opening local library…'),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Text(
+                      'Local storage could not open. Your saved data has been kept. $_error',
+                    ),
+                    OutlinedButton(
+                      onPressed: _open,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+        )
+      : LibraryScreen(services: _services!);
 }

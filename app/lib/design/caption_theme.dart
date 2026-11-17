@@ -86,6 +86,7 @@ ThemeData captionTheme() {
         minimumSize: const Size(48, 48),
         textStyle: buttonText,
         side: const BorderSide(color: CaptionTokens.boundary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(

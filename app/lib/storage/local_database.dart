@@ -33,6 +33,11 @@ class LocalDatabase {
         ordinal INTEGER NOT NULL, asset_id TEXT NOT NULL REFERENCES assets(id),
         PRIMARY KEY(operation_id, ordinal))''');
     },
+    (db) async {
+      await db.execute(
+        'CREATE TABLE local_preferences(name TEXT PRIMARY KEY, value TEXT NOT NULL)',
+      );
+    },
   ];
 
   static Future<LocalDatabase> open(

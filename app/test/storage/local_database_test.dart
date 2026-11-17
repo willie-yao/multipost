@@ -9,7 +9,7 @@ import '../support/database_fixture.dart';
 
 void main() {
   test(
-    'version one schema uses foreign keys and preserves rows across opens',
+    'current schema uses foreign keys and preserves rows across opens',
     () async {
       final fixture = await DatabaseFixture.create();
       addTearDown(fixture.dispose);
@@ -27,7 +27,7 @@ void main() {
         'payload': '{"preserved":true}',
       });
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 1);
+      expect(await fixture.database.db.getVersion(), 2);
       expect((await fixture.database.db.query('drafts')).single['revision'], 7);
     },
   );
@@ -71,7 +71,7 @@ void main() {
     final newer = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (db, _) => db.execute('CREATE TABLE keep_me(value TEXT)'),
       ),
     );
@@ -96,7 +96,7 @@ void main() {
     );
     expect(expectedDiagnostics, hasLength(1));
     final retained = await databaseFactoryFfi.openDatabase(path);
-    expect(await retained.getVersion(), 2);
+    expect(await retained.getVersion(), 3);
     expect((await retained.query('keep_me')).single['value'], 'original');
     await retained.close();
   });
@@ -141,6 +141,28 @@ void main() {
         isEmpty,
       );
       await retained.close();
+    },
+  );
+  test(
+    'version one migration adds preferences without altering existing drafts',
+    () async {
+      final fixture = await DatabaseFixture.create();
+      addTearDown(fixture.dispose);
+      await fixture.database.db.insert('drafts', {
+        'id': 'kept',
+        'revision': 4,
+        'updated_at': 'original time',
+        'payload': 'original bytes',
+      });
+      await fixture.database.db.execute('DROP TABLE local_preferences');
+      await fixture.database.db.setVersion(1);
+      await fixture.reopen();
+      expect(await fixture.database.db.getVersion(), 2);
+      expect(
+        (await fixture.database.db.query('drafts')).single['payload'],
+        'original bytes',
+      );
+      expect(await fixture.database.db.query('local_preferences'), isEmpty);
     },
   );
 }
