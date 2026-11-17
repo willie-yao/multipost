@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'caption_tokens.dart';
@@ -7,6 +8,7 @@ class CaptionScaffold extends StatelessWidget {
     super.key,
     required this.title,
     required this.body,
+    this.leading,
     this.primaryAction,
     this.stageIndicator,
     this.actions = const [],
@@ -15,76 +17,101 @@ class CaptionScaffold extends StatelessWidget {
 
   final String title;
   final Widget body;
+  final Widget? leading;
   final Widget? primaryAction;
   final Widget? stageIndicator;
   final List<Widget> actions;
   final EdgeInsetsGeometry bodyPadding;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: const SystemUiOverlayStyle(
+      statusBarColor: CaptionTokens.stage,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: CaptionTokens.stage,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+    child: Scaffold(
+      backgroundColor: CaptionTokens.stage,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: primaryAction == null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ColoredBox(
-                      color: CaptionTokens.stage,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Semantics(
-                              header: true,
-                              child: Text(
-                                title,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ),
-                            ...actions,
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (stageIndicator != null)
+        child: Material(
+          color: CaptionTokens.ground,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       ColoredBox(
                         color: CaptionTokens.stage,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: stageIndicator,
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (leading != null) ...[
+                                leading!,
+                                const SizedBox(width: 8),
+                              ],
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Semantics(
+                                    header: true,
+                                    child: Text(
+                                      title,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (actions.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                ...actions,
+                              ],
+                            ],
+                          ),
                         ),
                       ),
-                    Padding(padding: bodyPadding, child: body),
-                  ],
-                ),
-              ),
-            ),
-            if (primaryAction != null)
-              ColoredBox(
-                color: CaptionTokens.stage,
-                child: SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 52),
-                    child: primaryAction,
+                      if (stageIndicator != null)
+                        ColoredBox(
+                          color: CaptionTokens.stage,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: stageIndicator,
+                          ),
+                        ),
+                      Padding(padding: bodyPadding, child: body),
+                    ],
                   ),
                 ),
               ),
-          ],
+              if (primaryAction != null)
+                ColoredBox(
+                  color: CaptionTokens.stage,
+                  child: SafeArea(
+                    top: false,
+                    minimum: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 52),
+                      child: primaryAction,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// A read-only view of the current compose stage; navigation belongs to callers.

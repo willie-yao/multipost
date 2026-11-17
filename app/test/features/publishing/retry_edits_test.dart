@@ -87,7 +87,7 @@ void main() {
     );
     expect(await h.app.drafts.get(existing.id), existing);
   });
-  test('retry edit survives repository recreation and only sends its failed destination', () async {
+  test('saved retry edit reopens and only sends its failed destination', () async {
     final h = await coordinatorHarness();
     addTearDown(h.close);
     final group = await h.coordinator.confirm(
@@ -134,7 +134,7 @@ void main() {
     expect((await h.attempts.getGroup(group))!.snapshot, h.review);
   });
 
-  test('retry context cannot authorize another parent and never accepts unknown by default', () async {
+  test('Unknown recovery rejects ordinary retry and requires explicit duplicate risk', () async {
     final h = await coordinatorHarness(bluesky: [PublishStatus.unknown]);
     addTearDown(h.close);
     final group = await h.coordinator.confirm(

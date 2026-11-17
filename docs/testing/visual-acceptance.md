@@ -1,0 +1,35 @@
+# Visual acceptance — Caption
+
+Evidence date: 2026-11-17. Visual authority remains the selected Caption v2 boards under `docs/design/options-dark/`, with Atkinson Hyperlegible Next, a true-black stage, opaque subtitles, cyan for destination-owned captions, and one white action per screen. Browser boards are composition references, not pixel-exact Flutter goldens.
+
+Task 19 corrects the shared leading Back placement, top safe-area paint and first-run stage, makes own-version dialogs scroll at enlarged text, and finds the first actual image across effective X/Bluesky snapshots followed by the frozen Instagram snapshot. It preserves the accepted compact Results hierarchy and Instagram photo/status-first surface.
+
+The initial native fixture captures synthetic real screens in recovery phase 0; one separately built visual-only correction closes the observed scroll/repaint evidence gap. `390×844`, `320×844` and `720×320` refer to constrained Flutter logical viewports on the recorded API 29 emulator. Text scaling is 100% or 200% through MediaQuery; it is not a claim that OS display scaling was manually accepted. Landscape additionally requests Android landscape orientation and restores the orientation policy afterward.
+
+| State | Executed native capture names | Scope |
+| --- | --- | --- |
+| First run, empty library | `first-run-390-100`; one pre-conversion ADB full-frame | Actual system chrome only in the ADB capture; other captures are widget surfaces |
+| Choose, none selected/disconnected | `choose-none-disconnected` | No invented connected state/default destination |
+| Write empty, bright photos, multilingual/long caption, video | `write-empty`, `write-bright-photos`, `write-long-multilingual`, `write-video` | Owned synthetic photos and bundled synthetic video; emoji/Arabic/Japanese retained |
+| Own version, comparison, reset confirmation | `own-version`, `own-comparison`, `own-reset-dialog` | Native rendering; host enlarged-text interaction tests cover cancel/continuous text |
+| Review valid, blocked, offline, long text | `review-valid-long`, `review-blocked`, `review-offline` | Fake direct policy/account fixtures; actual local Instagram preparation policy |
+| Accounts connecting/expired, repair/removal | `accounts-connecting-expired`, `accounts-repair-removal` | Public local states; no browser authorization or credential mutation from capture actions |
+| Attention-first populated library | `library-attention-first` | Stored mixed group before remaining drafts |
+| Results partial, processing, Unknown, user report | `results-partial-bright-later-photo`, `results-processing`, `results-unknown`, `results-unknown-actions`, `results-user-report` | Stored fake-provider evidence, real Results screen; text-only X uses a later bright photo |
+| Instagram ready, marked, Undo | `instagram-ready`, `instagram-marked`, `instagram-undo` | Actual immutable local package/manual journal; no receiving-app launch/export |
+| 320 dp / 200% | `write-320-200`, `write-long-320-200`, `review-320-200`, `results-320-200`, `accounts-recovery-320-200` | Representative current-source native reflow, not every state/size combination |
+| Landscape / 200% | `write-landscape-200`, `write-long-landscape-200`, `review-landscape-200` | Representative constrained native landscape; host tests additionally traverse dialogs/media/Accounts/Results |
+
+The corrected visual-only official driver completed successfully on 2026-11-17: **exit 0**, 2m 59s test body, 31 widget-surface captures. The source/APK/toolchain/device identities and six-phase recovery results are recorded in the tracked [Android acceptance record](android-acceptance.md). Both builds use identical production source; only the screenshot fixture changed after review.
+
+The initial 32-image local directory `task19-native/` retains 31 widget PNGs and a valid ADB first-run full frame. Four intended scrolled captures were byte-identical to their initial viewports because ensureVisible was immediately followed by native screenshot capture. Those four initial files are initial-viewport evidence only. The single approved correction adds settled frames, a raster opportunity, centered scrolling, hit-testable targets and viewport-center assertions; it does not change font sizes or product layout.
+
+The corrected 31 widget PNGs are kept separately in local-only `task19-native-corrected/`. All four previously identical pairs now differ. Inspection confirms the multilingual editor in 390 dp, 320 dp/text 2 and landscape/text 2 views, plus the Unknown explanation/own media/Check/I found/Send again controls. Target centers are within the constrained viewport and hit-testable; the oversized editor is scrollable and is not claimed to fit entirely in one frame. Landscape output is 2274×1080; portrait widget output 1080×2274. These native surface dimensions do not turn constrained 720×320 / 320×844 or MediaQuery text 2 into OS display/font acceptance.
+
+Real system chrome is established by ADB compositor observations. The original `task19-native/first-run-full-frame.png` is a valid 1080×2400 first-run frame with black bars. The corrected directory's `first-run-full-frame.png` caught Android's “Phone is starting…” overlay and is explicitly **invalid app evidence**; its `current-full-frame-observation.png` is a valid Choose frame with black bars. A stale/completed fixture marker must never be treated as proof of the displayed compositor state. Controller and implementer inspected the valid representative frames; no renderer artifact was concealed.
+
+Detailed logs, SHA manifests/inventories and the Task 19 report are local-only ignored evidence under `.superpowers/sdd/2026-11-16-flutter-caption-mvp/`; this document does not require those files in a clean clone. Existing first-run copy “accepted publishing setup” remains a nonblocking editorial follow-up.
+
+Real TalkBack, continuous native IME/selection handles, native display enlargement, native Accounts loading/focus restoration, result audible announcements, real Instagram return/partial MediaStore save, hardware performance, default Impeller and the prior API 36 artifact remain unavailable without their own actual evidence. Earlier I4/P7 captures prove only their recorded earlier source/state; they do not establish these shared-scaffold changes. Runtime Skia captures cannot settle default-renderer acceptance. No style changes conceal the unidentified renderer artifact.
+
+The current manual checklist is: traverse task order with TalkBack, select destinations, edit a long caption, navigate and dismiss the real IME, reorder/remove photos through labeled controls, edit descriptions, compare/reset/cancel, expand Review, hear one result announcement, cancel the final risk dialog, and undo a manual mark after its snackbar expires. Check Back order and focus restoration with reduced motion, real 200% font/display enlargement, long handles, emoji/non-Latin text and bright photos. Record unavailable checks as unavailable; never substitute token contrast arithmetic or mock semantics for device acceptance.

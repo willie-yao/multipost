@@ -5,6 +5,7 @@ import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/drafts/draft_editor.dart';
 import 'package:cross_posting_app/features/publishing/retry_edits.dart';
 import 'package:cross_posting_app/features/publishing/results_screen.dart';
+import 'package:cross_posting_app/features/media/media_strip.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -12,6 +13,53 @@ import '../../support/app_fixture.dart';
 import '../../support/coordinator_fixture.dart';
 
 void main() {
+  for (final imageDestination in [Destination.bluesky, Destination.instagram]) {
+    testWidgets(
+      'Results header finds the first image in $imageDestination after text-only X',
+      (tester) async {
+        final h = (await tester.runAsync(() => coordinatorHarness()))!;
+        addTearDown(h.close);
+        final original = (await tester.runAsync(
+          () => h.app.drafts.get(h.review.draftId),
+        ))!;
+        final draft = original.copyWith(
+          revision: 1,
+          versions: {
+            Destination.x: DestinationVersion(ownMedia: []),
+            if (imageDestination == Destination.instagram)
+              Destination.bluesky: DestinationVersion(ownMedia: []),
+          },
+        );
+        final id = (await tester.runAsync(() async {
+          await h.app.drafts.save(draft, expectedRevision: 0);
+          final reviewed = await h.reviewDraft(draft);
+          return h.coordinator.confirm(reviewed, operationId: 'later-image');
+        }))!;
+        await tester.pumpWidget(
+          CaptionApp(
+            home: ResultsScreen(
+              groupId: id,
+              attempts: h.attempts,
+              coordinator: h.coordinator,
+              instagram: h.app.instagramRepo,
+            ),
+          ),
+        );
+        await settleEditor(tester);
+        final header = find.descendant(
+          of: find.byType(Stack).first,
+          matching: find.byType(MediaPreview),
+        );
+        expect(header, findsOneWidget);
+        expect(
+          tester.widget<MediaPreview>(header).attachment.assetId,
+          draft.shared.media.single.assetId,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
   testWidgets(
     'Instagram Results retains handoff through mark and Undo without claiming publication',
     (tester) async {

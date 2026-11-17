@@ -209,6 +209,8 @@ void main() {
         connecting,
         throwsA(isA<AccountConnectionCancelled>()),
       );
+      await h.oauth.authorizeStarted.future;
+      expect(h.oauth.authorizeCalls, 1);
       await h.x.disconnect();
       h.oauth.authorization!.complete(h.oauth.tokens());
       await rejected;
@@ -431,6 +433,8 @@ void main() {
       connecting,
       throwsA(isA<AccountConnectionCancelled>()),
     );
+    await h.oauth.authorizeStarted.future;
+    expect(h.oauth.authorizeCalls, 1);
     await h.x.repairCredentials();
     h.oauth.authorization!.complete(h.oauth.tokens());
     await cancelled;

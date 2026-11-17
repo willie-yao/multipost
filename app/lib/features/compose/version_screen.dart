@@ -91,6 +91,7 @@ class _VersionScreenState extends State<VersionScreen> {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
+            scrollable: true,
             title: const Text('Use the shared caption?'),
             content: const Text(
               'Your own caption will be replaced. You can undo this until you edit this caption again.',
@@ -165,6 +166,7 @@ class _VersionScreenState extends State<VersionScreen> {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
+            scrollable: true,
             title: const Text('Use the shared photos?'),
             content: const Text(
               'Your destination media and descriptions will be replaced. You can undo this until you edit this media again.',
@@ -221,6 +223,7 @@ class _VersionScreenState extends State<VersionScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
+          scrollable: true,
           title: const Text('Compare captions'),
           content: SingleChildScrollView(
             child: Column(
@@ -339,13 +342,11 @@ class _VersionScreenState extends State<VersionScreen> {
         absorbing: _blocked,
         child: CaptionScaffold(
           title: '$name version',
-          actions: [
-            IconButton(
-              tooltip: 'Back',
-              onPressed: _blocked ? null : () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back),
-            ),
-          ],
+          leading: IconButton(
+            tooltip: 'Back',
+            onPressed: _blocked ? null : () => Navigator.maybePop(context),
+            icon: const Icon(Icons.arrow_back),
+          ),
           primaryAction: FilledButton(
             onPressed: _blocked ? null : () => Navigator.maybePop(context),
             child: const Text('Done'),

@@ -267,13 +267,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
   @override
   Widget build(BuildContext context) => CaptionScaffold(
     title: 'Accounts',
-    actions: [
-      IconButton(
-        tooltip: 'Back',
-        onPressed: () => Navigator.maybePop(context),
-        icon: const Icon(Icons.arrow_back),
-      ),
-    ],
+    leading: IconButton(
+      tooltip: 'Back',
+      onPressed: () => Navigator.maybePop(context),
+      icon: const Icon(Icons.arrow_back),
+    ),
     body: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -251,8 +251,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     final empty = _drafts?.isEmpty ?? false;
     final operation = widget.services.recoveredPicker;
+    final firstRun =
+        empty &&
+        !_results &&
+        _groups.isEmpty &&
+        _packages.isEmpty &&
+        _markedPackages.isEmpty;
     return CaptionScaffold(
       title: 'Your posts',
+      bodyPadding: EdgeInsets.zero,
       actions: [
         IconButton(
           tooltip: 'Accounts',
@@ -276,272 +283,296 @@ class _LibraryScreenState extends State<LibraryScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_drafts == null && _error == null) ...[
-            const Center(child: CircularProgressIndicator()),
-            const Text('Loading drafts…'),
-          ],
-          if (operation != null ||
-              widget.services.pickerRecoveryError != null) ...[
-            const CaptionText('A media selection needs your attention.'),
-            const SizedBox(height: 8),
-            if (widget.services.pickerRecoveryError != null)
-              Text('${widget.services.pickerRecoveryError}'),
-            if (widget.services.pickerRecoveryError != null)
-              TextButton(
-                onPressed: _recovering ? null : _retryRecovery,
-                child: const Text('Retry media recovery'),
-              ),
-            if (operation != null) ...[
-              Text(
-                'Original draft: ${operation.draftId} · ${operation.destination == null ? 'Shared media' : destinationName(operation.destination!)}',
-              ),
-              Text(
-                operation.isComplete
-                    ? '${operation.assets.length} recovered item(s). Nothing has been attached automatically.'
-                    : 'Selection interrupted. Nothing has been attached automatically.',
-              ),
-              if (operation.isComplete)
-                OutlinedButton(
-                  onPressed: _recovering
-                      ? null
-                      : () => _recover(operation, attach: true),
-                  child: const Text('Review recovered selection'),
+          if (firstRun)
+            const ColoredBox(
+              color: CaptionTokens.stage,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 24, 16, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CaptionText('Write once.'),
+                    SizedBox(height: 6),
+                    CaptionText('Review each destination.'),
+                    SizedBox(height: 6),
+                    CaptionText('Finish Instagram yourself.'),
+                  ],
                 ),
-              TextButton(
-                onPressed: _recovering
-                    ? null
-                    : () => _recover(operation, attach: false),
-                child: const Text('Discard recovered selection'),
               ),
-            ],
-            const Divider(),
-            const SizedBox(height: 16),
-          ],
-          if (_error != null) ...[
-            Text('Your saved data has been kept. $_error'),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
-          ],
-          if (_drafts != null) ...[
-            for (final item in _attention.where(
-              (item) => item.group != null,
-            )) ...[
-              const CaptionText('Needs your attention'),
-              const SizedBox(height: 8),
-              Text(item.destinations.map(destinationName).join(' · ')),
-              Text(
-                item.group!.snapshot.posts.values.first.content.text,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              OutlinedButton(
-                onPressed: _busy ? null : () => _openResults(item.group!.id),
-                child: const Text('Review posting results'),
-              ),
-              const Divider(height: 32),
-            ],
-            if (_packages.isNotEmpty) ...[
-              const CaptionText('Instagram needs finishing'),
-              const SizedBox(height: 8),
-              for (final package in _packages) ...[
-                Text(
-                  package.ownCaption ? 'Own caption' : 'Shared caption',
-                  style: const TextStyle(
-                    color: CaptionTokens.secondary,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  package.caption.isEmpty ? 'Prepared photos' : package.caption,
-                  style: TextStyle(
-                    color: package.ownCaption
-                        ? CaptionTokens.own
-                        : CaptionTokens.text,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${package.photos.length} prepared photos · ${_savedTime(package.createdAt)} · finish in Instagram',
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : () => _openPackage(package),
-                    child: const Text('View prepared package'),
-                  ),
-                ),
-                const Divider(height: 32),
-              ],
-            ],
-            Row(
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Semantics(
-                    selected: !_results,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: !_results
-                                ? CaptionTokens.text
-                                : CaptionTokens.ground,
-                            width: 3,
+                if (_drafts == null && _error == null) ...[
+                  const Center(child: CircularProgressIndicator()),
+                  const Text('Loading drafts…'),
+                ],
+                if (operation != null ||
+                    widget.services.pickerRecoveryError != null) ...[
+                  const CaptionText('A media selection needs your attention.'),
+                  const SizedBox(height: 8),
+                  if (widget.services.pickerRecoveryError != null)
+                    Text('${widget.services.pickerRecoveryError}'),
+                  if (widget.services.pickerRecoveryError != null)
+                    TextButton(
+                      onPressed: _recovering ? null : _retryRecovery,
+                      child: const Text('Retry media recovery'),
+                    ),
+                  if (operation != null) ...[
+                    Text(
+                      'Original draft: ${operation.draftId} · ${operation.destination == null ? 'Shared media' : destinationName(operation.destination!)}',
+                    ),
+                    Text(
+                      operation.isComplete
+                          ? '${operation.assets.length} recovered item(s). Nothing has been attached automatically.'
+                          : 'Selection interrupted. Nothing has been attached automatically.',
+                    ),
+                    if (operation.isComplete)
+                      OutlinedButton(
+                        onPressed: _recovering
+                            ? null
+                            : () => _recover(operation, attach: true),
+                        child: const Text('Review recovered selection'),
+                      ),
+                    TextButton(
+                      onPressed: _recovering
+                          ? null
+                          : () => _recover(operation, attach: false),
+                      child: const Text('Discard recovered selection'),
+                    ),
+                  ],
+                  const Divider(),
+                  const SizedBox(height: 16),
+                ],
+                if (_error != null) ...[
+                  Text('Your saved data has been kept. $_error'),
+                  OutlinedButton(onPressed: _load, child: const Text('Retry')),
+                ],
+                if (_drafts != null) ...[
+                  for (final item in _attention.where(
+                    (item) => item.group != null,
+                  )) ...[
+                    const CaptionText('Needs your attention'),
+                    const SizedBox(height: 8),
+                    Text(item.destinations.map(destinationName).join(' · ')),
+                    Text(
+                      item.group!.snapshot.posts.values.first.content.text,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _openResults(item.group!.id),
+                      child: const Text('Review posting results'),
+                    ),
+                    const Divider(height: 32),
+                  ],
+                  if (_packages.isNotEmpty) ...[
+                    const CaptionText('Instagram needs finishing'),
+                    const SizedBox(height: 8),
+                    for (final package in _packages) ...[
+                      Text(
+                        package.ownCaption ? 'Own caption' : 'Shared caption',
+                        style: const TextStyle(
+                          color: CaptionTokens.secondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        package.caption.isEmpty
+                            ? 'Prepared photos'
+                            : package.caption,
+                        style: TextStyle(
+                          color: package.ownCaption
+                              ? CaptionTokens.own
+                              : CaptionTokens.text,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${package.photos.length} prepared photos · ${_savedTime(package.createdAt)} · finish in Instagram',
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          onPressed: _busy ? null : () => _openPackage(package),
+                          child: const Text('View prepared package'),
+                        ),
+                      ),
+                      const Divider(height: 32),
+                    ],
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          selected: !_results,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: !_results
+                                      ? CaptionTokens.text
+                                      : CaptionTokens.ground,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: TextButton(
+                              onPressed: () => setState(() => _results = false),
+                              child: const Text('Drafts'),
+                            ),
                           ),
                         ),
                       ),
-                      child: TextButton(
-                        onPressed: () => setState(() => _results = false),
-                        child: const Text('Drafts'),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Semantics(
-                    selected: _results,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: _results
-                                ? CaptionTokens.text
-                                : CaptionTokens.ground,
-                            width: 3,
+                      Expanded(
+                        child: Semantics(
+                          selected: _results,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: _results
+                                      ? CaptionTokens.text
+                                      : CaptionTokens.ground,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: TextButton(
+                              onPressed: () => setState(() => _results = true),
+                              child: const Text('Results'),
+                            ),
                           ),
                         ),
                       ),
-                      child: TextButton(
-                        onPressed: () => setState(() => _results = true),
-                        child: const Text('Results'),
-                      ),
-                    ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  if (_results &&
+                      (_groups.isNotEmpty || _markedPackages.isNotEmpty)) ...[
+                    for (final group in _groups) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          group.snapshot.posts.values.first.content.text.isEmpty
+                              ? 'Reviewed post'
+                              : group.snapshot.posts.values.first.content.text,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${Destination.values.where(group.snapshot.posts.containsKey).map(destinationName).join(', ')} · reviewed ${_savedTime(group.createdAt)}',
+                        ),
+                        onTap: _busy ? null : () => _openResults(group.id),
+                      ),
+                      const Divider(height: 24),
+                    ],
+                    for (final package in _markedPackages) ...[
+                      Text(
+                        'Instagram · Marked posted',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        package.ownCaption ? 'Own caption' : 'Shared caption',
+                        style: const TextStyle(color: CaptionTokens.secondary),
+                      ),
+                      Text(
+                        package.caption.isEmpty
+                            ? 'Prepared photos'
+                            : package.caption,
+                        style: TextStyle(
+                          color: package.ownCaption
+                              ? CaptionTokens.own
+                              : CaptionTokens.text,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Your confirmation on this phone. Not verified by the app.',
+                      ),
+                      OutlinedButton(
+                        onPressed: _busy ? null : () => _openPackage(package),
+                        child: const Text('View Instagram record'),
+                      ),
+                      const Divider(height: 32),
+                    ],
+                  ] else if (_results)
+                    const Text('No posting results yet')
+                  else if (empty &&
+                      (_groups.isNotEmpty ||
+                          _packages.isNotEmpty ||
+                          _markedPackages.isNotEmpty))
+                    const Text(
+                      'No drafts. Prepared packages and Instagram records are kept in Your posts.',
+                    )
+                  else if (empty) ...[
+                    Text(
+                      'Your next post starts here.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Drafts are saved on this device. You can write before connecting any account.',
+                    ),
+                    const SizedBox(height: 22),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _create,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create a draft'),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _accounts,
+                      icon: const Icon(Icons.person_outline),
+                      label: const Text('Set up accounts'),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'X and Bluesky need accepted publishing setup and a connected account. Instagram never needs a sign-in here; you finish posts in Instagram.',
+                    ),
+                  ] else ...[
+                    for (final draft in _drafts!) ...[
+                      const Divider(),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          draft.shared.text.isEmpty
+                              ? 'Untitled draft'
+                              : draft.shared.text,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${draft.retryParentAttemptId == null ? 'Saved' : 'Saved retry'} ${_savedTime(draft.updatedAt)} · ${draft.selected.isEmpty ? 'No destinations' : draft.selected.map(destinationName).join(', ')} · ${_stageName(draft.stage)}',
+                        ),
+                        onTap: _busy ? null : () => _open(draft),
+                        trailing: IconButton(
+                          tooltip: 'Delete draft',
+                          onPressed: _busy ? null : () => _delete(draft),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Drafts live on this device only. Uninstalling the app removes them.',
+                    ),
+                  ],
+                ],
               ],
             ),
-            const SizedBox(height: 16),
-            if (_results &&
-                (_groups.isNotEmpty || _markedPackages.isNotEmpty)) ...[
-              for (final group in _groups) ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    group.snapshot.posts.values.first.content.text.isEmpty
-                        ? 'Reviewed post'
-                        : group.snapshot.posts.values.first.content.text,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${Destination.values.where(group.snapshot.posts.containsKey).map(destinationName).join(', ')} · reviewed ${_savedTime(group.createdAt)}',
-                  ),
-                  onTap: _busy ? null : () => _openResults(group.id),
-                ),
-                const Divider(height: 24),
-              ],
-              for (final package in _markedPackages) ...[
-                Text(
-                  'Instagram · Marked posted',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  package.ownCaption ? 'Own caption' : 'Shared caption',
-                  style: const TextStyle(color: CaptionTokens.secondary),
-                ),
-                Text(
-                  package.caption.isEmpty ? 'Prepared photos' : package.caption,
-                  style: TextStyle(
-                    color: package.ownCaption
-                        ? CaptionTokens.own
-                        : CaptionTokens.text,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your confirmation on this phone. Not verified by the app.',
-                ),
-                OutlinedButton(
-                  onPressed: _busy ? null : () => _openPackage(package),
-                  child: const Text('View Instagram record'),
-                ),
-                const Divider(height: 32),
-              ],
-            ] else if (_results)
-              const Text('No posting results yet')
-            else if (empty &&
-                (_groups.isNotEmpty ||
-                    _packages.isNotEmpty ||
-                    _markedPackages.isNotEmpty))
-              const Text(
-                'No drafts. Prepared packages and Instagram records are kept in Your posts.',
-              )
-            else if (empty) ...[
-              const SizedBox(height: 16),
-              const CaptionText('Write once.'),
-              const SizedBox(height: 6),
-              const CaptionText('Review each destination.'),
-              const SizedBox(height: 6),
-              const CaptionText('Finish Instagram yourself.'),
-              const SizedBox(height: 40),
-              Text(
-                'Your next post starts here.',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Drafts are saved on this device. You can write before connecting any account.',
-              ),
-              const SizedBox(height: 22),
-              FilledButton.icon(
-                onPressed: _busy ? null : _create,
-                icon: const Icon(Icons.add),
-                label: const Text('Create a draft'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _accounts,
-                icon: const Icon(Icons.person_outline),
-                label: const Text('Set up accounts'),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'X and Bluesky need accepted publishing setup and a connected account. Instagram never needs a sign-in here; you finish posts in Instagram.',
-              ),
-            ] else ...[
-              for (final draft in _drafts!) ...[
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    draft.shared.text.isEmpty
-                        ? 'Untitled draft'
-                        : draft.shared.text,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${draft.retryParentAttemptId == null ? 'Saved' : 'Saved retry'} ${_savedTime(draft.updatedAt)} · ${draft.selected.isEmpty ? 'No destinations' : draft.selected.map(destinationName).join(', ')} · ${_stageName(draft.stage)}',
-                  ),
-                  onTap: _busy ? null : () => _open(draft),
-                  trailing: IconButton(
-                    tooltip: 'Delete draft',
-                    onPressed: _busy ? null : () => _delete(draft),
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              const Text(
-                'Drafts live on this device only. Uninstalling the app removes them.',
-              ),
-            ],
-          ],
+          ),
         ],
       ),
     );

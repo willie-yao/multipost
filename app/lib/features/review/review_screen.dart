@@ -284,13 +284,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
       child: CaptionScaffold(
         title: 'New post',
         stageIndicator: const CaptionStageIndicator(currentStage: 3),
-        actions: [
-          IconButton(
-            tooltip: 'Back to library',
-            onPressed: _blocked ? null : () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ],
+        leading: IconButton(
+          tooltip: 'Back to library',
+          onPressed: _blocked ? null : () => Navigator.maybePop(context),
+          icon: const Icon(Icons.arrow_back),
+        ),
         primaryAction: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

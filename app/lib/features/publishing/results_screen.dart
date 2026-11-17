@@ -236,10 +236,26 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final instagramPending =
         _preparation != null &&
         _instagramProgress?.state != InstagramState.userMarked;
-    final headerPost =
-        _effective.firstOrNull?.snapshot ??
-        group?.snapshot.posts.values.firstOrNull;
-    final photo = headerPost?.assets.firstOrNull;
+    // Effective direct snapshots win; Instagram stays tied to its frozen group.
+    // A text-only or video-first destination must not hide a later photo.
+    Attachment? headerPhoto;
+    for (final destination in Destination.values) {
+      final post =
+          _effective
+              .where((attempt) => attempt.snapshot.destination == destination)
+              .firstOrNull
+              ?.snapshot ??
+          group?.snapshot.posts[destination];
+      if (post == null) continue;
+      for (final asset in post.assets) {
+        if (!asset.mimeType.startsWith('image/')) continue;
+        headerPhoto = post.content.media
+            .where((attachment) => attachment.assetId == asset.id)
+            .firstOrNull;
+        if (headerPhoto != null) break;
+      }
+      if (headerPhoto != null) break;
+    }
     final outstanding = _effective
         .where(
           (a) => !{
@@ -280,13 +296,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return CaptionScaffold(
       title: 'Posting results',
       bodyPadding: EdgeInsets.zero,
-      actions: [
-        IconButton(
-          tooltip: 'Back to library',
-          onPressed: _busy ? null : () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-      ],
+      leading: IconButton(
+        tooltip: 'Back to library',
+        onPressed: _busy ? null : () => Navigator.maybePop(context),
+        icon: const Icon(Icons.arrow_back),
+      ),
       primaryAction: group == null
           ? null
           : FilledButton(
@@ -305,14 +319,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
             Stack(
               alignment: Alignment.bottomLeft,
               children: [
-                if (photo != null &&
-                    photo.mimeType.startsWith('image/') &&
-                    headerPost!.content.media.isNotEmpty)
+                if (headerPhoto != null)
                   SizedBox(
                     height: 220,
                     width: double.infinity,
                     child: MediaPreview(
-                      attachment: headerPost.content.media.first,
+                      attachment: headerPhoto,
                       media: widget.coordinator.review.media,
                     ),
                   ),

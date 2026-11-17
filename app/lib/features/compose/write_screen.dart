@@ -199,15 +199,11 @@ class _WriteScreenState extends State<WriteScreen> {
           stageIndicator: widget.repairOnly
               ? null
               : const CaptionStageIndicator(currentStage: 2),
-          actions: [
-            IconButton(
-              tooltip: widget.repairOnly
-                  ? 'Return to draft'
-                  : 'Back to library',
-              onPressed: _blocked ? null : () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back),
-            ),
-          ],
+          leading: IconButton(
+            tooltip: widget.repairOnly ? 'Return to draft' : 'Back to library',
+            onPressed: _blocked ? null : () => Navigator.maybePop(context),
+            icon: const Icon(Icons.arrow_back),
+          ),
           primaryAction: FilledButton(
             onPressed: _blocked
                 ? null

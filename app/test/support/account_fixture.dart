@@ -89,6 +89,7 @@ class FakeXOAuthDriver implements XOAuthDriver {
   int refreshCalls = 0;
   int authorizeCalls = 0;
   final refreshStarted = Completer<void>();
+  final authorizeStarted = Completer<void>();
   XTokenSet tokens([String suffix = 'initial']) => XTokenSet(
     accessToken: 'opaque-access-$suffix',
     refreshToken: 'opaque-refresh-$suffix',
@@ -97,6 +98,7 @@ class FakeXOAuthDriver implements XOAuthDriver {
   @override
   Future<XTokenSet> authorize() async {
     authorizeCalls++;
+    if (!authorizeStarted.isCompleted) authorizeStarted.complete();
     if (authorizeError case final error?) throw error;
     return authorization == null ? tokens() : authorization!.future;
   }

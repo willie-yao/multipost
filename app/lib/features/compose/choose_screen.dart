@@ -117,13 +117,11 @@ class _ChooseScreenState extends State<ChooseScreen> {
       builder: (context, _) => CaptionScaffold(
         title: 'New post',
         stageIndicator: const CaptionStageIndicator(currentStage: 1),
-        actions: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: _blocked ? null : () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ],
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: _blocked ? null : () => Navigator.maybePop(context),
+          icon: const Icon(Icons.arrow_back),
+        ),
         primaryAction: FilledButton(
           onPressed:
               _blocked ||

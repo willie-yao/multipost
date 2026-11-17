@@ -461,13 +461,11 @@ class _InstagramScreenState extends State<InstagramScreen>
               : saveLabel,
         ),
       ),
-      actions: [
-        IconButton(
-          tooltip: 'Back',
-          onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-      ],
+      leading: IconButton(
+        tooltip: 'Back',
+        onPressed: () => Navigator.maybePop(context),
+        icon: const Icon(Icons.arrow_back),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

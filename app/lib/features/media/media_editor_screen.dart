@@ -217,13 +217,11 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
         title: widget.destination == Destination.instagram
             ? 'Instagram photos'
             : 'Edit media',
-        actions: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: _blocked ? null : () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ],
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: _blocked ? null : () => Navigator.maybePop(context),
+          icon: const Icon(Icons.arrow_back),
+        ),
         primaryAction: FilledButton(
           onPressed: _blocked ? null : () => Navigator.maybePop(context),
           child: const Text('Done'),
