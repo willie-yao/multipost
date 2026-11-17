@@ -1,5 +1,7 @@
 # Flutter Caption MVP Implementation Plan
 
+> Historical plan prepared 2026-11-16. The user subsequently authorized local Android implementation. Original unchecked examples/review notes below preserve planning history, not current authorization or executed evidence. See [current README](../../../README.md) and [release evidence](../../release/evidence.md). Native/live acceptance and public release remain gated.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build an Android-first Flutter app that preserves Caption v2's reviewed flow, reliably saves local posts, assists personal Instagram posting, and publishes to X and Bluesky through verified official integrations.
@@ -28,7 +30,7 @@
 - "48 × 48dp minimum touch targets, at least 4.5:1 normal-text contrast and 3:1 meaningful component boundaries."
 - "Test system text enlargement through 200% without truncating actions or instructions; layouts grow and scroll rather than shrink type."
 - No scheduling, analytics, teams, required AI, social feeds, cloud sync, remote edit/delete, or multiple accounts per platform in this plan.
-- Current authorization is **planning only**. All unchecked actions below are future work requiring explicit implementation authorization. No SDK installation, scaffold, probe, connection, publication, deployment, or release was performed to write this plan.
+- At original plan writing, authorization was **planning only** and no SDK/scaffold/probe/connection/publication/deployment/release was performed to write it. Local implementation was subsequently authorized; live activation and public release still require their own gates.
 
 ---
 
@@ -54,7 +56,7 @@ Planning defaults (reviewable assumptions, not prior user decisions):
 | Background behavior | Foreground posting with durable recovery | No background scheduler or automatic resume/send. |
 | Dependencies | Small set, adapters around external SDKs | Vetted maintenance/license/platform compatibility checked before pinning. |
 | Distribution identity | Working Dart name `cross_posting_app`; development-only `org.example.crossposting` | Final package ID, name, OAuth redirect ownership, and signing identity must be chosen before provider registration/release. |
-| License | Open source required; license selection remains a release decision | Do not invent a copyright owner or silently choose a license for the user. |
+| License | MIT selected 2026-11-17; actual copyright-holder answer and final LICENSE pending | Do not invent a copyright owner or publish source before the remaining release gates. |
 | Backup/export | No full draft export in MVP; Copy text recovery included | Adding portable backup requires a scope decision. |
 
 ## 2. Execution map: four independently reviewable milestones

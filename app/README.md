@@ -1,6 +1,9 @@
-# Caption Android shell
+# Caption Flutter application
 
-Run Flutter commands from this directory. The pinned development toolchain and
-Android prerequisites are documented in ../docs/engineering/toolchain.md.
+Run Flutter commands from this directory. Start with the repository
+[README](../README.md) and the reproducible [setup guide](../docs/release/setup.md).
+The ordinary application entrypoint is `lib/main.dart`; integration-test
+entrypoints produce fixture APKs and must not be handed off as the application.
 
-The initial screen is presentation only. It has no connected accounts or send controls.
+Public X/Bluesky production gates remain closed. Local drafts and tests do not
+need provider registration, live accounts or public build metadata.

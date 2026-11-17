@@ -1,1 +1,14 @@
 .tools/
+
+# Local credentials/configuration; share only reviewed public metadata.
+**/*.jks
+**/*.keystore
+**/key.properties
+**/local.properties
+.env
+.env.*
+*.private.env
+
+# Explicit local account/export capture roots (synthetic tracked fixtures stay).
+/account-data/
+/private-captures/

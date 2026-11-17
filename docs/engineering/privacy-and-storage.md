@@ -12,9 +12,14 @@ backup and automatic device migration are outside this MVP.
 | --- | --- |
 | Draft captions, descriptions, account display metadata, frozen posting attempts and package records | Ordinary SQLite in application-support storage, protected by Android's app sandbox. These tables intentionally contain post content; they are not a credential store or app-level encrypted archive. |
 | Imported media and prepared photos | App-private owned roots. Generated identifiers, normalized paths, canonical-root checks and file verification keep imports/exports inside those roots. Picker filenames do not choose destination paths. |
-| OAuth access/refresh tokens, PKCE state, DPoP private keys and nonces | The existing `CredentialVault` port only. `SecureCredentialVault` uses pinned `flutter_secure_storage` 11.2.0 and fixed `caption_x_credentials` / `caption_bluesky_credentials` Android namespaces with device-bound Keystore protection. Ordinary access uses `resetOnError: false`; explicit confirmed account repair uses the existing serialized package lifecycle and reset path. |
+| App-managed credential persistence: OAuth tokens, Bluesky pending OAuth context, DPoP private keys and nonces | `CredentialVault` is the sole app-managed credential persistence port. `SecureCredentialVault` uses pinned `flutter_secure_storage` 11.2.0 and fixed `caption_x_credentials` / `caption_bluesky_credentials` Android namespaces with device-bound Keystore protection. Ordinary access uses `resetOnError: false`; explicit confirmed account repair uses the existing serialized package lifecycle and reset path. |
 | Explicitly saved Instagram photos | A user-requested MediaStore export leaves app-private storage. Gallery copies have OS/gallery lifetimes and may be included in the user's photo backup. Caption's backup XML cannot control those copies or promise their removal on uninstall. |
 | Explicitly copied caption/recovery text | Clipboard copies leave app-private storage and have OS/clipboard lifetimes. Copy is a user action; browsing the library does not read the clipboard. |
+
+X native AppAuth owns its in-flight random state, S256 verifier and code exchange;
+those pending values are not stored by the app vault. X vault persistence holds
+the resulting tokens, account identity and public configuration. Bluesky uses the
+vault-backed pending context as well as persisted sessions/keys.
 
 Credential loss or an unusable Keystore key blocks publication and requires
 reconnection or the existing explicit account repair. It does not erase drafts,

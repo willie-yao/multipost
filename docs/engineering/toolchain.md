@@ -180,3 +180,24 @@ Portable-tool provenance supplied by the controller:
 - JDK archive: https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip
   (verified SHA-256
   `a4dbaa05fca4bd89d84584e58c459bd732efebb1722af80ab13c6516832004f9`).
+
+## R3 current toolchain confirmation — 2026-11-17
+
+The L1 readiness sections above are historical. The Android SDK is now installed
+and Flutter doctor confirms its toolchain and accepted SDK licenses. R3 rechecked
+Flutter 3.50.0 / Dart 3.14.0 at the exact framework/engine revisions above, Temurin
+21.0.13+9, Android command-line tools 23.0, android-36 platform revision 2,
+build-tools 36.0.0, NDK 28.2.13676358 and platform-tools 37.0.1. Gradle wrapper
+9.5.0, AGP 9.3.1 and Kotlin 2.4.20 are unchanged. JDK 21 runs Gradle while the
+app's Java/Kotlin bytecode target remains 17. `app/.flutter-version` pins Flutter.
+The current graph, including provider dependencies added after L1, is in
+`app/pubspec.lock`; the L1 package table above is not a current full inventory.
+
+Use the self-contained [release setup](../release/setup.md) for process-local
+SDK/Pub/Gradle paths, resource caps, locked generation and ordinary debug build.
+R3 starts no AVD; ADB lists no Android device. The existing scoped native
+observations remain in [Android acceptance](../testing/android-acceptance.md).
+Flutter doctor still reports missing Visual Studio desktop C++ components; that
+unrelated target is not part of this Android-only handoff. A passing assembly
+must not be described as warning-free: plugin/toolchain warnings and the clean
+source reproduction results are recorded in [release evidence](../release/evidence.md).

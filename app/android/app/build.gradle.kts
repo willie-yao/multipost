@@ -35,6 +35,7 @@ require(blueskyScheme.isEmpty() || Regex("[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+").mat
 val blueskyRedirect = if (blueskyScheme.isEmpty()) "" else "$blueskyScheme:/callback"
 
 android {
+    sourceSets.getByName("test").resources.srcDir("../../test/fixtures/providers/x")
     buildFeatures { buildConfig = true }
     namespace = "org.example.crossposting"
     compileSdk = flutter.compileSdkVersion
@@ -93,8 +94,6 @@ kotlin {
 flutter {
     source = "../.."
 }
-
-android.sourceSets.getByName("test").resources.srcDir("../../test/fixtures/providers/x")
 
 dependencies {
     implementation("net.openid:appauth:0.11.1")

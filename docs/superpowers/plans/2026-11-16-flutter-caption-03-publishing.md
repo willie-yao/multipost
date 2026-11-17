@@ -248,7 +248,7 @@ Create `app/test/support/coordinator_fixture.dart`: real temporary SQLite reposi
 ```sql
 CREATE TABLE attempt_groups(id TEXT PRIMARY KEY, draft_id TEXT NOT NULL,
   revision INTEGER NOT NULL, operation_id TEXT UNIQUE NOT NULL, payload TEXT NOT NULL,
-  UNIQUE(draft_id, revision));
+  UNIQUE(draft_id));
 CREATE TABLE destination_attempts(id TEXT PRIMARY KEY, group_id TEXT NOT NULL,
   parent_id TEXT, retry_operation TEXT UNIQUE, destination TEXT NOT NULL,
   state TEXT NOT NULL, dispatch_at TEXT, payload TEXT NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE attempt_events(seq INTEGER PRIMARY KEY AUTOINCREMENT,
   attempt_id TEXT NOT NULL, at TEXT NOT NULL, payload TEXT NOT NULL);
 ```
 
-Append-only events retain prior evidence; the row is a materialized current projection. `begin` creates the frozen group/destination rows transactionally before any external work; repeat operation returns the existing group with created=false, and confirm returns that group without starting work again. A different operation for an already submitted same draft revision opens the existing result rather than creating duplicate posts. Explicitly posting the same content again requires a new draft ID. Failed-destination editing creates a child snapshot, not edits to the group or successful destination.
+Append-only events retain prior evidence; the row is a materialized current projection. `begin` creates the frozen group/destination rows transactionally before any external work; repeat operation returns the existing group with created=false, and confirm returns that group without starting work again. Accepted implementation clarification: uniqueness is one original submission group per source draft ID, across revisions (the original plan used revision-based uniqueness). A different operation for an already submitted draft opens its existing immutable result, including after edits to the original. To publish an edited original as a new post, create a new draft ID and explicitly review/confirm it. Explicit destination retries and failed-destination edits remain child snapshots of the original attempt, preserving the group and successful destinations; they do not create another original submission group.
 
 ```dart
 final rows = await tx.query('destination_attempts', where: 'id = ?', whereArgs: [attemptId]);

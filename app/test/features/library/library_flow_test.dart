@@ -122,7 +122,9 @@ void main() {
       await settleStorage(tester);
       expect(tester.takeException(), isNull);
       expect(
-        find.text('This action could not finish. Keep this library open and retry.'),
+        find.text(
+          'This action could not finish. Keep this library open and retry.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Where should this go?'), findsNothing);

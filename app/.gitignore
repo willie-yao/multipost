@@ -49,3 +49,10 @@ app.*.map.json
 
 # Gradle configuration failure diagnostics
 /android/build/
+
+# Local account data and private build configuration.
+.env
+.env.*
+*.private.env
+/account-data/
+/private-captures/

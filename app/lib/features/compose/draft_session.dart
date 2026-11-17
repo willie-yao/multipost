@@ -163,7 +163,9 @@ class _DraftSessionState extends State<DraftSession>
                           children: [
                             Text(
                               userSafeMessage('storage-failed'),
-                              style: const TextStyle(color: CaptionTokens.error),
+                              style: const TextStyle(
+                                color: CaptionTokens.error,
+                              ),
                             ),
                             // Only feature-owned, sanitized exception types may add detail.
                             if (widget.controller.lastError

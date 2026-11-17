@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-Status: product discovery for a design-only review, 2026-11-16. No implementation authorized.
+Status: historical product discovery/design record from 2026-11-16. The user subsequently authorized local Android implementation. Current behavior and limits are in [README](README.md) and [release evidence](docs/release/evidence.md); native/live acceptance and public release remain incomplete.
 
 ## Platform
 
@@ -12,7 +12,7 @@ Phone first. The primary user owns an Android phone. Other platforms are an inte
 
 ## Stack
 
-Flutter is the user's preferred candidate for reaching multiple platforms, provisionally. No framework project, backend, prototype, or live integration is to be created in this session.
+Flutter was selected for the local Android implementation under `app/`. Other platforms remain later interests. There is no required app backend; live integrations remain gated.
 
 ## Users
 
@@ -44,15 +44,15 @@ Install the app and connect accounts. The user prefers on-device drafts and no s
 
 ## Brand Commitments
 
-Distinctive but restrained visual identity. Prioritize task completion, accessibility, and legibility. No product name or existing brand assets have been selected.
+Distinctive but restrained visual identity. Prioritize task completion, accessibility, and legibility. Caption is the selected development design/name; final public product identity remains unselected.
 
 ## Selected Experience
 
-The user selected **Choose -> write -> review** from the design comparison on 2026-11-16 (option `guided`). Choose destinations first, then write shared content with optional destination edits, then explicitly review publication and preparation actions. The flow is retained. The initial warm-plum and clear-blue visual alternatives were subsequently rejected as too generic; visual identity is open again, with a request for more distinctive mockups. Familiar Android controls, readability, accessibility, and truthful status language remain binding. On 2026-11-16 the user selected the dark **Caption, with more flair** concept (docs/design/options-dark/, v2) for further design refinement. It is not yet a final visual system and does not authorize implementation.
+The user selected **Choose -> write -> review** from the design comparison on 2026-11-16 (option `guided`). Choose destinations first, then write shared content with optional destination edits, then explicitly review publication and preparation actions. The flow is retained. The initial warm-plum and clear-blue visual alternatives were subsequently rejected as too generic; visual identity is open again, with a request for more distinctive mockups. Familiar Android controls, readability, accessibility, and truthful status language remain binding. On 2026-11-16 the user selected the dark **Caption, with more flair** concept (docs/design/options-dark/, v2) for further design refinement. This records the design selection at that time. Later authorization covers local implementation; it does not complete native/live acceptance or authorize public release.
 
 ## Evidence on Hand
 
-An empty project workspace and the user's discovery answers. No app implementation, integration test, platform capability validation, or production screenshots exist. Screen content produced in this session must be identified as illustrative.
+The original discovery had an empty workspace and illustrative boards. Local Android source, host tests and scoped synthetic API 29 native evidence now exist; see [Android acceptance](docs/testing/android-acceptance.md). Design boards remain illustrative, and neither synthetic screenshots nor fake provider outcomes establish production acceptance.
 
 ## Product Principles
 
@@ -68,8 +68,8 @@ Accessible, legible controls and feedback are explicit priorities. Concrete acce
 
 ## Explicit Non-goals
 
-No implementation in this session. No backend, live integration, or prototype. No analytics, team management, scheduling, required AI, agent workflows, automatic Instagram publication, or unrequested major features.
+The original discovery was design-only; local implementation was later authorized. No required backend or live provider activation is authorized by this record. No analytics, team management, scheduling, required AI, agent workflows, automatic Instagram publication, or unrequested major features.
 
 ## Open Decisions
 
-Exact official authentication and posting capabilities; app registration, provider access, cost, and any service requirement; supported OS versions; eventual additional platforms; backup/export behavior; final name and license; platform media constraints. These must not be presented as proven or settled.
+Exact official authentication and posting capabilities; app registration, provider access, cost, and any service requirement; supported OS versions; eventual additional platforms; backup/export behavior; final public name/application ID, MIT copyright holder (MIT selected 2026-11-17); platform media constraints. These must not be presented as proven or settled.
