@@ -367,4 +367,36 @@ void main() {
       PublishStatus.published,
     );
   });
+
+  test('manual found on a nonbusy Unknown ancestor fences a preparing child final dispatch', () async {
+    final h = await coordinatorHarness(
+      x: [PublishStatus.unknown],
+      selected: {Destination.x},
+    );
+    addTearDown(h.close);
+    final group = await h.coordinator.confirm(
+      h.review,
+      operationId: 'original',
+    );
+    final original = (await h.attempts.attempts(group)).single;
+    final child = (await h.attempts.createChild(
+      original.id,
+      h.review,
+      'child',
+      allowUnknown: true,
+    )).attempt;
+    expect(await h.attempts.claim(child.id), isTrue);
+    await h.attempts.saveUpload(child.id, 'opaque-preparation', 'retained');
+    await h.attempts.reportFound(original.id);
+    await expectLater(h.attempts.markDispatch(child.id), throwsStateError);
+    expect((await h.attempts.getAttempt(child.id))!.dispatchAt, isNull);
+    expect((await h.attempts.getAttempt(child.id))!.uploadState, {
+      'opaque-preparation': 'retained',
+    });
+    expect((await h.attempts.effectiveAttempts(group)).single.id, original.id);
+    expect(
+      (await h.attempts.getAttempt(original.id))!.outcome.source,
+      EvidenceSource.user,
+    );
+  });
 }

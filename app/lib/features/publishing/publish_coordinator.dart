@@ -236,8 +236,10 @@ class PublishCoordinator {
   }
 
   Future<void> _prepareInstagram(AttemptGroup group) async {
-    if (!await attempts.claimInstagram(group.id)) return;
+    var claimed = false;
     try {
+      if (!await attempts.claimInstagram(group.id)) return;
+      claimed = true;
       final preparation = (await attempts.instagramPreparation(group.id))!;
       // prepare owns source checking and findByOperation idempotency, including
       // a committed package whose group association was lost to process death.
@@ -247,6 +249,7 @@ class PublishCoordinator {
       );
       await attempts.completeInstagram(group.id, package.id);
     } catch (_) {
+      if (!claimed) return;
       try {
         await attempts.failInstagram(group.id);
       } catch (_) {

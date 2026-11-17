@@ -496,13 +496,7 @@ class AttemptRepository {
     );
     if (rows.isEmpty) throw StateError('Attempt is busy or unavailable.');
     final current = _attempt(rows.single);
-    if (current.outcome.status != PublishStatus.unknown ||
-        (await tx.query(
-          'destination_attempts',
-          columns: ['id'],
-          where: 'parent_id = ?',
-          whereArgs: [id],
-        )).isNotEmpty) {
+    if (current.outcome.status != PublishStatus.unknown) {
       throw StateError('Only an unresolved unknown attempt can be confirmed.');
     }
     await _write(

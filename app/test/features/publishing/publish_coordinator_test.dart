@@ -229,7 +229,15 @@ void main() {
       ),
       throwsStateError,
     );
-    await expectLater(h.coordinator.reportFound(parent.id), throwsStateError);
+    await h.coordinator.reportFound(parent.id);
+    expect(
+      (await h.attempts.getAttempt(parent.id))!.outcome.status,
+      PublishStatus.userReported,
+    );
+    expect(
+      (await h.attempts.getAttempt(child))!.outcome.status,
+      PublishStatus.published,
+    );
     expect(h.x.createCount, 2);
   });
 
@@ -1085,4 +1093,166 @@ void main() {
     expect(winner.outcome.status, PublishStatus.userReported);
     expect(winner.snapshot.content.text, 'Frozen caption');
   });
+
+  test('manual found on an Unknown original resolves its failed edited child chain without fabricating a receipt', () async {
+    final h = await coordinatorHarness(
+      x: [PublishStatus.unknown, PublishStatus.notPublished],
+      selected: {Destination.x},
+    );
+    addTearDown(h.close);
+    final group = await h.coordinator.confirm(
+      h.review,
+      operationId: 'original',
+    );
+    final original = (await h.attempts.attempts(group)).single;
+    final draft = (await h.app.drafts.get(h.review.draftId))!;
+    final edited = editOwnCaption(
+      draft,
+      Destination.x,
+      'Preserved failed child caption',
+      h.clock.now(),
+    );
+    await h.app.drafts.save(edited, expectedRevision: draft.revision);
+    final reviewed = await h.reviewDraft(edited);
+    final childId = await h.coordinator.resendAfterCheck(
+      original.id,
+      reviewed,
+      operationId: 'risk',
+      duplicateRiskAccepted: true,
+    );
+    final childBefore = (await h.attempts.getAttempt(childId))!;
+    expect(childBefore.outcome.status, PublishStatus.notPublished);
+    final eventsBefore = await h.app.database.db.query(
+      'attempt_events',
+      orderBy: 'seq',
+    );
+    await h.coordinator.reportFound(original.id);
+    final found = (await h.attempts.getAttempt(original.id))!;
+    expect(found.outcome.status, PublishStatus.userReported);
+    expect(found.outcome.source, EvidenceSource.user);
+    expect(found.outcome.remoteId, isNull);
+    expect(found.outcome.url, isNull);
+    final winner = (await h.attempts.effectiveAttempts(group)).single;
+    expect(winner.id, original.id);
+    expect(winner.snapshot.content.text, 'Frozen caption');
+    final retainedChild = (await h.attempts.getAttempt(childId))!;
+    expect(
+      retainedChild.snapshot.content.text,
+      'Preserved failed child caption',
+    );
+    expect(retainedChild.outcome.toJson(), childBefore.outcome.toJson());
+    final eventsAfter = await h.app.database.db.query(
+      'attempt_events',
+      orderBy: 'seq',
+    );
+    expect(eventsAfter.take(eventsBefore.length).toList(), eventsBefore);
+    expect(eventsAfter.length, eventsBefore.length + 1);
+    await expectLater(
+      h.coordinator.retry(childId, reviewed, operationId: 'after-manual-found'),
+      throwsStateError,
+    );
+    expect(h.x.sent.length, 2);
+    expect(h.x.createCount, 1);
+  });
+
+  test('Instagram claim update rejection leaves preparation pending and direct destinations independent', () async {
+    final h = await coordinatorHarness(bluesky: [PublishStatus.published]);
+    addTearDown(h.close);
+    await h.app.database.db.execute(
+      "CREATE TRIGGER reject_ig_claim BEFORE UPDATE ON attempt_groups WHEN NEW.instagram_state = 'preparing' BEGIN SELECT RAISE(ABORT, 'claim storage failure'); END",
+    );
+    final group = await h.coordinator.confirm(
+      h.review,
+      operationId: 'original',
+    );
+    expect(h.x.createCount, 1);
+    expect(h.bluesky.createCount, 1);
+    expect(h.instagram.prepareCount, 0);
+    final preparation = (await h.attempts.instagramPreparation(group))!;
+    expect(preparation.state, InstagramPreparationState.pending);
+    expect(preparation.reason, isNull);
+    expect(preparation.packageId, isNull);
+    expect(
+      (await h.attempts.attempts(group))
+          .every((a) => a.outcome.status == PublishStatus.published),
+      isTrue,
+    );
+    await h.app.database.db.execute('DROP TRIGGER reject_ig_claim');
+    expect(
+      await h.coordinator.confirm(h.review, operationId: 'original'),
+      group,
+    );
+    expect(h.instagram.prepareCount, 0);
+    await h.coordinator.continueInstagram(group, h.review);
+    expect(
+      (await h.attempts.instagramPreparation(group))!.state,
+      InstagramPreparationState.ready,
+    );
+    expect(h.instagram.prepareCount, 1);
+    expect(h.x.createCount, 1);
+    expect(h.bluesky.createCount, 1);
+  });
+
+  test('Instagram claim acknowledgment loss preserves conservative state and direct results', () async {
+    final h = await coordinatorHarness(bluesky: [PublishStatus.published]);
+    addTearDown(h.close);
+    final repository = _InstagramClaimAcknowledgmentLostRepository(
+      h.app.database,
+      h.clock,
+      h.app.ids,
+    );
+    final coordinator = h.makeCoordinator(repository: repository);
+    final group = await coordinator.confirm(h.review, operationId: 'original');
+    expect(repository.failureWrites, 0);
+    expect(h.instagram.prepareCount, 0);
+    expect(h.x.createCount, 1);
+    expect(h.bluesky.createCount, 1);
+    final unacknowledged = (await h.attempts.instagramPreparation(group))!;
+    expect(unacknowledged.state, InstagramPreparationState.preparing);
+    expect(unacknowledged.reason, isNull);
+    expect(unacknowledged.packageId, isNull);
+    // A competing claim that did not acquire the preparing row also loses its
+    // acknowledgment; it cannot change the prior caller's durable preparation.
+    await coordinator.continueInstagram(group, h.review);
+    expect(repository.failureWrites, 0);
+    expect(
+      (await h.attempts.instagramPreparation(group))!.state,
+      InstagramPreparationState.preparing,
+    );
+    await h.attempts.recoverInterrupted();
+    expect(
+      (await h.attempts.instagramPreparation(group))!.state,
+      InstagramPreparationState.pending,
+    );
+    expect(h.instagram.prepareCount, 0);
+    await h.coordinator.continueInstagram(group, h.review);
+    expect(
+      (await h.attempts.instagramPreparation(group))!.state,
+      InstagramPreparationState.ready,
+    );
+    expect(h.instagram.prepareCount, 1);
+    expect((await h.app.database.db.query('instagram_packages')).length, 1);
+    expect(h.x.createCount, 1);
+    expect(h.bluesky.createCount, 1);
+  });
+}
+
+class _InstagramClaimAcknowledgmentLostRepository extends AttemptRepository {
+  _InstagramClaimAcknowledgmentLostRepository(
+    super.database,
+    super.clock,
+    super.ids,
+  );
+  int failureWrites = 0;
+  @override
+  Future<bool> claimInstagram(String groupId) async {
+    await super.claimInstagram(groupId);
+    throw StateError('Synthetic claim acknowledgment loss');
+  }
+
+  @override
+  Future<void> failInstagram(String groupId) async {
+    failureWrites++;
+    await super.failInstagram(groupId);
+  }
 }
