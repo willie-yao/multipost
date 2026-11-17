@@ -1,0 +1,7 @@
+{
+  "videoJob": {
+    "jobId": "synthetic-job",
+    "did": "did:plc:abcdefghijklmnopqrstuvwx",
+    "state": "JOB_STATE_ENCODING"
+  }
+}

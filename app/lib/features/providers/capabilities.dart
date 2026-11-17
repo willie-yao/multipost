@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bluesky_text/bluesky_text.dart';
+import 'package:characters/characters.dart';
+
 import '../drafts/draft.dart';
 import '../review/review.dart';
 import '../review/review_service.dart';
@@ -92,6 +95,42 @@ class TextMeasurement {
   const TextMeasurement({required this.units, required this.valid});
   final int units;
   final bool valid;
+}
+
+class BlueskyTextCounter implements TextCounter {
+  const BlueskyTextCounter();
+  @override
+  TextMeasurement measure(String text) {
+    final units = text.characters.length;
+    final bytes = utf8.encode(text);
+    return TextMeasurement(
+      units: units,
+      valid: units <= 300 && bytes.length <= 3000 && utf8.decode(bytes) == text,
+    );
+  }
+}
+
+/// Review warns before publication without promising a handle has resolved.
+class BlueskyValidator implements DestinationValidator {
+  BlueskyValidator(ProviderCapabilities capabilities)
+    : _base = CapabilityValidator(capabilities, const BlueskyTextCounter());
+  final CapabilityValidator _base;
+  @override
+  String get version => _base.version;
+  @override
+  Future<List<ReviewIssue>> validate(ResolvedPost post) async => [
+    ...await _base.validate(post),
+    if (BlueskyText(
+      post.content.text,
+      enableMarkdown: false,
+    ).handles.isNotEmpty)
+      ReviewIssue(
+        destination: Destination.bluesky,
+        code: 'mentions-resolved-at-publication',
+        blocking: false,
+        message: 'Mentions are resolved when publishing. Any handle that cannot be found stays plain text without a mention notification.',
+      ),
+  ];
 }
 
 class CapabilityValidator implements DestinationValidator {
@@ -298,11 +337,13 @@ class CapabilityRegistry implements ValidatorRegistry {
     required DestinationValidator instagram,
   }) => CapabilityRegistry({
     Destination.instagram: instagram,
-    for (final destination in [Destination.x, Destination.bluesky])
-      destination: CapabilityValidator(
-        ProviderCapabilities.documented(destination),
-        const _UnavailableCounter(),
-      ),
+    Destination.bluesky: BlueskyValidator(
+      ProviderCapabilities.documented(Destination.bluesky),
+    ),
+    Destination.x: CapabilityValidator(
+      ProviderCapabilities.documented(Destination.x),
+      const _UnavailableCounter(),
+    ),
   });
 
   @override

@@ -50,7 +50,7 @@ packages:
     source: hosted
     version: "2.13.1"
   at_primitives:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: at_primitives
       sha256: "25247db033a640d62bac793c82d2c1ef9958f7846b2ab27041ba42b3782d081a"
@@ -106,7 +106,7 @@ packages:
     source: hosted
     version: "2.18.0"
   bluesky_text:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: bluesky_text
       sha256: "901f95b8e3b82550d55424ce93366e51fff687525d135e3e69c2dbf79b1ff5ed"

@@ -8,9 +8,11 @@ environment:
   flutter: '>=3.50.0'
 
 dependencies:
+  at_primitives: 1.2.0
   atproto_oauth: 0.8.3
   atproto_core: 2.4.1
   bluesky: 2.18.0
+  bluesky_text: 1.8.0
   characters: ^1.4.1
   crypto: ^3.0.8
   flutter:

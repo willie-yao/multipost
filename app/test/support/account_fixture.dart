@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:atproto_oauth/atproto_oauth.dart';
 import 'package:bluesky/bluesky.dart';
+import 'package:bluesky/app_bsky_video_defs.dart';
 import 'package:cross_posting_app/features/accounts/account.dart';
 import 'package:cross_posting_app/features/accounts/bluesky_connection.dart';
 import 'package:cross_posting_app/features/accounts/bluesky_oauth.dart';
@@ -184,6 +185,11 @@ const blueskyDid = 'did:plc:abcdefghijklmnopqrstuvwx';
 const blueskyPds = 'https://test.us-east.host.bsky.network';
 
 class FakeATProtoOAuthDriver implements ATProtoOAuthDriver {
+  @override
+  Future<JobStatus> videoJobStatus({
+    required String expectedDid,
+    required String jobId,
+  }) => throw UnimplementedError();
   FakeATProtoOAuthDriver(this.stores, this.configuration);
   final BlueskyOAuthStores stores;
   final AppConfiguration configuration;

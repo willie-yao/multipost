@@ -12,6 +12,8 @@ import 'package:http/testing.dart';
 
 import 'account_fixture.dart';
 
+export 'bluesky_publisher_fixture.dart';
+
 // Synthetic protocol transport only; files and SQLite ownership are real.
 class XPublisherHarness {
   XPublisherHarness(this.account, {this.createResponseLost = false});

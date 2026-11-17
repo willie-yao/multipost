@@ -29,7 +29,9 @@ void main() {
       h.requests
           .firstWhere((r) => r.url.path == '/oauth/par')
           .bodyFields['scope'],
-      'atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/*',
+      'atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/* '
+      'account:email?action=read rpc:app.bsky.video.getUploadLimits?aud=* '
+      'rpc:com.atproto.repo.uploadBlob?aud=*',
     );
     expect(h.proofs.first['htm'], 'POST');
     expect(h.proofs.first['htu'], 'https://bsky.social/oauth/par');

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:atproto_oauth/atproto_oauth.dart';
 import 'package:bluesky/bluesky.dart';
+import 'package:bluesky/app_bsky_video_defs.dart';
 
 import '../../app/app_configuration.dart';
 import '../../core/clock.dart';
@@ -324,6 +325,16 @@ class BlueskyConnection implements AccountConnection {
       throw const AccountConnectionExpired();
     }
     return _driver!.client(_manager!, expectedDid);
+  }
+
+  /// Fixed, read-only video status hook. It cannot upload or create a record.
+  Future<JobStatus> videoJobStatus({
+    required String expectedDid,
+    required String jobId,
+  }) async {
+    await authorizedClient(expectedDid: expectedDid);
+    final driver = _driver!;
+    return driver.videoJobStatus(expectedDid: expectedDid, jobId: jobId);
   }
 
   @override

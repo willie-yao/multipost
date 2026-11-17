@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:atproto_core/atproto_core.dart' as core;
 import 'package:atproto_oauth/atproto_oauth.dart';
 import 'package:bluesky/bluesky.dart';
+import 'package:bluesky/app_bsky_video_defs.dart';
 import 'package:http/http.dart' as http;
 
 import '../../app/app_configuration.dart';
@@ -10,7 +11,9 @@ import '../drafts/draft.dart';
 import 'account.dart';
 
 const blueskyWriteScope =
-    'atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/*';
+    'atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/* '
+    'account:email?action=read rpc:app.bsky.video.getUploadLimits?aud=* '
+    'rpc:com.atproto.repo.uploadBlob?aud=*';
 const _issuer = 'https://bsky.social';
 
 /// The MVP supports the provider's documented PDS deployment, not federation.
@@ -54,6 +57,10 @@ abstract interface class ATProtoOAuthDriver {
   Future<OAuthSessionManager> restore(String serializedSession);
   Future<AccountIdentity> identityFromSession(OAuthSession session);
   Bluesky client(OAuthSessionManager manager, String expectedDid);
+  Future<JobStatus> videoJobStatus({
+    required String expectedDid,
+    required String jobId,
+  });
 }
 
 /// Uses only the pinned SDK's public store, resolver, signer and HTTP hooks.
@@ -210,6 +217,31 @@ class HostedATProtoOAuthDriver implements ATProtoOAuthDriver {
     );
   }
 
+  @override
+  Future<JobStatus> videoJobStatus({
+    required String expectedDid,
+    required String jobId,
+  }) async {
+    stores.checkCurrent();
+    if (_http.did != expectedDid || jobId.isEmpty || jobId.length > 1024) {
+      throw const AccountConnectionExpired();
+    }
+    final client = Bluesky.anonymous(
+      // No OAuth manager or credentials exist on this fixed read-only client.
+      // The same transport still fences its generation and admits only the
+      // exact public video status GET outside the bound PDS.
+      getClient: _http.get,
+      retryConfig: core.RetryConfig(maxAttempts: 0),
+    );
+    final result = await client.video.getJobStatus(jobId: jobId);
+    stores.checkCurrent();
+    if (result.data.jobStatus.did != expectedDid ||
+        result.data.jobStatus.jobId != jobId) {
+      throw const AccountConnectionUnavailable();
+    }
+    return result.data.jobStatus;
+  }
+
   void _checkManager(OAuthSessionManager manager, String expectedDid) {
     stores.checkCurrent();
     if (manager.currentSub != expectedDid || _http.did != expectedDid) {
@@ -286,6 +318,73 @@ class _HostedHttp extends http.BaseClient {
     pds = origin;
   }
 
+  // Ephemeral service JWTs are never written to the public DB or uploadState.
+  final _videoTokens = <String, String>{};
+  void _admitVideoDelegation(http.BaseRequest request) {
+    final q = request.url.queryParametersAll;
+    if (request.method != 'GET' ||
+        q.values.any((v) => v.length != 1) ||
+        q.keys.any((k) => !{'aud', 'lxm', 'exp'}.contains(k))) {
+      _reject();
+    }
+    final lxm = request.url.queryParameters['lxm'];
+    final expectedAudience = switch (lxm) {
+      'app.bsky.video.getUploadLimits' => 'did:web:video.bsky.app',
+      'com.atproto.repo.uploadBlob' => 'did:web:${Uri.parse(pds!).host}',
+      _ => null,
+    };
+    if (expectedAudience == null ||
+        request.url.queryParameters['aud'] != expectedAudience) {
+      _reject();
+    }
+    if (request.url.queryParameters['exp'] case final encoded?) {
+      final exp = int.tryParse(encoded);
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+      if (exp == null || exp <= now || exp > now + 1800) _reject();
+    }
+  }
+
+  void _admitVideo(
+    http.BaseRequest request, {
+    required bool signed,
+    required bool auth,
+  }) {
+    if (signed) _reject();
+    final uri = request.url;
+    final authorization = request.headers['authorization'];
+    final q = uri.queryParametersAll;
+    if (q.values.any((v) => v.length != 1)) _reject();
+    if (uri.path == '/xrpc/app.bsky.video.getJobStatus') {
+      if (request.method != 'GET' ||
+          auth ||
+          q.length != 1 ||
+          !(uri.queryParameters['jobId']?.isNotEmpty ?? false)) {
+        _reject();
+      }
+    } else if (uri.path == '/xrpc/app.bsky.video.getUploadLimits') {
+      final token = _videoTokens['app.bsky.video.getUploadLimits'];
+      if (request.method != 'GET' ||
+          uri.hasQuery ||
+          token == null ||
+          authorization != 'Bearer $token') {
+        _reject();
+      }
+    } else if (uri.path == '/xrpc/app.bsky.video.uploadVideo') {
+      final token = _videoTokens['com.atproto.repo.uploadBlob'];
+      if (request.method != 'POST' ||
+          token == null ||
+          authorization != 'Bearer $token' ||
+          request.headers['content-type'] != 'video/mp4' ||
+          q.length != 2 ||
+          uri.queryParameters['did'] != did ||
+          !(uri.queryParameters['name']?.endsWith('.mp4') ?? false)) {
+        _reject();
+      }
+    } else {
+      _reject();
+    }
+  }
+
   bool authorizationTarget(Uri uri) =>
       _authorization != null &&
       uri.origin == _authorization!.origin &&
@@ -326,6 +425,12 @@ class _HostedHttp extends http.BaseClient {
         uri.toString() == '$_issuer/.well-known/oauth-authorization-server';
     final par = _par != null && uri == _par;
     final token = _token != null && uri == _token;
+    final serviceAuth =
+        pds != null &&
+        uri.origin == pds &&
+        uri.path == '/xrpc/com.atproto.server.getServiceAuth';
+    if (serviceAuth) _admitVideoDelegation(request);
+    final video = uri.origin == 'https://video.bsky.app';
     final api =
         pds != null && uri.origin == pds && uri.path.startsWith('/xrpc/');
     if (metadata || resolver || plc || resource || discovery) {
@@ -339,6 +444,8 @@ class _HostedHttp extends http.BaseClient {
               configuration.blueskyMetadataUri.toString()) {
         _reject();
       }
+    } else if (video) {
+      _admitVideo(request, signed: signed, auth: auth);
     } else if (api) {
       if (!{'GET', 'POST'}.contains(request.method) || !signed || !auth) {
         _reject();
@@ -381,6 +488,12 @@ class _HostedHttp extends http.BaseClient {
       // Also awaits nonce persistence on API successes (SDK otherwise does not).
       await stores.nonces.set(uri.origin, nonce);
     }
+    if (serviceAuth && response.statusCode == 200) {
+      final value = jsonDecode(result.body) as Map<String, dynamic>;
+      final token = value['token'];
+      if (token is! String || token.isEmpty) _reject();
+      _videoTokens[uri.queryParameters['lxm']!] = token;
+    }
     if (metadata ||
         resolver ||
         resource ||
@@ -411,13 +524,46 @@ class _HostedHttp extends http.BaseClient {
       if (discovery) _discovery(json);
       if (token) _rawToken(json);
     }
+    var forwardedBytes = bytes;
+    if (video &&
+        uri.path == '/xrpc/app.bsky.video.uploadVideo' &&
+        response.statusCode >= 200 &&
+        response.statusCode < 300) {
+      final body = jsonDecode(result.body) as Map<String, dynamic>;
+      // Current lexicon wraps jobStatus; the pinned SDK and official guide
+      // decode a bare JobStatus. Normalize only this proven success envelope.
+      final Map<String, dynamic> value;
+      if (body.containsKey('jobStatus')) {
+        if (body.length != 1 || body['jobStatus'] is! Map<String, dynamic>) {
+          _reject();
+        }
+        value = body['jobStatus'] as Map<String, dynamic>;
+      } else {
+        value = body;
+      }
+      final job = JobStatus.fromJson(value);
+      if (job.did != did || job.jobId.isEmpty || job.jobId.length > 1024) {
+        _reject();
+      }
+      if (job.blob case final blob?) {
+        core.CID.parse(blob.ref.link);
+        if (blob.mimeType != 'video/mp4' ||
+            blob.size <= 0 ||
+            blob.size > 300000000) {
+          _reject();
+        }
+      }
+      forwardedBytes = utf8.encode(jsonEncode(value));
+    }
     return http.StreamedResponse(
-      Stream.value(bytes),
+      Stream.value(forwardedBytes),
       response.statusCode,
       request: request,
       headers: {
+        'content-length': forwardedBytes.length.toString(),
         for (final entry in response.headers.entries)
-          entry.key.toLowerCase(): entry.value,
+          if (entry.key.toLowerCase() != 'content-length')
+            entry.key.toLowerCase(): entry.value,
       },
     );
   }

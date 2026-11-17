@@ -432,3 +432,34 @@ Reserved example.com build values verify compilation only. Actual owned
 metadata, callback association, warm/cold/cancel/MFA behavior, account/scopes,
 release logging/privacy, native visual/TalkBack and iOS acceptance remain
 unverified. P2's AppAuth state-logging gate remains independently unresolved.
+
+## P5 Bluesky publishing extension (2026-11-17; still unavailable)
+
+P5 implements text/facets, ordered photo blobs/alt text, stable SDK-generated TID
+record recovery and the official preprocessing-video path using fake HTTP only.
+This extends P3's hosted-only policy solely with the exact video service routes
+and typed read-only status hook. did:plc/hosted PDS, issuer, normal verified TLS,
+redirect denial, bounds and generation fences remain authoritative.
+
+The complete exact source hashes, known uploadVideo schema/SDK discrepancy,
+permission rationale and unavailable/live limits are in
+app/test/fixtures/providers/bluesky/README.md. The former P3 four-scope set is
+superseded by this exact P5 set:
+
+```
+atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/* account:email?action=read rpc:app.bsky.video.getUploadLimits?aud=* rpc:com.atproto.repo.uploadBlob?aud=*
+```
+
+The two RPC permissions use wildcard audiences; they are broader delegation
+than exact-audience grants. Runtime admission enforces the concrete audience
+and lxm pairs. Only ephemeral PDS-issued service tokens reach video.bsky.app's
+exact limits/upload endpoints, never OAuth tokens or DPoP proofs. Job status is
+an unsigned fixed read-only SDK GET. Private email is used only for the in-memory
+emailConfirmed prerequisite, with session DID checked against frozen review.
+No email/service token is persisted in public attempt state. Existing sessions
+must satisfy the new complete exact scope set. Before enabling production
+connection without video, revisit whether these added permissions are needed.
+
+No live grant, account email/limits, codec or format-class publication acceptance
+has occurred. Production OAuth/publishing gates and documented video capability
+remain unavailable. This is no app/domain/metadata registration or hosting step.

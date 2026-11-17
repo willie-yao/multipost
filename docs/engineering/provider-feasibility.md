@@ -134,3 +134,17 @@ checks are reported separately in task-13-report.md and OAuth configuration's P2
 section. They do not change the unavailable direct capability gate. In particular,
 AppAuth0.11.1 logs state values on mismatch; registered browser return and privacy
 acceptance remain unresolved. No live connection or API request was performed.
+
+## P5 local implementation evidence (2026-11-17)
+
+The pinned official SDK path now has synthetic HTTP coverage for exact original
+text/facets, ordered images/alt, source-backed video preprocessing/prerequisites,
+record TID/CID persistence and exact same-record reconciliation. Current
+production capabilities remain unavailable; video remains disabled because
+numeric duration, live scopes/entitlement, codec and actual format evidence are
+unverified. The current video upload lexicon wraps jobStatus while the official
+guide/pinned SDK use bare JobStatus; the exact endpoint supports both proven
+success shapes through a small SDK-validated adapter and rejects mixed/error
+or malformed envelopes. Source captures/hashes and actual public hooks are in
+app/test/fixtures/providers/bluesky/README.md and the P5 OAuth addendum above.
+No provider login/upload/post or hosting operation was performed.
