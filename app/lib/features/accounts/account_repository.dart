@@ -1,3 +1,4 @@
+import '../../app/app_configuration.dart';
 import '../../storage/local_database.dart';
 import '../drafts/draft.dart';
 import 'account.dart';
@@ -10,27 +11,27 @@ abstract interface class AccountRepository {
 
 /// Capability metadata only. Official connection flows arrive in P2/P3.
 class LocalAccountRepository implements AccountRepository {
-  LocalAccountRepository(this.database);
+  LocalAccountRepository(this.database, {AppConfiguration? configuration})
+    : configuration = configuration ?? AppConfiguration.fromEnvironment();
   final LocalDatabase database;
+  final AppConfiguration configuration;
 
   @override
-  Future<List<AccountView>> list() async => const [
-    AccountView(
-      destination: Destination.x,
-      state: AccountState.disconnected,
-      capability: 'Publishes from this app once connected.',
-    ),
-    AccountView(
-      destination: Destination.bluesky,
-      state: AccountState.disconnected,
-      capability: 'Publishes from this app once connected.',
-    ),
-    AccountView(
+  Future<List<AccountView>> list() async => List<AccountView>.unmodifiable([
+    for (final destination in [Destination.x, Destination.bluesky])
+      AccountView(
+        destination: destination,
+        state: configuration.connection(destination).available
+            ? AccountState.disconnected
+            : AccountState.unavailable,
+        capability: configuration.connection(destination).reason,
+      ),
+    const AccountView(
       destination: Destination.instagram,
       state: AccountState.unavailable,
       capability: 'You finish it in Instagram · choose the account there',
     ),
-  ];
+  ]);
 
   @override
   Future<bool> instagramAssistedSharing() async {

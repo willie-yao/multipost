@@ -1,0 +1,10 @@
+name: caption_provider_probe
+publish_to: none
+environment:
+  sdk: ^3.14.0
+dependencies:
+  atproto_oauth: 0.8.3
+  atproto_core: 2.4.1
+  bluesky: 2.18.0
+  http: 1.6.0
+  crypto: 3.0.8

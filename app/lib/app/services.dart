@@ -15,9 +15,11 @@ import '../features/drafts/draft_repository.dart';
 import '../features/instagram/instagram_repository.dart';
 import '../features/instagram/instagram_service.dart';
 import '../features/media/picker_imports.dart';
+import '../features/providers/capabilities.dart';
 import '../features/review/review_service.dart';
 import '../storage/local_database.dart';
 import '../storage/media_files.dart';
+import 'app_configuration.dart';
 
 class AppServices {
   AppServices({
@@ -40,13 +42,10 @@ class AppServices {
   final Directory instagramPackageRoot;
   late final instagramPolicy = InstagramPhotoPolicy.localPreparation();
   late final instagramRepo = InstagramRepository(database);
-  late final review = ReviewService(
-    drafts,
-    media,
-    accounts,
-    InstagramPreparationValidators(instagramPolicy),
-    clock,
+  late final validators = CapabilityRegistry.production(
+    instagram: instagramPolicy,
   );
+  late final review = ReviewService(drafts, media, accounts, validators, clock);
   late final instagram = InstagramService(
     instagramRepo,
     media,
@@ -72,6 +71,7 @@ class AppServices {
       Directory(p.join(support.path, 'media')),
       const Ids(),
     );
+    final configuration = AppConfiguration.fromEnvironment();
     return AppServices(
       // path_provider_android 2.3.1 getApplicationSupportPath returns filesDir.
       // I3 FileProvider must scope files-path to exactly instagram-packages/.
@@ -81,7 +81,7 @@ class AppServices {
       database: database,
       media: media,
       drafts: SqliteDraftRepository(database, media: media),
-      accounts: LocalAccountRepository(database),
+      accounts: LocalAccountRepository(database, configuration: configuration),
       clock: const Clock(),
       ids: const Ids(),
     );

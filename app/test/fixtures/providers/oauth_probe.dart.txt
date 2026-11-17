@@ -1,0 +1,625 @@
+// Isolated characterization harness. Copy as described by run-sdk-probe.ps1.
+// Every endpoint is intercepted. Only synthetic tokens; never prints keys.
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:atproto_oauth/atproto_oauth.dart';
+import 'package:bluesky/bluesky.dart';
+import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+const did = 'did:plc:fixtureperson';
+const issuer = 'https://auth.example.com';
+const callback = 'com.example.app:/callback';
+const scope = 'atproto repo:app.bsky.feed.post?action=create';
+const metadata = OAuthClientMetadata(
+  clientId: 'https://app.example.com/client.json',
+  applicationType: 'native',
+  clientName: 'Synthetic probe',
+  clientUri: 'https://app.example.com',
+  grantTypes: ['authorization_code', 'refresh_token'],
+  redirectUris: [callback],
+  responseTypes: ['code'],
+  scope: scope,
+  tokenEndpointAuthMethod: 'none',
+);
+
+void check(bool value, String label) {
+  if (!value) throw StateError(label);
+}
+
+Future<void> rejects(Future<Object?> Function() action, String label) async {
+  var rejected = false;
+  try {
+    await action();
+  } catch (_) {
+    rejected = true;
+  }
+  check(rejected, label);
+}
+
+Future<void> rejectsNonce(
+  Future<Object?> Function() action,
+  String label,
+) async {
+  try {
+    await action();
+  } catch (error) {
+    check(
+      error is http.ClientException &&
+          error.message == 'DPoP response nonce required',
+      label,
+    );
+    return;
+  }
+  throw StateError(label);
+}
+
+Map<String, dynamic> jwtPart(String proof, int part) => jsonDecode(
+  utf8.decode(base64Url.decode(base64Url.normalize(proof.split('.')[part]))),
+) as Map<String, dynamic>;
+
+class Identity implements IdentityResolver {
+  @override
+  Future<ResolvedIdentity> resolve(String identity) async =>
+      const ResolvedIdentity(
+        did: did,
+        pds: 'https://pds.example.com',
+        handle: 'person.example.com',
+      );
+}
+
+class States implements OAuthStateStore {
+  final json = <String, String>{};
+  Completer<void>? pause;
+  Completer<void>? started;
+  @override
+  Future<void> set(String key, OAuthContext value) async {
+    started?.complete();
+    await pause?.future;
+    json[key] = jsonEncode(value.toJson());
+  }
+
+  @override
+  Future<OAuthContext?> find(String key) async =>
+      json[key] == null ? null : OAuthContext.fromJson(jsonDecode(json[key]!));
+  @override
+  Future<void> delete(String key) async {
+    json.remove(key);
+  }
+}
+
+class Sessions implements OAuthSessionStore {
+  final json = <String, String>{};
+  Completer<void>? pause;
+  Completer<void>? started;
+  bool fail = false;
+  @override
+  Future<void> set(String key, OAuthSession value) async {
+    if (!(started?.isCompleted ?? true)) started!.complete();
+    await pause?.future;
+    if (fail) throw StateError('Synthetic storage failure');
+    json[key] = jsonEncode(value.toJson());
+  }
+
+  @override
+  Future<OAuthSession?> find(String key) async =>
+      json[key] == null ? null : OAuthSession.fromJson(jsonDecode(json[key]!));
+  @override
+  Future<void> delete(String key) async {
+    json.remove(key);
+  }
+}
+
+/// Candidate HTTP policy only. Not a complete OAuth adapter or runtime code.
+class NoncePolicy extends http.BaseClient {
+  NoncePolicy(this.inner);
+  final http.Client inner;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await inner.send(request);
+    final signed = request.headers.keys.any(
+      (key) => key.toLowerCase() == 'dpop',
+    );
+    final nonce = response.headers.entries
+        .where((entry) => entry.key.toLowerCase() == 'dpop-nonce')
+        .map((entry) => entry.value)
+        .firstOrNull;
+    if (signed && (nonce == null || nonce.trim().isEmpty)) {
+      await response.stream.drain<void>();
+      throw http.ClientException('DPoP response nonce required');
+    }
+    return response;
+  }
+}
+
+class RejectDiscovery extends http.BaseClient {
+  RejectDiscovery(this.inner);
+  final http.Client inner;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.url.path == '/.well-known/oauth-authorization-server') {
+      throw http.ClientException('Synthetic discovery policy rejection');
+    }
+    return inner.send(request);
+  }
+}
+
+class Server {
+  bool includeNonce = true;
+  String responseNonce = 'synthetic-nonce';
+  bool nonceChallenges = true;
+  bool absentServerMetadata = false;
+  bool apiChallenge = true;
+  String tokenType = 'DPoP';
+  String tokenSub = did;
+  int pars = 0, codes = 0, refreshes = 0, apiCalls = 0;
+  String? state, challenge;
+  Completer<void>? tokenPause;
+  Completer<void>? secondCode;
+  final proofs = <Map<String, dynamic>>[];
+  late final http.Client transport = MockClient(handle);
+
+  http.Response json(Object body, {int status = 200, bool dpop = false}) =>
+      http.Response(
+        jsonEncode(body),
+        status,
+        headers: {
+          'content-type': 'application/json',
+          if (dpop && includeNonce) 'dpop-nonce': responseNonce,
+        },
+      );
+
+  Future<http.Response> handle(http.Request request) async {
+    final uri = request.url;
+    check(uri.scheme == 'https', 'No HTTP endpoints in fixture');
+    if (uri.path.startsWith('/xrpc/'))
+      return apiGet(uri, headers: request.headers);
+    if (uri.path == '/.well-known/oauth-protected-resource') {
+      return json({
+        'resource': 'https://pds.example.com',
+        'authorization_servers': [issuer],
+      });
+    }
+    if (uri.path == '/.well-known/oauth-authorization-server') {
+      if (absentServerMetadata) return json({'error': 'missing'}, status: 404);
+      return json({
+        'issuer': issuer,
+        'authorization_endpoint': '$issuer/oauth/authorize',
+        'token_endpoint': '$issuer/oauth/token',
+        'pushed_authorization_request_endpoint': '$issuer/oauth/par',
+        'require_pushed_authorization_requests': true,
+        'response_types_supported': ['code'],
+        'grant_types_supported': ['authorization_code', 'refresh_token'],
+        'code_challenge_methods_supported': ['S256'],
+        'dpop_signing_alg_values_supported': ['ES256'],
+        'authorization_response_iss_parameter_supported': true,
+        'token_endpoint_auth_methods_supported': ['none'],
+        'scopes_supported': [scope],
+      });
+    }
+    final proof = request.headers['dpop'];
+    check(proof != null, 'SDK must sign every OAuth POST');
+    check(jwtPart(proof!, 0)['alg'] == 'ES256', 'Package-owned ES256');
+    final claims = jwtPart(proof, 1);
+    check(claims['htu'] == '${uri.origin}${uri.path}', 'DPoP target binding');
+    check(claims['htm'] == request.method, 'DPoP method binding');
+    proofs.add(claims);
+    if (uri.path == '/oauth/par') {
+      pars++;
+      final body = request.bodyFields;
+      check(body['code_challenge_method'] == 'S256', 'PKCE S256 required');
+      check(body['client_id'] == metadata.clientId, 'Public client ID');
+      check(!body.containsKey('client_secret'), 'No shared secret');
+      check(body['redirect_uri'] == callback, 'Exact redirect sent');
+      state = body['state'];
+      challenge = body['code_challenge'];
+      if (nonceChallenges && includeNonce && pars == 1) {
+        return json({'error': 'use_dpop_nonce'}, status: 400, dpop: true);
+      }
+      if (nonceChallenges && includeNonce)
+        check(claims['nonce'] == 'synthetic-nonce', 'Nonce retry proof');
+      return json(
+        {
+          'request_uri': 'urn:ietf:params:oauth:request_uri:fixture',
+          'expires_in': 60,
+        },
+        status: 201,
+        dpop: true,
+      );
+    }
+    check(uri.path == '/oauth/token', 'Unexpected OAuth endpoint');
+    final body = request.bodyFields;
+    if (body['grant_type'] == 'authorization_code') {
+      codes++;
+      if (codes == 2 && !(secondCode?.isCompleted ?? true))
+        secondCode!.complete();
+      final encoded = base64Url
+          .encode(sha256.convert(utf8.encode(body['code_verifier']!)).bytes)
+          .replaceAll('=', '');
+      check(encoded == challenge, 'Exchange verifier matches PAR challenge');
+    } else {
+      check(body['grant_type'] == 'refresh_token', 'Only refresh or code');
+      refreshes++;
+      check(
+        body['refresh_token'] == 'synthetic-refresh-0',
+        'Rotating refresh input',
+      );
+    }
+    await tokenPause?.future;
+    return json({
+      'access_token': 'synthetic-access-$refreshes',
+      'refresh_token': 'synthetic-refresh-$refreshes',
+      'token_type': tokenType,
+      'scope': scope,
+      'sub': tokenSub,
+      'expires_in': 3600,
+    }, dpop: true);
+  }
+
+  http.Response apiResponse(Uri uri, Object body, int status) {
+    final response = json(body, status: status, dpop: true);
+    return http.Response(
+      response.body,
+      status,
+      headers: response.headers,
+      request: http.Request('GET', uri),
+    );
+  }
+
+  Future<http.Response> apiGet(Uri uri, {Map<String, String>? headers}) async {
+    apiCalls++;
+    check(uri.host == 'pds.example.com', 'API bound to PDS');
+    check(uri.path == '/xrpc/app.bsky.actor.getProfile', 'Expected API method');
+    check(
+      (headers?['Authorization'] ?? headers?['authorization']) ==
+          'DPoP synthetic-access-0',
+      'API token binding',
+    );
+    final proof = headers?['DPoP'] ?? headers?['dpop'];
+    check(
+      proof != null && jwtPart(proof!, 1)['ath'] != null,
+      'API access token hash proof',
+    );
+    if (apiChallenge && apiCalls == 1)
+      return apiResponse(uri, {'error': 'use_dpop_nonce'}, 401);
+    if (apiChallenge)
+      check(
+        jwtPart(proof!, 1)['nonce'] == 'synthetic-nonce',
+        'API nonce retry',
+      );
+    return apiResponse(uri, {'did': did, 'handle': 'person.example.com'}, 200);
+  }
+}
+
+OAuthClient client(
+  Server server,
+  States states,
+  Sessions sessions, {
+  bool policy = false,
+}) => OAuthClient(
+  metadata,
+  identityResolver: Identity(),
+  stateStore: states,
+  sessionStore: sessions,
+  httpClient: policy ? NoncePolicy(server.transport) : server.transport,
+);
+String callbackUrl(Server server, {String target = callback}) =>
+    Uri.parse(target)
+        .replace(
+          queryParameters: {
+            'state': server.state!,
+            'iss': issuer,
+            'code': 'synthetic-code',
+          },
+        )
+        .toString();
+
+int passed = 0;
+Future<void> scenario(String name, Future<void> Function() body) async {
+  try {
+    await body().timeout(const Duration(seconds: 15));
+    passed++;
+    stdout.writeln('PASS $name');
+  } catch (error) {
+    stderr.writeln(
+      'FAIL $name (${error.runtimeType}; synthetic details suppressed)',
+    );
+    exitCode = 1;
+  }
+}
+
+Future<void> main() async {
+  await scenario('package roundtrip PAR/S256/ES256 + awaited stores + API nonce + single-flight rotation + restore', () async {
+    final server = Server();
+    final states = States();
+    final sessions = Sessions();
+    final oauth = client(server, states, sessions, policy: true);
+    states.pause = Completer<void>();
+    states.started = Completer<void>();
+    var authorized = false;
+    final authorization = oauth.authorize('person.example.com').then((v) {
+      authorized = true;
+      return v;
+    });
+    await states.started!.future;
+    check(
+      !authorized && states.json.isEmpty,
+      'Browser launch cannot precede saved state',
+    );
+    states.pause!.complete();
+    final uri = await authorization;
+    check(
+      uri.host == 'auth.example.com' && server.pars == 2,
+      'PAR nonce bounded retry',
+    );
+    check(
+      server.proofs[0]['jti'] != server.proofs[1]['jti'],
+      'Fresh proof on retry',
+    );
+    final restartedStates = States()..json.addAll(states.json);
+    final restarted = client(server, restartedStates, sessions, policy: true);
+    sessions.pause = Completer<void>();
+    sessions.started = Completer<void>();
+    var connected = false;
+    final exchange = restarted.callback(callbackUrl(server)).then((v) {
+      connected = true;
+      return v;
+    });
+    await sessions.started!.future;
+    check(
+      !connected && sessions.json.isEmpty,
+      'Connection waits for session persistence',
+    );
+    sessions.pause!.complete();
+    final session = await exchange;
+    check(
+      restartedStates.json.isEmpty && session.sub == did,
+      'State consumed, account bound',
+    );
+    final manager = OAuthSessionManager.fromSession(session, client: restarted);
+    final bsky = Bluesky.fromOAuth(
+      manager,
+      getClient: NoncePolicy(server.transport).get,
+    );
+    final profile = await bsky.actor.getProfile(actor: did);
+    check(
+      profile.data.did == did && server.apiCalls == 2,
+      'Compatible Bluesky SDK API nonce retry',
+    );
+    sessions.pause = Completer<void>();
+    sessions.started = Completer<void>();
+    var rotated = false;
+    final rotations =
+        Future.wait([restarted.refresh(session), restarted.refresh(session)])
+            .then((v) {
+              rotated = true;
+              return v;
+            });
+    await sessions.started!.future;
+    check(
+      !rotated && server.refreshes == 1,
+      'Refresh serialized and persistence awaited',
+    );
+    sessions.pause!.complete();
+    final replacements = await rotations;
+    check(
+      replacements.every((s) => s.accessToken == 'synthetic-access-1'),
+      'Same rotation result',
+    );
+    final restored = await client(
+      server,
+      States(),
+      Sessions()..json.addAll(sessions.json),
+    ).restore(did);
+    check(
+      restored?.refreshToken == 'synthetic-refresh-1',
+      'Serialized restart restores rotated session',
+    );
+  });
+  await scenario(
+    'session store failure rejects callback and consumes state',
+    () async {
+      final server = Server();
+      final states = States();
+      final sessions = Sessions()..fail = true;
+      final oauth = client(server, states, sessions);
+      await oauth.authorize(did);
+      await rejects(
+        () => oauth.callback(callbackUrl(server)),
+        'Must reject failed persistence',
+      );
+      check(
+        states.json.isEmpty && sessions.json.isEmpty,
+        'No connected session after write failure',
+      );
+    },
+  );
+  await scenario(
+    'SDK rejects wrong issuer and wrong account before persistence',
+    () async {
+      for (final wrongIssuer in [true, false]) {
+        final server = Server();
+        final states = States();
+        final sessions = Sessions();
+        final oauth = client(server, states, sessions);
+        await oauth.authorize(did);
+        if (!wrongIssuer) server.tokenSub = 'did:plc:otherfixture';
+        final url = wrongIssuer
+            ? Uri.parse(callbackUrl(server))
+                  .replace(
+                    queryParameters: {
+                      'state': server.state!,
+                      'iss': 'https://other.example.com',
+                      'code': 'synthetic-code',
+                    },
+                  )
+                  .toString()
+            : callbackUrl(server);
+        await rejects(() => oauth.callback(url), 'Binding must reject');
+        check(sessions.json.isEmpty, 'No account mismatch saved');
+      }
+    },
+  );
+  await scenario(
+    'characterization: raw SDK accepts missing response nonce',
+    () async {
+      final server = Server()..includeNonce = false;
+      await client(server, States(), Sessions()).authorize(did);
+      check(server.pars == 1, 'Observed missing nonce acceptance');
+    },
+  );
+  await scenario(
+    'candidate policy rejects missing response nonce before state save',
+    () async {
+      for (final nonce in <String?>[null, '', ' ']) {
+        final server = Server()
+          ..includeNonce = nonce != null
+          ..responseNonce = nonce ?? ''
+          ..nonceChallenges = false;
+        final states = States();
+        await rejectsNonce(
+          () => client(server, states, Sessions(), policy: true).authorize(did),
+          'Mandatory nonce candidate',
+        );
+        check(states.json.isEmpty, 'Rejected response cannot save flow');
+      }
+    },
+  );
+  await scenario(
+    'characterization: raw SDK accepts wrong callback target',
+    () async {
+      final server = Server();
+      final states = States();
+      final sessions = Sessions();
+      final oauth = client(server, states, sessions);
+      await oauth.authorize(did);
+      final session = await oauth.callback(
+        callbackUrl(server, target: 'wrong.app:/other'),
+      );
+      check(
+        session.sub == did && server.codes == 1,
+        'Observed target validation gap',
+      );
+    },
+  );
+  await scenario(
+    'characterization: raw SDK accepts Bearer token type',
+    () async {
+      final server = Server()..tokenType = 'Bearer';
+      final states = States();
+      final oauth = client(server, states, Sessions());
+      await oauth.authorize(did);
+      check(
+        (await oauth.callback(callbackUrl(server))).tokenType == 'Bearer',
+        'Observed token type gap',
+      );
+    },
+  );
+  await scenario(
+    'characterization: raw SDK guesses endpoints after missing AS metadata',
+    () async {
+      final server = Server()..absentServerMetadata = true;
+      await client(server, States(), Sessions()).authorize(did);
+      check(server.pars == 2, 'Observed discovery fallback');
+    },
+  );
+  await scenario(
+    'characterization: concurrent callback exchanges same state twice',
+    () async {
+      final server = Server()
+        ..tokenPause = Completer<void>()
+        ..secondCode = Completer<void>();
+      final oauth = client(server, States(), Sessions());
+      await oauth.authorize(did);
+      final callbacks = Future.wait([
+        oauth.callback(callbackUrl(server)),
+        oauth.callback(callbackUrl(server)),
+      ]);
+      await server.secondCode!.future;
+      server.tokenPause!.complete();
+      await callbacks;
+      check(server.codes == 2, 'Observed concurrent consume gap');
+    },
+  );
+  await scenario(
+    'candidate policy rejects token response without nonce before session save',
+    () async {
+      final server = Server();
+      final states = States();
+      final sessions = Sessions();
+      final oauth = client(server, states, sessions, policy: true);
+      await oauth.authorize(did);
+      server.includeNonce = false;
+      await rejectsNonce(
+        () => oauth.callback(callbackUrl(server)),
+        'Token nonce required',
+      );
+      check(sessions.json.isEmpty, 'No missing-nonce session persisted');
+    },
+  );
+  await scenario(
+    'candidate API transport rejects successful response missing nonce',
+    () async {
+      final server = Server()..apiChallenge = false;
+      final states = States();
+      final oauth = client(server, states, Sessions());
+      await oauth.authorize(did);
+      final session = await oauth.callback(callbackUrl(server));
+      final manager = OAuthSessionManager.fromSession(session, client: oauth);
+      server.includeNonce = false;
+      final raw = Bluesky.fromOAuth(manager, getClient: server.apiGet);
+      check(
+        (await raw.actor.getProfile(actor: did)).data.did == did,
+        'Observed API missing nonce acceptance',
+      );
+      final guarded = Bluesky.fromOAuth(
+        manager,
+        getClient: NoncePolicy(server.transport).get,
+      );
+      await rejectsNonce(
+        () => guarded.actor.getProfile(actor: did),
+        'API nonce policy blocks success',
+      );
+    },
+  );
+  await scenario(
+    'characterization: fetched metadata may advertise a different client ID',
+    () async {
+      final transport = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            ...metadata.toJson(),
+            'client_id': 'https://other.example.com/client.json',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        ),
+      );
+      final fetched = await getClientMetadata(
+        metadata.clientId,
+        client: transport,
+      );
+      check(
+        fetched.clientId == 'https://other.example.com/client.json',
+        'Observed metadata client ID gap',
+      );
+    },
+  );
+  await scenario('characterization: discovery transport rejection is swallowed into fallback', () async {
+    final server = Server();
+    final oauth = OAuthClient(
+      metadata,
+      identityResolver: Identity(),
+      httpClient: RejectDiscovery(server.transport),
+    );
+    await oauth.authorize(did);
+    check(server.pars == 2, 'Observed swallowed policy exception');
+  });
+  stdout.writeln(
+    '$passed/13 scenarios passed; characterization gaps are NOT SDK acceptance.',
+  );
+}
