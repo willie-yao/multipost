@@ -360,6 +360,218 @@ void main() {
       );
     },
   );
+  test('acquired client revocation expires immediately and fences further network use', () async {
+    final h = await HostedBlueskyHarness.create();
+    addTearDown(h.close);
+    await h.connect();
+    final client = await h.connection.authorizedClient(expectedDid: blueskyDid);
+    h.override = (request) {
+      final path = request.url.path;
+      if (path == '/xrpc/app.bsky.actor.getProfile') {
+        return h.json(
+          {'error': 'ExpiredToken'},
+          status: 401,
+          signed: true,
+          path: path,
+        );
+      }
+      if (path == '/oauth/token') {
+        return h.json(
+          {'error': 'invalid_grant'},
+          status: 400,
+          signed: true,
+          path: path,
+        );
+      }
+      return null;
+    };
+    await expectLater(
+      client.actor
+          .getProfile(actor: blueskyDid)
+          .timeout(const Duration(seconds: 5)),
+      throwsException,
+    );
+    expect(
+      h.requests.where(
+        (r) =>
+            r.url.path == '/oauth/token' &&
+            r.bodyFields['grant_type'] == 'refresh_token',
+      ),
+      hasLength(1),
+    );
+    expect(
+      (await h.accounts.get(Destination.bluesky)).state,
+      AccountState.expired,
+    );
+    final envelope = jsonDecode(h.vault.value!) as Map<String, dynamic>;
+    expect(envelope['session'], isNull);
+    expect(envelope['identity'], isNull);
+    final count = h.requests.length;
+    await expectLater(
+      client.actor.getProfile(actor: blueskyDid),
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+    expect(h.requests, hasLength(count));
+    await expectLater(
+      h.connection.ensureAuthorized(),
+      throwsA(isA<AccountConnectionExpired>()),
+    );
+    h.rebuild();
+    await expectLater(
+      h.connection.ensureAuthorized(),
+      throwsA(isA<AccountConnectionExpired>()),
+    );
+    expect(
+      (await h.accounts.get(Destination.bluesky)).state,
+      AccountState.expired,
+    );
+    expect(h.requests, hasLength(count));
+  });
+  test('same DID handle refresh persists before public reconciliation and survives ensure and restart', () async {
+    final h = await HostedBlueskyHarness.create();
+    addTearDown(h.close);
+    await h.connect();
+    final reviewed = await h.accounts.get(Destination.bluesky);
+    await h.expireStoredSession();
+    h.override = (request) => request.url.host == 'plc.directory'
+        ? h.json({
+            'id': blueskyDid,
+            'alsoKnownAs': ['at://renamed.test'],
+            'service': [
+              {
+                'id': '#atproto_pds',
+                'type': 'AtprotoPersonalDataServer',
+                'serviceEndpoint': blueskyPds,
+              },
+            ],
+          })
+        : null;
+    h.tokenStarted = Completer<void>();
+    h.tokenBarrier = Completer<void>();
+    final checking = h.connection.ensureAuthorized();
+    await h.tokenStarted!.future;
+    h.vault.writeBarrier = Completer<void>();
+    h.vault.writeStarted = Completer<void>();
+    h.tokenBarrier!.complete();
+    await h.vault.writeStarted!.future;
+    expect(await h.accounts.get(Destination.bluesky), reviewed);
+    expect(
+      (jsonDecode(h.vault.value!)['identity'] as Map)['handle'],
+      '@person.test',
+    );
+    h.vault.writeBarrier!.complete();
+    await checking;
+    h.vault.writeBarrier = null;
+    h.vault.writeStarted = null;
+    final current = await h.accounts.get(Destination.bluesky);
+    expect(current.state, AccountState.connected);
+    expect(current.identity?.subject, blueskyDid);
+    expect(current.identity?.handle, '@renamed.test');
+    expect(reviewed.identity?.handle, '@person.test');
+    await h.connection.ensureAuthorized();
+    // Simulate process loss after a secure commit but before the public update.
+    await h.accounts.save(reviewed);
+    await h.fixture.reopen();
+    h.rebuild();
+    await h.connection.ensureAuthorized();
+    expect(await h.accounts.get(Destination.bluesky), current);
+    expect(h.refreshes, 1);
+    await expectLater(
+      h.connection.authorizedClient(
+        expectedDid: 'did:plc:zzzzzzzzzzzzzzzzzzzzzzzz',
+      ),
+      throwsA(isA<AccountConnectionExpired>()),
+    );
+  });
+  for (final recovery in ['repair', 'removal']) {
+    test(
+      'compound nonce and SQLite failure requires explicit $recovery after stores recover',
+      () async {
+        final h = await HostedBlueskyHarness.create();
+        addTearDown(h.close);
+        await h.connect();
+        final client = await h.connection.authorizedClient(
+          expectedDid: blueskyDid,
+        );
+        await h.fixture.database.db.execute("""
+      CREATE TRIGGER reject_bluesky_account_write BEFORE INSERT ON accounts
+      WHEN NEW.destination = 'bluesky'
+      BEGIN SELECT RAISE(FAIL, 'synthetic public write failure'); END
+    """);
+        h.vault.writeFails = true;
+        await expectLater(
+          client.actor.getProfile(actor: blueskyDid),
+          throwsA(isA<CredentialStorageFailure>()),
+        );
+        h.vault.writeFails = false;
+        final count = h.requests.length;
+        await expectLater(
+          client.actor.getProfile(actor: blueskyDid),
+          throwsA(isA<AccountConnectionCancelled>()),
+        );
+        expect(h.requests, hasLength(count));
+        await h.fixture.database.db.execute(
+          'DROP TRIGGER reject_bluesky_account_write',
+        );
+        await expectLater(
+          h.connection.authorizedClient(expectedDid: blueskyDid),
+          throwsA(isA<CredentialStorageFailure>()),
+        );
+        expect(h.requests, hasLength(count));
+        expect(
+          (await h.accounts.get(Destination.bluesky)).state,
+          AccountState.repairRequired,
+        );
+        if (recovery == 'repair') {
+          h.vault.repairFails = true;
+          await expectLater(
+            h.connection.repairCredentials(),
+            throwsA(isA<CredentialStorageFailure>()),
+          );
+          h.vault.repairFails = false;
+        } else {
+          h.vault.deleteFails = true;
+          await expectLater(
+            h.connection.disconnect(),
+            throwsA(isA<CredentialStorageFailure>()),
+          );
+          h.vault.deleteFails = false;
+        }
+        await expectLater(
+          h.connection.authorizedClient(expectedDid: blueskyDid),
+          throwsA(isA<CredentialStorageFailure>()),
+        );
+        expect(
+          (await h.accounts.get(Destination.bluesky)).state,
+          recovery == 'repair'
+              ? AccountState.repairRequired
+              : AccountState.removalPending,
+        );
+        await expectLater(
+          h.connect(),
+          throwsA(isA<CredentialStorageFailure>()),
+        );
+        expect(h.requests, hasLength(count));
+        if (recovery == 'repair') {
+          await h.connection.repairCredentials();
+        } else {
+          await h.connection.disconnect();
+        }
+        expect(
+          (await h.accounts.get(Destination.bluesky)).state,
+          AccountState.disconnected,
+        );
+        expect(h.vault.value, isNull);
+        await h.connect();
+        await h.connection.ensureAuthorized();
+        expect(
+          (await h.accounts.get(Destination.bluesky)).state,
+          AccountState.connected,
+        );
+      },
+    );
+  }
+
   test(
     'refresh failure to save rotation requires repair and blocks action',
     () async {
@@ -383,9 +595,10 @@ void main() {
         AccountState.repairRequired,
       );
       h.vault.writeFails = false;
+      // A readable vault does not clear the owner's explicit-repair latch.
       await expectLater(
         h.connection.authorizedClient(expectedDid: blueskyDid),
-        throwsA(isA<AccountConnectionExpired>()),
+        throwsA(isA<CredentialStorageFailure>()),
       );
     },
   );

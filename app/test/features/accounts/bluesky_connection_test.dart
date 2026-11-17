@@ -213,6 +213,99 @@ void main() {
     expect(h.vault.value, stored);
   });
 
+  for (final state in [
+    AccountState.connected,
+    AccountState.removalPending,
+    AccountState.repairRequired,
+    AccountState.disconnected,
+  ]) {
+    test(
+      'session deletion expires only a connected owner from $state',
+      () async {
+        final h = await blueskyAccountHarness();
+        addTearDown(h.close);
+        await h.connection.connect(handle: 'person.test');
+        await h.accounts.setState(Destination.bluesky, state);
+        await h.stores.sessions
+            .delete(blueskyDid)
+            .timeout(const Duration(seconds: 5));
+        final expected = state == AccountState.connected
+            ? AccountState.expired
+            : state;
+        expect((await h.accounts.get(Destination.bluesky)).state, expected);
+        expect(jsonDecode(h.vault.value!)['session'], isNull);
+        await expectLater(
+          h.connection.ensureAuthorized(),
+          throwsA(isA<AccountConnectionExpired>()),
+        );
+        expect((await h.accounts.get(Destination.bluesky)).state, expected);
+      },
+    );
+  }
+  test('stale session deletion cannot expire a newer connection', () async {
+    final h = await blueskyAccountHarness();
+    addTearDown(h.close);
+    await h.connection.connect(handle: 'person.test');
+    final oldStores = h.stores;
+    await h.connection.connect(handle: 'person.test');
+    final before = h.vault.value;
+    await expectLater(
+      oldStores.sessions.delete(blueskyDid),
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+    expect(h.vault.value, before);
+    await h.connection.ensureAuthorized();
+    expect(
+      (await h.accounts.get(Destination.bluesky)).state,
+      AccountState.connected,
+    );
+  });
+  test('compound vault and public write failure still invalidates the owner safely', () async {
+    final h = await blueskyAccountHarness();
+    addTearDown(h.close);
+    await h.connection.connect(handle: 'person.test');
+    final oldStores = h.stores;
+    await h.fixture.database.db.execute("""
+      CREATE TRIGGER reject_bluesky_account_write BEFORE INSERT ON accounts
+      WHEN NEW.destination = 'bluesky'
+      BEGIN SELECT RAISE(FAIL, 'synthetic public write failure'); END
+    """);
+    h.vault.readFails = true;
+    await expectLater(
+      h.connection.ensureAuthorized(),
+      throwsA(isA<CredentialStorageFailure>()),
+    );
+    h.vault.readFails = false;
+    expect(oldStores.checkCurrent, throwsA(isA<AccountConnectionCancelled>()));
+    await expectLater(
+      oldStores.sessions.find(blueskyDid),
+      throwsA(isA<AccountConnectionCancelled>()),
+    );
+  });
+  for (final field in ['destination', 'subject']) {
+    test(
+      'stored identity $field remains bound while handles can change',
+      () async {
+        final h = await blueskyAccountHarness();
+        addTearDown(h.close);
+        await h.connection.connect(handle: 'person.test');
+        final envelope = jsonDecode(h.vault.value!) as Map<String, dynamic>;
+        (envelope['identity'] as Map<String, dynamic>)[field] =
+            field == 'destination' ? 'x' : 'did:plc:zzzzzzzzzzzzzzzzzzzzzzzz';
+        h.vault.value = jsonEncode(envelope);
+        await h.restartConnection();
+        await expectLater(
+          h.connection.ensureAuthorized(),
+          throwsA(isA<AccountConnectionExpired>()),
+        );
+        expect(
+          (await h.accounts.get(Destination.bluesky)).state,
+          AccountState.expired,
+        );
+      },
+    );
+  }
+
   test(
     'Bluesky private persistence and removal preserve X credentials and drafts',
     () async {

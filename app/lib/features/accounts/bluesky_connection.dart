@@ -29,6 +29,7 @@ class BlueskyConnection implements AccountConnection {
   final Future<String> Function(Uri) authorizeInBrowser;
   final Clock clock;
   int _generation = 0;
+  bool _credentialRepairRequired = false;
   Future<void> _mutations = Future.value();
   Future<AccountIdentity>? _connecting;
   Future<void>? _ensuring;
@@ -97,15 +98,41 @@ class BlueskyConnection implements AccountConnection {
     _current(generation);
   }
 
-  Future<Never> _storageFailed(int generation) async {
-    _current(generation);
-    await accounts.setState(Destination.bluesky, AccountState.repairRequired);
-    _current(generation);
+  int _invalidate() {
     ++_generation;
     _manager = null;
     _driver = null;
     _pendingState = null;
+    return _generation;
+  }
+
+  Future<Never> _storageFailed(int generation) async {
+    _current(generation);
+    // Fence every acquired client before any fallible public-state write.
+    _credentialRepairRequired = true;
+    await _persistRepairRequired(_invalidate());
     throw const CredentialStorageFailure();
+  }
+
+  Future<void> _requireHealthyStorage(int generation) async {
+    _current(generation);
+    if (!_credentialRepairRequired) return;
+    await _persistRepairRequired(generation);
+    throw const CredentialStorageFailure();
+  }
+
+  Future<void> _persistRepairRequired(int generation) async {
+    try {
+      final account = await accounts.get(Destination.bluesky);
+      if (_generation == generation &&
+          account.state != AccountState.removalPending) {
+        await accounts.save(
+          account.copyWith(state: AccountState.repairRequired),
+        );
+      }
+    } catch (_) {
+      // A compound SQLite failure cannot undo the fence or expose its details.
+    }
   }
 
   @override
@@ -120,7 +147,7 @@ class BlueskyConnection implements AccountConnection {
         throw const AccountConnectionUnavailable();
       }
       await _serial(() async {
-        _current(generation);
+        await _requireHealthyStorage(generation);
         final account = await accounts.get(Destination.bluesky);
         if (account.state == AccountState.repairRequired ||
             account.state == AccountState.removalPending) {
@@ -197,7 +224,7 @@ class BlueskyConnection implements AccountConnection {
   Future<void> _ensure(int generation) async {
     try {
       final stored = await _serial(() async {
-        _current(generation);
+        await _requireHealthyStorage(generation);
         final account = await accounts.get(Destination.bluesky);
         if (account.state != AccountState.connected ||
             account.identity == null) {
@@ -217,10 +244,18 @@ class BlueskyConnection implements AccountConnection {
         } catch (_) {
           throw const AccountConnectionExpired();
         }
-        if (identity != account.identity ||
+        if (identity.subject != account.identity!.subject ||
+            identity.destination != account.identity!.destination ||
             identity.subject != session.sub ||
-            identity.destination != Destination.bluesky) {
+            identity.destination != Destination.bluesky ||
+            identity.handle.isEmpty) {
           throw const AccountConnectionExpired();
+        }
+        // A handle is mutable display metadata. The validated secure DID owns
+        // the connection; also repair a public update interrupted by process loss.
+        if (identity != account.identity) {
+          await accounts.save(account.copyWith(identity: identity));
+          _current(generation);
         }
         return session;
       });
@@ -248,17 +283,23 @@ class BlueskyConnection implements AccountConnection {
     }
   }
 
-  Future<void> _expire(int generation) => _serial(() async {
-    _current(generation);
+  Future<void> _expire(int generation) =>
+      _serial(() => _expireCurrent(generation));
+
+  // Already inside the owner's queue. The SDK's session-deletion hook and
+  // _ensure share this transition without recursively waiting on that queue.
+  Future<void> _expireCurrent(int generation, {String? expectedDid}) async {
+    // Revocation may already have expired this generation in the SDK hook.
+    // An older operation must never change a newer connection's public state.
+    if (generation != _generation) return;
+    final invalidated = _invalidate();
     final account = await accounts.get(Destination.bluesky);
-    if (account.state == AccountState.connected) {
-      await accounts.setState(Destination.bluesky, AccountState.expired);
+    _current(invalidated);
+    if (account.state == AccountState.connected &&
+        (expectedDid == null || account.identity?.subject == expectedDid)) {
+      await accounts.save(account.copyWith(state: AccountState.expired));
     }
-    ++_generation;
-    _manager = null;
-    _driver = null;
-    _pendingState = null;
-  });
+  }
 
   OAuthSession _decodeSession(dynamic value) {
     try {
@@ -299,6 +340,7 @@ class BlueskyConnection implements AccountConnection {
         throw const CredentialStorageFailure();
       }
       await _publicState(AccountState.disconnected);
+      _credentialRepairRequired = false;
     });
   }
 
@@ -319,6 +361,8 @@ class BlueskyConnection implements AccountConnection {
       await vault.repair(Destination.bluesky);
       _current(generation);
       await _publicState(AccountState.disconnected);
+      _current(generation);
+      _credentialRepairRequired = false;
     });
   }
 
@@ -423,6 +467,16 @@ class _Sessions implements OAuthSessionStore {
       json['session'] = value.toJson();
       json['identity'] = identity.toJson();
       await owner._write(generation, json);
+      final account = await owner.accounts.get(Destination.bluesky);
+      owner._current(generation);
+      if (account.state == AccountState.connected &&
+          account.identity?.destination == identity.destination &&
+          account.identity?.subject == identity.subject &&
+          account.identity != identity) {
+        // Only publish the freshly validated handle after secure persistence.
+        await owner.accounts.save(account.copyWith(identity: identity));
+        owner._current(generation);
+      }
     });
   }
 
@@ -442,6 +496,7 @@ class _Sessions implements OAuthSessionStore {
       json.remove('session');
       json.remove('identity');
       await owner._write(generation, json);
+      await owner._expireCurrent(generation, expectedDid: key);
     }
   });
 }
