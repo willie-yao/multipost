@@ -649,11 +649,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
     ),
   );
 
-  String _instagramLabel() =>
-      _instagramProgress?.state == InstagramState.userMarked
-      ? 'Marked posted'
-      : _package != null
-      ? 'Ready to share'
+  String _instagramLabel() => _package != null
+      ? switch (_instagramProgress?.state) {
+          InstagramState.preparing => 'Preparing photos',
+          InstagramState.ready => 'Ready to share',
+          InstagramState.handedOff => 'Handed off',
+          InstagramState.userMarked => 'Marked posted',
+          null => 'Prepared package status unavailable',
+        }
       : switch (_preparation!.state) {
           InstagramPreparationState.pending => 'Not prepared',
           InstagramPreparationState.preparing => 'Preparing photos',
@@ -675,6 +678,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
           Text(
             _instagramProgress?.state == InstagramState.userMarked
                 ? 'Your confirmation on this phone · not verified by the app'
+                : _instagramProgress?.state == InstagramState.handedOff
+                ? 'Photos handed to Instagram. Posting is not confirmed.'
                 : _package == null
                 ? _preparation!.reason ?? 'Prepare the frozen photos and caption on this device, then finish in Instagram.'
                 : 'Photos and caption prepared. You publish it in Instagram.',

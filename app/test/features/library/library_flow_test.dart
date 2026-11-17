@@ -13,6 +13,9 @@ import 'package:cross_posting_app/features/drafts/draft_controller.dart';
 import 'package:cross_posting_app/features/drafts/draft_editor.dart';
 import 'package:cross_posting_app/features/drafts/draft_repository.dart';
 import 'package:cross_posting_app/features/library/library_screen.dart';
+import 'package:cross_posting_app/features/publishing/attempt.dart';
+import 'package:cross_posting_app/features/publishing/results_screen.dart';
+import 'package:cross_posting_app/features/review/review_service.dart';
 import 'package:cross_posting_app/storage/local_database.dart';
 import 'package:cross_posting_app/storage/media_files.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,11 +25,80 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../support/app_fixture.dart';
+import '../../support/coordinator_fixture.dart';
 
 void main() {
   setUp(() {
     WidgetController.hitTestWarningShouldBeFatal = true;
   });
+
+  for (final reopenedFromLibrary in [false, true]) {
+    testWidgets(
+      'completed retry ${reopenedFromLibrary ? 'reopened from Library' : 'opened from Results'} leaves one Results and one Back reaches Library',
+      (tester) async {
+        final h = (await tester.runAsync(
+          () => coordinatorHarness(
+            selected: {Destination.x, Destination.bluesky},
+            bluesky: [PublishStatus.notPublished, PublishStatus.published],
+          ),
+        ))!;
+        addTearDown(h.close);
+        final groupId = (await tester.runAsync(
+          () => h.coordinator.confirm(h.review, operationId: 'original'),
+        ))!;
+        final services = _AcceptedPublishingServices(h);
+        if (reopenedFromLibrary) {
+          await tester.runAsync(() async {
+            final parent = (await h.attempts.effectiveAttempts(groupId)).last;
+            await services.retryEdits.open(parent.id);
+          });
+        }
+        await tester.pumpWidget(
+          CaptionApp(home: LibraryScreen(services: services)),
+        );
+        await settleStorage(tester);
+        if (reopenedFromLibrary) {
+          await tester.tap(
+            find.descendant(
+              of: find.byType(ListTile),
+              matching: find.text('Frozen caption'),
+            ),
+          );
+        } else {
+          await tester.tap(find.text('Review posting results'));
+          await settleStorage(tester);
+          await tester.ensureVisible(find.text('Retry Bluesky'));
+          await tester.tap(find.text('Retry Bluesky'));
+        }
+        await settleEditorUntil(tester, () {
+          final action = find.widgetWithText(
+            FilledButton,
+            'Publish to Bluesky',
+          );
+          return action.evaluate().isNotEmpty &&
+              tester.widget<FilledButton>(action).onPressed != null;
+        });
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Publish to Bluesky'),
+        );
+        await settleEditorUntil(
+          tester,
+          () => find.text('Bluesky · Published').evaluate().isNotEmpty,
+        );
+        expect(find.byType(ResultsScreen, skipOffstage: false), findsOneWidget);
+        expect(find.text('Retry Bluesky'), findsNothing);
+        expect(h.x.sent, hasLength(1));
+        expect(h.bluesky.sent, hasLength(2));
+        await tester.ensureVisible(find.byTooltip('Back to library'));
+        await tester.tap(find.byTooltip('Back to library'));
+        await settleStorage(tester);
+        expect(find.byType(LibraryScreen), findsOneWidget);
+        expect(find.byType(ResultsScreen, skipOffstage: false), findsNothing);
+        expect(find.text('Needs your attention'), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets(
     'result lookup failure keeps the draft route closed and offers local recovery',
@@ -1176,4 +1248,27 @@ class _ControlledSaves implements DraftRepository {
   @override
   Future<void> setDeleted(String id, DateTime? at) =>
       delegate.setDeleted(id, at);
+}
+
+// Real host/repositories/coordinator; only external publishers and accepted
+// capability validation come from the existing synthetic coordinator fixture.
+class _AcceptedPublishingServices extends AppServices {
+  _AcceptedPublishingServices(this.harness)
+    : super(
+        database: harness.app.database,
+        media: harness.app.media,
+        drafts: harness.app.drafts,
+        accounts: harness.app.accounts,
+        clock: harness.clock,
+        ids: harness.app.ids,
+        instagramPackageRoot: harness.app.instagramPackageRoot,
+        publishProviders: {
+          Destination.x: harness.x,
+          Destination.bluesky: harness.bluesky,
+        },
+        publishingOnline: () => harness.online,
+      );
+  final CoordinatorHarness harness;
+  @override
+  ReviewService get review => harness.reviewService;
 }

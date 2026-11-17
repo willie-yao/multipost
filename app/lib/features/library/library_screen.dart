@@ -561,9 +561,14 @@ String _stageName(ComposeStage stage) => switch (stage) {
 
 // The controller belongs to this route through Choose, Write and Review.
 class _ComposeHost extends StatefulWidget {
-  const _ComposeHost({required this.services, required this.initial});
+  const _ComposeHost({
+    required this.services,
+    required this.initial,
+    this.returnToExistingResults = false,
+  });
   final AppServices services;
   final Draft initial;
+  final bool returnToExistingResults;
   @override
   State<_ComposeHost> createState() => _ComposeHostState();
 }
@@ -708,6 +713,10 @@ class _ComposeHostState extends State<_ComposeHost> {
       );
     }
     if (!mounted) return;
+    if (widget.returnToExistingResults) {
+      Navigator.of(context).pop();
+      return;
+    }
     await Navigator.of(context).pushReplacement<void, void>(
       _resultsRoute(
         widget.services,
@@ -775,7 +784,11 @@ MaterialPageRoute<void> _resultsRoute(
       if (!context.mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => _ComposeHost(services: services, initial: draft),
+          builder: (_) => _ComposeHost(
+            services: services,
+            initial: draft,
+            returnToExistingResults: true,
+          ),
         ),
       );
     },

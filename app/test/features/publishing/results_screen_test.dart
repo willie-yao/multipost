@@ -1,5 +1,6 @@
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/features/publishing/attempt.dart';
+import 'package:cross_posting_app/features/instagram/instagram_package.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/drafts/draft_editor.dart';
 import 'package:cross_posting_app/features/publishing/retry_edits.dart';
@@ -11,6 +12,81 @@ import '../../support/app_fixture.dart';
 import '../../support/coordinator_fixture.dart';
 
 void main() {
+  testWidgets(
+    'Instagram Results retains handoff through mark and Undo without claiming publication',
+    (tester) async {
+      final h = (await tester.runAsync(
+        () => coordinatorHarness(selected: {Destination.instagram}),
+      ))!;
+      addTearDown(h.close);
+      final id = (await tester.runAsync(
+        () => h.coordinator.confirm(h.review, operationId: 'original'),
+      ))!;
+      final preparation = (await tester.runAsync(
+        () => h.attempts.instagramPreparation(id),
+      ))!;
+      final packageId = preparation.packageId!;
+      await tester.runAsync(
+        () => h.app.instagramRepo.append(
+          packageId,
+          InstagramEvent(
+            id: 'dispatch',
+            kind: InstagramEventKind.targetDispatched,
+            at: h.clock.now(),
+            launchId: 'retained-trip',
+            targetPackage: 'com.instagram.android',
+          ),
+        ),
+      );
+      Future<void> reopen(String state) async {
+        await tester.pumpWidget(
+          CaptionApp(
+            home: ResultsScreen(
+              key: ValueKey(state),
+              groupId: id,
+              attempts: h.attempts,
+              coordinator: h.coordinator,
+              instagram: h.app.instagramRepo,
+            ),
+          ),
+        );
+        await settleEditor(tester);
+      }
+
+      await reopen('handed-off');
+      expect(find.text('Instagram · Handed off'), findsOneWidget);
+      expect(find.text('Handed off'), findsOneWidget);
+      expect(
+        find.text('Photos handed to Instagram. Posting is not confirmed.'),
+        findsOneWidget,
+      );
+      expect(find.text('Ready to share'), findsNothing);
+      await tester.runAsync(() => h.instagram.markPosted(packageId));
+      await reopen('marked');
+      expect(find.text('Instagram · Marked posted'), findsOneWidget);
+      expect(
+        find.text('Your confirmation on this phone · not verified by the app'),
+        findsOneWidget,
+      );
+      await tester.runAsync(() => h.instagram.undoMarked(packageId));
+      await reopen('undone');
+      expect(find.text('Instagram · Handed off'), findsOneWidget);
+      expect(find.text('Handed off'), findsOneWidget);
+      expect(
+        find.text('Photos handed to Instagram. Posting is not confirmed.'),
+        findsOneWidget,
+      );
+      expect(find.text('Ready to share'), findsNothing);
+      expect(find.text('Published'), findsNothing);
+      expect(
+        (await tester.runAsync(() => h.app.instagramRepo.progress(packageId)))!
+            .state,
+        InstagramState.handedOff,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets(
     'completed versions are disclosed and root rows do not duplicate history',
     (tester) async {
