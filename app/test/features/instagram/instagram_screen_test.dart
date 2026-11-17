@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/design/caption_text.dart';
@@ -10,6 +11,8 @@ import 'package:cross_posting_app/features/instagram/instagram_screen.dart';
 import 'package:cross_posting_app/features/library/library_screen.dart';
 import 'package:cross_posting_app/features/review/review_screen.dart';
 import 'package:cross_posting_app/features/review/review.dart';
+import 'package:cross_posting_app/features/publishing/attempt.dart';
+import 'package:cross_posting_app/features/publishing/results_screen.dart';
 import 'package:cross_posting_app/features/review/review_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -195,16 +198,27 @@ void main() {
       expect((await tester.runAsync(s.instagramRepo.pending))!, hasLength(1));
       expect(find.text('Copy caption'), findsOneWidget);
       expect(find.text('Save photos'), findsOneWidget);
+      expect((await tester.runAsync(s.app.attempts.listGroups))!, hasLength(1));
       await tester.tap(find.byTooltip('Back'));
       await settleEditor(tester);
+      expect(find.byType(ResultsScreen), findsOneWidget);
+      expect(find.byType(ReviewScreen), findsNothing);
+      expect(find.text('Prepared words'), findsNothing);
       await tester.tap(find.byTooltip('Back to library'));
       await settleEditor(tester);
-      await tester.ensureVisible(find.byTooltip('Delete draft'));
-      await tester.tap(find.byTooltip('Delete draft'));
+      await tester.runAsync(
+        () => s.app.drafts.setDeleted(snapshot.draftId, s.app.clock.now()),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s.app)));
       await settleEditor(tester);
-      expect(find.text('Instagram needs finishing'), findsOneWidget);
-      await tester.ensureVisible(find.text('View prepared package'));
-      await tester.tap(find.text('View prepared package'));
+      expect(find.text('Instagram needs finishing'), findsNothing);
+      expect(find.text('Review posting results'), findsOneWidget);
+      await tester.tap(find.text('Review posting results'));
+      await settleEditor(tester);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Finish in Instagram'),
+      );
       await tester.pump();
       await settleEditorUntil(tester, _preparedPhotosReady);
       expect(find.byType(InstagramScreen), findsOneWidget);
@@ -219,6 +233,48 @@ void main() {
       );
       expect(find.text('Description 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'real host retains durable Instagram preparation failure in Results',
+    (tester) async {
+      final s = (await tester.runAsync(instagramTestServices))!;
+      addTearDown(s.close);
+      final snapshot = (await tester.runAsync(
+        () => s.reviewTwoPhotos('Kept after failure'),
+      ))!;
+      await tester.runAsync(() async {
+        final draft = (await s.app.drafts.get(snapshot.draftId))!;
+        await s.app.drafts.save(
+          draft.copyWith(
+            stage: ComposeStage.review,
+            revision: draft.revision + 1,
+          ),
+          expectedRevision: draft.revision,
+        );
+        await File(s.app.instagramPackageRoot.path)
+            .writeAsString('fixture storage obstruction');
+      });
+      await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s.app)));
+      await settleEditor(tester);
+      await tester.tap(find.text('Kept after failure'));
+      await settleEditor(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Prepare Instagram'));
+      await settleEditorUntil(
+        tester,
+        () => find.byType(ResultsScreen).evaluate().isNotEmpty,
+      );
+      expect(find.byType(InstagramScreen), findsNothing);
+      expect(find.text('Preparation needs attention'), findsOneWidget);
+      final groups = (await tester.runAsync(s.app.attempts.listGroups))!;
+      expect(groups, hasLength(1));
+      final preparation = (await tester.runAsync(
+        () => s.app.attempts.instagramPreparation(groups.single.id),
+      ))!;
+      expect(preparation.state, InstagramPreparationState.failed);
+      expect(await tester.runAsync(s.instagramRepo.pending), isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -334,7 +390,7 @@ void main() {
       gate.complete();
       await settleEditor(tester);
       expect(
-        find.textContaining('could not be prepared on this device'),
+        find.textContaining('This action could not finish'),
         findsOneWidget,
       );
       expect(find.text('Not published'), findsNothing);

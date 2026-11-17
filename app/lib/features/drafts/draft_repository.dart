@@ -40,12 +40,11 @@ class SqliteDraftRepository implements DraftRepository {
   final MediaFiles? media;
 
   @override
-  Future<Draft?> get(String id) async {
-    final rows = await database.db.query(
-      'drafts',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<Draft?> get(String id) => readStored(database.db, id);
+
+  /// One strict durable decoder, also usable inside an existing transaction.
+  static Future<Draft?> readStored(DatabaseExecutor db, String id) async {
+    final rows = await db.query('drafts', where: 'id = ?', whereArgs: [id]);
     return rows.isEmpty ? null : _decode(rows.single);
   }
 
@@ -61,6 +60,14 @@ class SqliteDraftRepository implements DraftRepository {
 
   @override
   Future<void> save(Draft draft, {required int expectedRevision}) async {
+    if ((draft.retryParentAttemptId == null) !=
+            (draft.retryOperationId == null) ||
+        draft.retryParentAttemptId?.isEmpty == true ||
+        draft.retryOperationId?.isEmpty == true) {
+      throw ArgumentError(
+        'Recovery parent and operation must be saved together.',
+      );
+    }
     if (expectedRevision < -1 ||
         draft.revision < 0 ||
         draft.revision <= expectedRevision) {
@@ -103,7 +110,13 @@ class SqliteDraftRepository implements DraftRepository {
           );
           if (existing.isEmpty) throw DraftConflict(draft.id);
           // A cached editor must not overwrite evidence needed for recovery.
-          _decode(existing.single);
+          final current = _decode(existing.single);
+          if (current.retryParentAttemptId != draft.retryParentAttemptId ||
+              current.retryOperationId != draft.retryOperationId) {
+            throw const LocalStorageException(
+              'This recovery draft must keep its original posting context.',
+            );
+          }
           final changed = await tx.update(
             'drafts',
             row,
@@ -157,7 +170,7 @@ class SqliteDraftRepository implements DraftRepository {
     'payload': jsonEncode({'schemaVersion': 1, 'draft': draft.toJson()}),
   };
 
-  Draft _decode(Map<String, Object?> row) {
+  static Draft _decode(Map<String, Object?> row) {
     final id = row['id'] as String;
     try {
       final payload =
@@ -168,6 +181,10 @@ class SqliteDraftRepository implements DraftRepository {
       // Generated model decoders allow defaults and numeric coercion. Durable
       // records must be complete and lossless instead of quietly losing edits.
       if (!_sameJson(draft.toJson(), content) ||
+          (draft.retryParentAttemptId == null) !=
+              (draft.retryOperationId == null) ||
+          draft.retryParentAttemptId?.isEmpty == true ||
+          draft.retryOperationId?.isEmpty == true ||
           draft.revision < 0 ||
           draft.sharedTextRevision < 0 ||
           draft.sharedMediaRevision < 0 ||

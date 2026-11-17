@@ -687,20 +687,20 @@ $DraftCopyWith<Draft> get copyWith => _$DraftCopyWithImpl<Draft>(this as Draft, 
 @override
 bool operator ==(Object other) {
   final _this = this as Draft;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Draft&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.sharedTextRevision, _this.sharedTextRevision) || other.sharedTextRevision == _this.sharedTextRevision)&&(identical(other.sharedMediaRevision, _this.sharedMediaRevision) || other.sharedMediaRevision == _this.sharedMediaRevision)&&(identical(other.stage, _this.stage) || other.stage == _this.stage)&&const DeepCollectionEquality().equals(other.selected, _this.selected)&&(identical(other.shared, _this.shared) || other.shared == _this.shared)&&const DeepCollectionEquality().equals(other.versions, _this.versions)&&(identical(other.deletedAt, _this.deletedAt) || other.deletedAt == _this.deletedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Draft&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.updatedAt, _this.updatedAt) || other.updatedAt == _this.updatedAt)&&(identical(other.revision, _this.revision) || other.revision == _this.revision)&&(identical(other.sharedTextRevision, _this.sharedTextRevision) || other.sharedTextRevision == _this.sharedTextRevision)&&(identical(other.sharedMediaRevision, _this.sharedMediaRevision) || other.sharedMediaRevision == _this.sharedMediaRevision)&&(identical(other.stage, _this.stage) || other.stage == _this.stage)&&const DeepCollectionEquality().equals(other.selected, _this.selected)&&(identical(other.shared, _this.shared) || other.shared == _this.shared)&&const DeepCollectionEquality().equals(other.versions, _this.versions)&&(identical(other.deletedAt, _this.deletedAt) || other.deletedAt == _this.deletedAt)&&(identical(other.retryParentAttemptId, _this.retryParentAttemptId) || other.retryParentAttemptId == _this.retryParentAttemptId)&&(identical(other.retryOperationId, _this.retryOperationId) || other.retryOperationId == _this.retryOperationId));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Draft;
-  return Object.hash(runtimeType,_this.id,_this.updatedAt,_this.revision,_this.sharedTextRevision,_this.sharedMediaRevision,_this.stage,const DeepCollectionEquality().hash(_this.selected),_this.shared,const DeepCollectionEquality().hash(_this.versions),_this.deletedAt);
+  return Object.hash(runtimeType,_this.id,_this.updatedAt,_this.revision,_this.sharedTextRevision,_this.sharedMediaRevision,_this.stage,const DeepCollectionEquality().hash(_this.selected),_this.shared,const DeepCollectionEquality().hash(_this.versions),_this.deletedAt,_this.retryParentAttemptId,_this.retryOperationId);
 }
 
 @override
 String toString() {
   final _this = this as Draft;
-  return 'Draft(id: ${_this.id}, updatedAt: ${_this.updatedAt}, revision: ${_this.revision}, sharedTextRevision: ${_this.sharedTextRevision}, sharedMediaRevision: ${_this.sharedMediaRevision}, stage: ${_this.stage}, selected: ${_this.selected}, shared: ${_this.shared}, versions: ${_this.versions}, deletedAt: ${_this.deletedAt})';
+  return 'Draft(id: ${_this.id}, updatedAt: ${_this.updatedAt}, revision: ${_this.revision}, sharedTextRevision: ${_this.sharedTextRevision}, sharedMediaRevision: ${_this.sharedMediaRevision}, stage: ${_this.stage}, selected: ${_this.selected}, shared: ${_this.shared}, versions: ${_this.versions}, deletedAt: ${_this.deletedAt}, retryParentAttemptId: ${_this.retryParentAttemptId}, retryOperationId: ${_this.retryOperationId})';
 }
 
 
@@ -711,7 +711,7 @@ abstract mixin class $DraftCopyWith<$Res>  {
   factory $DraftCopyWith(Draft value, $Res Function(Draft) _then) = _$DraftCopyWithImpl;
 @useResult
 $Res call({
- String id, DateTime updatedAt, int revision, int sharedTextRevision, int sharedMediaRevision, ComposeStage stage, Set<Destination> selected, PostContent shared, Map<Destination, DestinationVersion> versions, DateTime? deletedAt
+ String id, DateTime updatedAt, int revision, int sharedTextRevision, int sharedMediaRevision, ComposeStage stage, Set<Destination> selected, PostContent shared, Map<Destination, DestinationVersion> versions, DateTime? deletedAt, String? retryParentAttemptId, String? retryOperationId
 });
 
 
@@ -728,7 +728,7 @@ class _$DraftCopyWithImpl<$Res>
 
 /// Create a copy of Draft
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? updatedAt = null,Object? revision = null,Object? sharedTextRevision = null,Object? sharedMediaRevision = null,Object? stage = null,Object? selected = null,Object? shared = null,Object? versions = null,Object? deletedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? updatedAt = null,Object? revision = null,Object? sharedTextRevision = null,Object? sharedMediaRevision = null,Object? stage = null,Object? selected = null,Object? shared = null,Object? versions = null,Object? deletedAt = freezed,Object? retryParentAttemptId = freezed,Object? retryOperationId = freezed,}) {
   return _then(Draft(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
@@ -740,7 +740,9 @@ as ComposeStage,selected: null == selected ? _self.selected : selected // ignore
 as Set<Destination>,shared: null == shared ? _self.shared : shared // ignore: cast_nullable_to_non_nullable
 as PostContent,versions: null == versions ? _self.versions : versions // ignore: cast_nullable_to_non_nullable
 as Map<Destination, DestinationVersion>,deletedAt: freezed == deletedAt ? _self.deletedAt : deletedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,
+as DateTime?,retryParentAttemptId: freezed == retryParentAttemptId ? _self.retryParentAttemptId : retryParentAttemptId // ignore: cast_nullable_to_non_nullable
+as String?,retryOperationId: freezed == retryOperationId ? _self.retryOperationId : retryOperationId // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 /// Create a copy of Draft

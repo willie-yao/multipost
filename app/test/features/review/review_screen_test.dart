@@ -17,11 +17,67 @@ import 'package:material_ui/material_ui.dart';
 import '../../support/app_fixture.dart';
 import '../../support/draft_fixtures.dart';
 import '../../support/review_fixtures.dart';
+import '../../support/coordinator_fixture.dart';
 
 void main() {
   setUp(() {
     WidgetController.hitTestWarningShouldBeFatal = true;
   });
+  testWidgets(
+    'fresh network refresh enables an accepted direct review only after explicit confirmation',
+    (tester) async {
+      final h = (await tester.runAsync(
+        () => coordinatorHarness(selected: {Destination.bluesky}),
+      ))!;
+      addTearDown(h.close);
+      final draft = (await tester.runAsync(
+        () => h.app.drafts.get(h.review.draftId),
+      ))!;
+      final c = DraftController(draft, h.app.drafts, h.clock);
+      addTearDown(c.dispose);
+      bool? observed = false;
+      var confirms = 0;
+      await tester.pumpWidget(
+        CaptionApp(
+          home: ReviewScreen(
+            controller: c,
+            service: h.reviewService,
+            observeOnline: () async => observed,
+            onConfirm: (_) async {
+              confirms++;
+            },
+          ),
+        ),
+      );
+      await settleEditor(tester);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Publish to Bluesky'),
+            )
+            .onPressed,
+        isNull,
+      );
+      observed = true;
+      await tester.ensureVisible(find.text('Review again'));
+      await tester.tap(find.text('Review again'));
+      await settleEditor(tester);
+      expect(confirms, 0);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Publish to Bluesky'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Publish to Bluesky'));
+      await settleEditor(tester);
+      expect(confirms, 1);
+      expect(h.bluesky.sent, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'review separates preparation and publishing and never confirms',
     (tester) async {
@@ -216,7 +272,10 @@ void main() {
       online.value = true;
       await settleEditor(tester);
       expect(confirms, 0);
-      expect(find.text('Publishing setup required'), findsOneWidget);
+      expect(
+        find.text('Publish only the versions reviewed below.'),
+        findsOneWidget,
+      );
       expect(
         find.byWidgetPredicate(
           (w) => w is CaptionText && w.text == 'Newest words',

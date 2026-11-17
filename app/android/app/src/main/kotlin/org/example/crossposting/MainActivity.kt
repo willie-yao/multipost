@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
+    private var publishingChannel: PublishingChannel? = null
     private var xTextChannel: XTextChannel? = null
     private var accountsChannel: AccountsChannel? = null
     private var mediaProbe: MediaProbe? = null
@@ -11,6 +12,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        publishingChannel = PublishingChannel(this, flutterEngine.dartExecutor.binaryMessenger)
         xTextChannel = XTextChannel(flutterEngine.dartExecutor.binaryMessenger)
         accountsChannel = AccountsChannel(this, flutterEngine)
         mediaProbe = MediaProbe(this, flutterEngine.dartExecutor.binaryMessenger)
@@ -18,6 +20,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        publishingChannel?.dispose()
+        publishingChannel = null
         xTextChannel?.dispose()
         xTextChannel = null
         accountsChannel?.dispose()

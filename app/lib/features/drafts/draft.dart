@@ -72,6 +72,8 @@ class Draft with _$Draft {
     this.shared = const PostContent._empty(),
     Map<Destination, DestinationVersion> versions = const {},
     this.deletedAt,
+    this.retryParentAttemptId,
+    this.retryOperationId,
   }) : selected = Set<Destination>.unmodifiable(selected),
        versions = Map<Destination, DestinationVersion>.unmodifiable(versions);
 
@@ -85,6 +87,10 @@ class Draft with _$Draft {
   final PostContent shared;
   final Map<Destination, DestinationVersion> versions;
   final DateTime? deletedAt;
+  @JsonKey(includeIfNull: false)
+  final String? retryParentAttemptId;
+  @JsonKey(includeIfNull: false)
+  final String? retryOperationId;
 
   factory Draft.fromJson(Map<String, dynamic> json) => _$DraftFromJson(json);
 

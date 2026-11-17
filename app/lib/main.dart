@@ -31,7 +31,13 @@ class _BootstrapState extends State<_Bootstrap> {
     try {
       final services = await AppServices.open();
       // Android consumes the lost-data cache centrally before any new launch.
-      await services.recoverPicker(ImagePicker());
+      try {
+        await services.attempts.recoverInterrupted();
+        await services.recoverPicker(ImagePicker());
+      } catch (_) {
+        await services.close();
+        rethrow;
+      }
       if (mounted) {
         setState(() => _services = services);
       } else {

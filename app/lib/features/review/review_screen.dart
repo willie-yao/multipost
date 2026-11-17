@@ -23,6 +23,9 @@ class ReviewScreen extends StatefulWidget {
     required this.service,
     required this.onConfirm,
     this.directOnline,
+    this.observeOnline,
+    this.actionLabel,
+    this.contextNotice,
     this.onEdit,
     this.onManageAccounts,
   });
@@ -32,6 +35,8 @@ class ReviewScreen extends StatefulWidget {
   /// Invoked only after flush, fresh revalidation and final local stale checks.
   final Future<void> Function(ReviewedPost) onConfirm;
   final ValueListenable<bool?>? directOnline;
+  final Future<bool?> Function()? observeOnline;
+  final String? actionLabel, contextNotice;
 
   /// null edits shared content; a destination edits only its own version.
   final Future<void> Function(Destination?)? onEdit;
@@ -43,6 +48,7 @@ class ReviewScreen extends StatefulWidget {
 class _ReviewScreenState extends State<ReviewScreen> {
   ReviewResult? _result;
   late Draft _observedDraft;
+  bool? _online;
   bool _busy = false;
   bool _exitPending = false;
   bool _refreshPending = false;
@@ -114,10 +120,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
       }
       if (!mounted || generation != _generation) return;
       final draft = widget.controller.draft;
-      final result = await widget.service.review(
-        draft,
-        directOnline: widget.directOnline?.value,
-      );
+      try {
+        _online = widget.observeOnline == null
+            ? widget.directOnline?.value
+            : await widget.observeOnline!();
+      } catch (_) {
+        _online = null;
+      }
+      final result = await widget.service.review(draft, directOnline: _online);
       if (!mounted || generation != _generation) return;
       if (widget.controller.draft != draft ||
           widget.controller.savedRevision != draft.revision ||
@@ -196,11 +206,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     }
   }
 
-  bool _canPrepare(ReviewResult? result) =>
-      result != null &&
-      result.canProceed &&
-      result.snapshot.posts.length == 1 &&
-      result.snapshot.posts.containsKey(Destination.instagram);
+  bool _canPrepare(ReviewResult? result) => result != null && result.canProceed;
 
   Future<void> _confirm() async {
     if (_blocked) return;
@@ -215,7 +221,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
       if (!await widget.controller.flush()) return;
       if (!mounted || generation != _generation) return;
       final draft = widget.controller.draft;
-      final readiness = widget.directOnline?.value;
+      bool? readiness;
+      try {
+        readiness = widget.observeOnline == null
+            ? widget.directOnline?.value
+            : await widget.observeOnline!();
+      } catch (_) {
+        readiness = null;
+      }
       final checked = await widget.service.revalidate(
         reviewed!.snapshot,
         draft,
@@ -225,7 +238,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
       if (widget.controller.draft != draft ||
           widget.controller.savedRevision != draft.revision ||
           widget.controller.saveState != SaveState.saved ||
-          widget.directOnline?.value != readiness) {
+          widget.observeOnline == null &&
+              widget.directOnline?.value != readiness) {
         throw const StaleReviewException();
       }
       setState(() => _result = checked);
@@ -238,8 +252,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _notice =
-              'Instagram could not be prepared on this device. Your draft and earlier prepared versions are kept. $error',
+          () => _notice = 'This action could not finish. Your saved draft and earlier results are kept. Review current requirements and try again.',
         );
       }
     } finally {
@@ -284,7 +297,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
           children: [
             Text(
               draft.selected.any((d) => d != Destination.instagram)
-                  ? 'Publishing setup required'
+                  ? result?.canProceed == true
+                        ? 'Publish only the versions reviewed below.'
+                        : 'Publishing setup required'
                   : 'Prepare a local photo package; finish in Instagram.',
               style: const TextStyle(
                 fontSize: 14,
@@ -297,7 +312,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               child: Text(
                 draft.selected.isEmpty
                     ? 'Choose destinations'
-                    : reviewActionLabel(draft.selected),
+                    : widget.actionLabel ?? reviewActionLabel(draft.selected),
               ),
             ),
           ],
@@ -305,6 +320,17 @@ class _ReviewScreenState extends State<ReviewScreen> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.contextNotice != null) ...[
+              Text(widget.contextNotice!),
+              const SizedBox(height: 12),
+            ],
+            if (_online == false &&
+                widget.controller.saveState == SaveState.saved) ...[
+              const Text(
+                "You are offline. Your draft is saved on this device. Review again when connected; nothing sends automatically.",
+              ),
+              const SizedBox(height: 12),
+            ],
             if (_notice != null) ...[
               Semantics(liveRegion: true, child: Text(_notice!)),
               const SizedBox(height: 8),

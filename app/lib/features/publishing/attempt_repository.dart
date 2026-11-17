@@ -8,6 +8,7 @@ import '../../core/clock.dart';
 import '../../core/ids.dart';
 import '../../storage/local_database.dart';
 import '../drafts/draft.dart';
+import '../drafts/draft_repository.dart';
 import '../instagram/instagram_package.dart';
 import '../instagram/instagram_service.dart' show samePackageSource;
 import '../review/review.dart';
@@ -84,6 +85,15 @@ class AttemptRepository {
     final existing = await _existing(tx, reviewed, operationId);
     if (existing != null) return (group: existing, created: false);
     await _requireSavedRevision(tx, reviewed);
+    final sourceDraft = await SqliteDraftRepository.readStored(
+      tx,
+      reviewed.draftId,
+    );
+    if (sourceDraft?.retryParentAttemptId != null) {
+      throw StateError(
+        'A recovery draft must continue its original destination attempt.',
+      );
+    }
     if (reviewed.draftId.isEmpty ||
         reviewed.revision < 0 ||
         reviewed.posts.isEmpty ||
@@ -139,6 +149,11 @@ class AttemptRepository {
     );
     return rows.isEmpty ? null : _group(rows.single);
   }
+
+  Future<List<AttemptGroup>> listGroups() async => (await database.db.query(
+    'attempt_groups',
+    orderBy: 'rowid DESC',
+  )).map(_group).toList();
 
   Future<AttemptGroup?> getGroup(String id) async {
     final rows = await database.db.query(
@@ -438,7 +453,19 @@ class AttemptRepository {
     final group = _group(groupRows.single);
     final destination = parent.snapshot.destination;
     final snapshot = reviewed.posts[destination];
-    if (reviewed.draftId != group.snapshot.draftId ||
+    final sourceDraft = await SqliteDraftRepository.readStored(
+      tx,
+      reviewed.draftId,
+    );
+    final retryOwned = sourceDraft?.retryParentAttemptId != null;
+    final sourceMatches = retryOwned
+        ? sourceDraft!.retryParentAttemptId == parentId &&
+              sourceDraft.retryOperationId == operationId &&
+              reviewed.posts.length == 1 &&
+              sourceDraft.selected.length == 1 &&
+              sourceDraft.selected.contains(destination)
+        : reviewed.draftId == group.snapshot.draftId;
+    if (!sourceMatches ||
         snapshot == null ||
         snapshot.destination != destination ||
         snapshot.account == null ||

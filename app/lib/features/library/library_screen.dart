@@ -20,6 +20,8 @@ import '../instagram/instagram_screen.dart';
 import '../media/picker_imports.dart';
 import '../review/review.dart';
 import '../review/review_screen.dart';
+import '../publishing/attempt.dart';
+import '../publishing/results_screen.dart';
 import 'library_repository.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -31,6 +33,8 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   List<Draft>? _drafts;
+  List<AttemptGroup> _groups = [];
+  List<LibraryAttention> _attention = [];
   List<InstagramPackage> _packages = [];
   List<InstagramPackage> _markedPackages = [];
   Object? _error;
@@ -53,13 +57,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final repository = LibraryRepository(
         widget.services.drafts,
         widget.services.instagramRepo,
+        attempts: widget.services.attempts,
       );
       final drafts = await repository.listDrafts();
+      final groups = await repository.listGroups();
+      final attention = await repository.listAttention();
       final packages = await repository.pendingInstagram();
       final markedPackages = await repository.markedInstagram();
       if (mounted) {
         setState(() {
           _drafts = drafts;
+          _groups = groups;
+          _attention = attention;
           _packages = packages;
           _markedPackages = markedPackages;
         });
@@ -88,7 +97,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         updatedAt: widget.services.clock.now(),
       );
       await widget.services.drafts.save(draft, expectedRevision: -1);
-      if (mounted) await _open(draft);
+      if (mounted) await _routeDraft(draft);
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -97,11 +106,44 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _open(Draft draft) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _routeDraft(draft);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _routeDraft(Draft draft) async {
+    final parentId = draft.retryParentAttemptId;
+    if (parentId != null) {
+      final child = await widget.services.attempts.childForOperation(
+        parentId,
+        draft.retryOperationId!,
+      );
+      if (child != null) {
+        final attempt = await widget.services.attempts.getAttempt(child);
+        if (attempt != null) return _openResults(attempt.groupId);
+      }
+    } else {
+      final group = await widget.services.attempts.getGroupForDraft(draft.id);
+      if (group != null) return _openResults(group.id);
+    }
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _ComposeHost(services: widget.services, initial: draft),
       ),
     );
+    if (mounted) await _load();
+  }
+
+  Future<void> _openResults(String groupId) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(_resultsRoute(widget.services, groupId));
     if (mounted) await _load();
   }
 
@@ -221,7 +263,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       primaryAction:
           _drafts != null &&
               !_results &&
-              (!empty || _packages.isNotEmpty || _markedPackages.isNotEmpty)
+              (!empty ||
+                  _groups.isNotEmpty ||
+                  _packages.isNotEmpty ||
+                  _markedPackages.isNotEmpty)
           ? FilledButton.icon(
               onPressed: _busy ? null : _create,
               icon: const Icon(Icons.add),
@@ -277,6 +322,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
             OutlinedButton(onPressed: _load, child: const Text('Retry')),
           ],
           if (_drafts != null) ...[
+            for (final item in _attention.where(
+              (item) => item.group != null,
+            )) ...[
+              const CaptionText('Needs your attention'),
+              const SizedBox(height: 8),
+              Text(item.destinations.map(destinationName).join(' · ')),
+              Text(
+                item.group!.snapshot.posts.values.first.content.text,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              OutlinedButton(
+                onPressed: _busy ? null : () => _openResults(item.group!.id),
+                child: const Text('Review posting results'),
+              ),
+              const Divider(height: 32),
+            ],
             if (_packages.isNotEmpty) ...[
               const CaptionText('Instagram needs finishing'),
               const SizedBox(height: 8),
@@ -361,7 +423,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (_results && _markedPackages.isNotEmpty) ...[
+            if (_results &&
+                (_groups.isNotEmpty || _markedPackages.isNotEmpty)) ...[
+              for (final group in _groups) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    group.snapshot.posts.values.first.content.text.isEmpty
+                        ? 'Reviewed post'
+                        : group.snapshot.posts.values.first.content.text,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${Destination.values.where(group.snapshot.posts.containsKey).map(destinationName).join(', ')} · reviewed ${_savedTime(group.createdAt)}',
+                  ),
+                  onTap: _busy ? null : () => _openResults(group.id),
+                ),
+                const Divider(height: 24),
+              ],
               for (final package in _markedPackages) ...[
                 Text(
                   'Instagram · Marked posted',
@@ -395,7 +475,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ] else if (_results)
               const Text('No posting results yet')
             else if (empty &&
-                (_packages.isNotEmpty || _markedPackages.isNotEmpty))
+                (_groups.isNotEmpty ||
+                    _packages.isNotEmpty ||
+                    _markedPackages.isNotEmpty))
               const Text(
                 'No drafts. Prepared packages and Instagram records are kept in Your posts.',
               )
@@ -429,7 +511,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               const SizedBox(height: 18),
               const Text(
-                'X and Bluesky publish from this app once connected. Instagram never needs a sign-in here; you finish posts in Instagram.',
+                'X and Bluesky need accepted publishing setup and a connected account. Instagram never needs a sign-in here; you finish posts in Instagram.',
               ),
             ] else ...[
               for (final draft in _drafts!) ...[
@@ -444,7 +526,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    'Saved ${_savedTime(draft.updatedAt)} · ${draft.selected.isEmpty ? 'No destinations' : draft.selected.map(destinationName).join(', ')} · ${_stageName(draft.stage)}',
+                    '${draft.retryParentAttemptId == null ? 'Saved' : 'Saved retry'} ${_savedTime(draft.updatedAt)} · ${draft.selected.isEmpty ? 'No destinations' : draft.selected.map(destinationName).join(', ')} · ${_stageName(draft.stage)}',
                   ),
                   onTap: _busy ? null : () => _open(draft),
                   trailing: IconButton(
@@ -489,8 +571,7 @@ class _ComposeHost extends StatefulWidget {
 class _ComposeHostState extends State<_ComposeHost> {
   late final DraftController _controller;
   late ComposeStage _visibleStage;
-  int? _preparationRevision;
-  String? _preparationOperationId;
+  late final String _operationId;
   @override
   void initState() {
     super.initState();
@@ -499,6 +580,8 @@ class _ComposeHostState extends State<_ComposeHost> {
       widget.services.drafts,
       widget.services.clock,
     );
+    _operationId =
+        widget.initial.retryOperationId ?? widget.services.ids.next();
     _visibleStage = widget.initial.stage;
     _controller.addListener(_syncSavedStage);
   }
@@ -553,40 +636,85 @@ class _ComposeHostState extends State<_ComposeHost> {
           pickerImports: widget.services.pickerImports,
           canLaunchPicker: widget.services.pickerRecoveryReady,
           onReview: _syncSavedStage,
-          onChangeDestinations: _choose,
+          onChangeDestinations: widget.initial.retryParentAttemptId == null
+              ? _choose
+              : null,
         )
       : ReviewScreen(
           controller: _controller,
           service: widget.services.review,
           onEdit: _editReview,
           onManageAccounts: _reviewAccounts,
-          onConfirm: _prepareInstagram,
+          observeOnline: () async =>
+              await widget.services.publishingOnline?.call(),
+          contextNotice: widget.initial.retryParentAttemptId == null ? null : "Only this saved recovery version will be sent. Successful destinations and the original source stay frozen. Sending an Unknown version again requires a duplicate-risk decision.",
+          onConfirm: _publish,
         );
 
-  Future<void> _prepareInstagram(ReviewedPost reviewed) async {
-    // ReviewScreen has just flushed/revalidated and checked its exact controller.
-    if (reviewed.posts.length != 1 ||
-        !reviewed.posts.containsKey(Destination.instagram) ||
-        _controller.draft.revision != reviewed.revision ||
+  Future<void> _publish(ReviewedPost reviewed) async {
+    final draft = _controller.draft;
+    if (draft.revision != reviewed.revision ||
         _controller.savedRevision != reviewed.revision ||
         _controller.saveState != SaveState.saved) {
-      throw StateError('Review this post again before preparing.');
+      throw StateError('Review this saved version again before publishing.');
     }
-    if (_preparationRevision != reviewed.revision) {
-      _preparationRevision = reviewed.revision;
-      _preparationOperationId = widget.services.ids.next();
+    String groupId;
+    if (draft.retryParentAttemptId case final parentId?) {
+      final parent = await widget.services.attempts.getAttempt(parentId);
+      if (parent == null) {
+        throw StateError('The original attempt is unavailable.');
+      }
+      if (parent.outcome.status == PublishStatus.unknown) {
+        if (!mounted) return;
+        final accepted = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            scrollable: true,
+            title: const Text('This could create a duplicate post'),
+            content: Text(
+              '${destinationName(parent.snapshot.destination)} may already have published the earlier version. Check your profile first. Send only this reviewed version again if you accept that both posts may be visible.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Keep checking'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('I accept the duplicate risk'),
+              ),
+            ],
+          ),
+        );
+        if (accepted != true) return;
+        await widget.services.publishing.resendAfterCheck(
+          parentId,
+          reviewed,
+          operationId: _operationId,
+          duplicateRiskAccepted: accepted!,
+        );
+      } else {
+        await widget.services.publishing.retry(
+          parentId,
+          reviewed,
+          operationId: _operationId,
+        );
+      }
+      groupId = parent.groupId;
+    } else {
+      groupId = await widget.services.publishing.confirm(
+        reviewed,
+        operationId: _operationId,
+      );
     }
-    final package = await widget.services.instagram.prepare(
-      reviewed,
-      operationId: _preparationOperationId!,
-    );
     if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => InstagramScreen(
-          package: package,
-          service: widget.services.instagram,
-        ),
+    await Navigator.of(context).pushReplacement<void, void>(
+      _resultsRoute(
+        widget.services,
+        groupId,
+        openPreparedInstagramOnEntry:
+            reviewed.posts.length == 1 &&
+            reviewed.posts.containsKey(Destination.instagram),
       ),
     );
   }
@@ -630,3 +758,34 @@ class _ComposeHostState extends State<_ComposeHost> {
     ),
   );
 }
+
+MaterialPageRoute<void> _resultsRoute(
+  AppServices services,
+  String groupId, {
+  bool openPreparedInstagramOnEntry = false,
+}) => MaterialPageRoute<void>(
+  builder: (context) => ResultsScreen(
+    groupId: groupId,
+    openPreparedInstagramOnEntry: openPreparedInstagramOnEntry,
+    attempts: services.attempts,
+    coordinator: services.publishing,
+    instagram: services.instagramRepo,
+    onRetry: (attempt) async {
+      final draft = await services.retryEdits.open(attempt.id);
+      if (!context.mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => _ComposeHost(services: services, initial: draft),
+        ),
+      );
+    },
+    onManageAccounts: () => Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountsScreen(
+          accounts: services.accounts,
+          connections: services.connections,
+        ),
+      ),
+    ),
+  ),
+);

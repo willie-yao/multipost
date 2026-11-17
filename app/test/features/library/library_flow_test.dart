@@ -28,6 +28,35 @@ void main() {
     WidgetController.hitTestWarningShouldBeFatal = true;
   });
 
+  testWidgets(
+    'result lookup failure keeps the draft route closed and offers local recovery',
+    (tester) async {
+      final services = (await tester.runAsync(localTestServices))!;
+      addTearDown(services.close);
+      final draft = Draft(
+        id: 'route-read-failure',
+        updatedAt: services.clock.now(),
+        shared: PostContent(text: 'Retained route words'),
+      );
+      await tester.runAsync(
+        () => services.drafts.save(draft, expectedRevision: -1),
+      );
+      await tester.pumpWidget(
+        CaptionApp(home: LibraryScreen(services: services)),
+      );
+      await settleStorage(tester);
+      await tester.runAsync(services.database.close);
+      await tester.tap(find.text('Retained route words'));
+      await settleStorage(tester);
+      expect(tester.takeException(), isNull);
+      expect(
+        find.textContaining('Your saved data has been kept.'),
+        findsOneWidget,
+      );
+      expect(find.text('Where should this go?'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('draft creation requires no account and no selected default', (
     tester,
   ) async {

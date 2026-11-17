@@ -67,6 +67,8 @@ Draft _$DraftFromJson(Map<String, dynamic> json) => Draft(
   deletedAt: json['deletedAt'] == null
       ? null
       : DateTime.parse(json['deletedAt'] as String),
+  retryParentAttemptId: json['retryParentAttemptId'] as String?,
+  retryOperationId: json['retryOperationId'] as String?,
 );
 
 Map<String, dynamic> _$DraftToJson(Draft instance) => <String, dynamic>{
@@ -82,6 +84,8 @@ Map<String, dynamic> _$DraftToJson(Draft instance) => <String, dynamic>{
     (k, e) => MapEntry(_$DestinationEnumMap[k]!, e.toJson()),
   ),
   'deletedAt': instance.deletedAt?.toIso8601String(),
+  'retryParentAttemptId': ?instance.retryParentAttemptId,
+  'retryOperationId': ?instance.retryOperationId,
 };
 
 const _$ComposeStageEnumMap = {

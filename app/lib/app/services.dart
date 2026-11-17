@@ -24,6 +24,11 @@ import '../features/instagram/instagram_service.dart';
 import '../features/media/picker_imports.dart';
 import '../features/providers/capabilities.dart';
 import '../features/providers/provider.dart';
+import '../features/providers/x_publisher.dart';
+import '../features/providers/bluesky_publisher.dart';
+import '../features/providers/x_text_counter.dart';
+import '../features/publishing/publishing_boundary.dart';
+import '../features/publishing/retry_edits.dart';
 import '../features/publishing/attempt_repository.dart';
 import '../features/publishing/publish_coordinator.dart';
 import '../features/review/review_service.dart';
@@ -80,6 +85,7 @@ class AppServices {
     clock: clock,
     directOnline: publishingOnline,
   );
+  late final retryEdits = RetryEdits(drafts, attempts, clock);
   final Future<void> Function()? onClose;
   bool pickerRecoveryReady = false;
   Object? pickerRecoveryError;
@@ -103,29 +109,42 @@ class AppServices {
       configuration: configuration,
     );
     final client = http.Client();
+    final bluesky = BlueskyConnection(
+      configuration: configuration,
+      vault: const SecureCredentialVault(),
+      accounts: accounts,
+      driverFactory: (stores) {
+        if (!configuration.connection(Destination.bluesky).available) {
+          throw const AccountConnectionUnavailable();
+        }
+        return HostedATProtoOAuthDriver(configuration, stores, client);
+      },
+      authorizeInBrowser: BlueskyBrowser(configuration).open,
+    );
+    final x = XConnection(
+      configuration: configuration,
+      driver: AppAuthXDriver(configuration),
+      vault: const SecureCredentialVault(),
+      accounts: accounts,
+      client: client,
+    );
     return AppServices(
-      connections: {
-        Destination.bluesky: BlueskyConnection(
-          configuration: configuration,
-          vault: const SecureCredentialVault(),
-          accounts: accounts,
-          driverFactory: (stores) {
-            // Fail before even fetching metadata while production is unaccepted.
-            if (!configuration.connection(Destination.bluesky).available) {
-              throw const AccountConnectionUnavailable();
-            }
-            return HostedATProtoOAuthDriver(configuration, stores, client);
-          },
-          authorizeInBrowser: BlueskyBrowser(configuration).open,
-        ),
-        Destination.x: XConnection(
-          configuration: configuration,
-          driver: AppAuthXDriver(configuration),
-          vault: const SecureCredentialVault(),
-          accounts: accounts,
+      publishingOnline: const PublishingBoundary().online,
+      publishProviders: {
+        Destination.x: XPublisher(
+          connection: x,
           client: client,
+          media: media,
+          counter: const XTextCounter(),
+          capabilities: ProviderCapabilities.documented(Destination.x),
+        ),
+        Destination.bluesky: BlueskyPublisher(
+          connection: bluesky,
+          media: media,
+          capabilities: ProviderCapabilities.documented(Destination.bluesky),
         ),
       },
+      connections: {Destination.x: x, Destination.bluesky: bluesky},
       onClose: () async => client.close(),
       // path_provider_android 2.3.1 getApplicationSupportPath returns filesDir.
       // I3 FileProvider must scope files-path to exactly instagram-packages/.
