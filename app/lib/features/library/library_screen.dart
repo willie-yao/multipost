@@ -274,7 +274,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
               const SizedBox(height: 8),
               for (final package in _packages) ...[
                 Text(
+                  package.ownCaption ? 'Own caption' : 'Shared caption',
+                  style: const TextStyle(
+                    color: CaptionTokens.secondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
                   package.caption.isEmpty ? 'Prepared photos' : package.caption,
+                  style: TextStyle(
+                    color: package.ownCaption
+                        ? CaptionTokens.own
+                        : CaptionTokens.text,
+                  ),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),

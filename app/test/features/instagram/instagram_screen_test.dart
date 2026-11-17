@@ -21,7 +21,7 @@ void main() {
   setUp(() => WidgetController.hitTestWarningShouldBeFatal = true);
 
   testWidgets(
-    'frozen own caption keeps cyan and source label after draft changes and deletion',
+    'frozen own caption keeps cyan and source label in Library after draft deletion',
     (tester) async {
       final s = (await tester.runAsync(instagramTestServices))!;
       addTearDown(s.close);
@@ -55,11 +55,21 @@ void main() {
         );
         return package;
       }))!;
-      await tester.pumpWidget(
-        CaptionApp(
-          home: InstagramScreen(package: package, service: s.instagram),
-        ),
+      await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s.app)));
+      await settleEditorUntil(
+        tester,
+        () => find.text('View prepared package').evaluate().isNotEmpty,
       );
+      expect(
+        tester.widget<Text>(find.text('Matching words')).style?.color,
+        CaptionTokens.own,
+      );
+      expect(find.text('Own caption'), findsOneWidget);
+      expect(find.text('Shared caption'), findsNothing);
+      expect(find.text('Later mutable words'), findsNothing);
+      expect(await tester.runAsync(s.app.drafts.list), isEmpty);
+      await tester.tap(find.text('View prepared package'));
+      await tester.pump();
       await settleEditorUntil(tester, _preparedPhotosReady);
       expect(find.text('Own caption'), findsOneWidget);
       expect(find.text('Later mutable words'), findsNothing);
