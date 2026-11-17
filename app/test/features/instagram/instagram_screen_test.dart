@@ -178,7 +178,7 @@ void main() {
             find.byType(InstagramScreen).evaluate().isNotEmpty &&
             _preparedPhotosReady(),
       );
-      expect(find.text('Prepared on this device'), findsOneWidget);
+      expect(find.text('Ready to share'), findsOneWidget);
       expect(find.text('Shared caption'), findsOneWidget);
       expect(
         tester
@@ -209,7 +209,14 @@ void main() {
       await settleEditorUntil(tester, _preparedPhotosReady);
       expect(find.byType(InstagramScreen), findsOneWidget);
       expect(find.text('Prepared words'), findsOneWidget);
-      expect(find.text('Photo 1 of 2'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Image &&
+              (w.semanticLabel?.startsWith('Photo 1 of 2.') ?? false),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Description 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -361,7 +368,13 @@ void main() {
       ),
     );
     await settleEditor(tester);
-    await tester.ensureVisible(find.text('Photo 2 of 2'));
+    await tester.ensureVisible(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            (w.semanticLabel?.startsWith('Photo 2 of 2.') ?? false),
+      ),
+    );
     await settleEditor(tester);
     expect(find.text('Description 2'), findsOneWidget);
     expect(tester.takeException(), isNull);

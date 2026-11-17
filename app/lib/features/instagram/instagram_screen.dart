@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
-import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
 import 'instagram_package.dart';
 import 'android_transfer.dart';
@@ -36,6 +35,11 @@ class _InstagramScreenState extends State<InstagramScreen>
   bool _checkFailed = false;
   bool _checkAfterWork = false;
   int _generation = 0;
+  bool _returnQuestion = false;
+  bool _chooserReturn = false;
+  bool _resumePending = false;
+  final _manualFocus = FocusNode(debugLabel: 'Manual Instagram confirmation');
+  final _returnFocus = FocusNode(debugLabel: 'Return Instagram confirmation');
   InstagramPackage get package => widget.package;
   InstagramService get service => widget.service;
 
@@ -72,18 +76,67 @@ class _InstagramScreenState extends State<InstagramScreen>
     _transferMessage = null;
     _copyFailed = false;
     _busy = false;
+    _returnQuestion = false;
+    _resumePending = false;
     _cachePhotos();
     unawaited(_check());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    if (state == AppLifecycleState.paused) service.onExternalPause(package.id);
     if (state == AppLifecycleState.resumed) {
+      _resumePending = true;
       if (_busy) {
         _checkAfterWork = true;
       } else {
+        unawaited(_resumeAndCheck());
+      }
+    }
+  }
+
+  Future<void> _resumeAndCheck() async {
+    if (_busy || !_resumePending) return;
+    _resumePending = false;
+    final generation = _generation;
+    setState(() => _busy = true);
+    try {
+      if (await service.onResume(package.id)) {
+        final events = await service.repository.events(package.id);
+        final progress = await service.repository.progress(package.id);
+        final launch = events.lastWhere(
+          (e) =>
+              e.launchId == progress.activeLaunchId &&
+              e.kind != InstagramEventKind.returnAcknowledged,
+        );
+        // Commit acknowledgment before presenting the question. Relaunch must
+        // never ask again for this trip, even if the answer is left undecided.
+        await service.acknowledgeReturn(package.id);
+        final acknowledged = await service.repository.progress(package.id);
+        if (mounted &&
+            generation == _generation &&
+            acknowledged.activeLaunchId == launch.launchId &&
+            acknowledged.promptedLaunchId == launch.launchId &&
+            acknowledged.state != InstagramState.userMarked) {
+          setState(() {
+            _returnQuestion = true;
+            _transferMessage = null;
+            _chooserReturn = launch.kind == InstagramEventKind.chooserOpened;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(
+          () => _transferMessage = 'The return question could not be recorded. You can still confirm explicitly below.',
+        );
+      }
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _busy = false);
         _cachePhotos();
-        unawaited(_check());
+        await _check();
       }
     }
   }
@@ -91,6 +144,8 @@ class _InstagramScreenState extends State<InstagramScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _manualFocus.dispose();
+    _returnFocus.dispose();
     super.dispose();
   }
 
@@ -102,7 +157,9 @@ class _InstagramScreenState extends State<InstagramScreen>
       _error = null;
       _checkFailed = false;
     });
+    InstagramProgress? recorded;
     try {
+      recorded = await service.repository.progress(package.id);
       final progress = await service.recheckSavedPhotos(package.id);
       final events = await service.repository.activity(package.id);
       if (mounted && generation == _generation) {
@@ -117,7 +174,7 @@ class _InstagramScreenState extends State<InstagramScreen>
     } catch (_) {
       if (mounted && generation == _generation) {
         setState(() {
-          _progress = null;
+          _progress = recorded;
           _checkFailed = true;
           _error = 'Saved photos could not be checked. Keep this package and retry checking.';
         });
@@ -133,7 +190,7 @@ class _InstagramScreenState extends State<InstagramScreen>
     if (_checkAfterWork) {
       _checkAfterWork = false;
       _cachePhotos();
-      unawaited(_check());
+      unawaited(_resumePending ? _resumeAndCheck() : _check());
     }
   }
 
@@ -200,11 +257,12 @@ class _InstagramScreenState extends State<InstagramScreen>
     setState(() {
       _busy = true;
       _transferMessage = null;
+      _returnQuestion = false;
     });
     try {
       final message = share
           ? switch (await service.share(package.id)) {
-              ShareDispatch.dispatchedToInstagram => 'Photo share requested. Check in Instagram that every photo arrived in order, paste your caption and finish there. Publication is not verified.',
+              ShareDispatch.dispatchedToInstagram => 'Photo share requested. Check every photo arrived in order, then finish in Instagram. Publication is not verified.',
               ShareDispatch.chooserOpened => 'Share chooser opened. Selecting a target does not confirm that Instagram received your photos. You can still save photos below.',
               ShareDispatch.cancelled =>
                 'Share cancelled. Your prepared photos and caption are kept.',
@@ -212,7 +270,7 @@ class _InstagramScreenState extends State<InstagramScreen>
               ShareDispatch.failed => 'Photos could not be sent. Save photos and select them inside Instagram.',
             }
           : switch (await service.open(package.id)) {
-              LaunchResult.opened => 'Instagram opened. Select your saved photos, paste your caption and finish there. Publication is not verified.',
+              LaunchResult.opened => 'Instagram opened. Finish your post there. Publication is not verified.',
               LaunchResult.unavailable => 'Open Instagram yourself. Start it from your device, select the saved photos in order and paste your caption. Your prepared package is kept here.',
               LaunchResult.failed => 'Instagram could not be opened. Open it yourself from your device and use your saved photos and copied caption.',
             };
@@ -233,6 +291,118 @@ class _InstagramScreenState extends State<InstagramScreen>
       }
     } finally {
       _finish(generation);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            generation == _generation &&
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed) {
+          service.discardUnobservedTrip(package.id);
+        }
+      });
+    }
+  }
+
+  Future<void> _confirm(FocusNode initiator) async {
+    if (_busy) return;
+    final generation = _generation;
+    setState(() => _busy = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: const Text('Mark Instagram as posted?'),
+          content: const Text(
+            "This records your confirmation on this phone. The app can't verify that the post is live.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Mark as posted'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || generation != _generation) return;
+      if (confirmed == true) {
+        await service.markPosted(package.id);
+        final progress = await service.repository.progress(package.id);
+        if (!mounted || generation != _generation) return;
+        setState(() {
+          _progress = progress;
+          _returnQuestion = false;
+          _transferMessage = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: CaptionTokens.stage,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+              side: const BorderSide(color: CaptionTokens.boundary),
+            ),
+            content: const Text(
+              'Instagram marked as posted.',
+              style: TextStyle(color: CaptionTokens.text),
+            ),
+            action: SnackBarAction(
+              textColor: CaptionTokens.text,
+              label: 'Undo',
+              onPressed: () => unawaited(_undo()),
+            ),
+          ),
+        );
+      } else {
+        // Re-enable the initiating button before requesting its focus.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && generation == _generation) initiator.requestFocus();
+        });
+      }
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(
+          () => _transferMessage = 'Your confirmation could not be recorded. Keep this package and try again.',
+        );
+      }
+    } finally {
+      _finish(generation);
+    }
+  }
+
+  Future<void> _undo() async {
+    if (_busy) return;
+    final generation = _generation;
+    setState(() => _busy = true);
+    try {
+      await service.undoMarked(package.id);
+      final progress = await service.repository.progress(package.id);
+      if (mounted && generation == _generation) {
+        setState(() => _progress = progress);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: CaptionTokens.stage,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+              side: const BorderSide(color: CaptionTokens.boundary),
+            ),
+            content: const Text(
+              "Confirmation undone. Only this phone's record changed.",
+              style: TextStyle(color: CaptionTokens.text),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(
+          () => _transferMessage = 'Your confirmation could not be undone. Keep this package and try again.',
+        );
+      }
+    } finally {
+      _finish(generation);
     }
   }
 
@@ -249,14 +419,31 @@ class _InstagramScreenState extends State<InstagramScreen>
         : remaining == 1
         ? 'Retry remaining photo'
         : 'Retry remaining $remaining photos';
+    final marked = _progress?.state == InstagramState.userMarked;
+    final handedOff = _progress?.state == InstagramState.handedOff;
+    final returned =
+        _returnQuestion ||
+        (_progress?.activeLaunchId != null &&
+            _progress?.activeLaunchId == _progress?.promptedLaunchId);
+    final confirmedAt = _progress?.confirmedAt?.toLocal();
+    final localTime = confirmedAt == null
+        ? ''
+        : MaterialLocalizations.of(context)
+              .formatTimeOfDay(TimeOfDay.fromDateTime(confirmedAt));
     final decodePixels = (220 * MediaQuery.devicePixelRatioOf(context))
         .round()
         .clamp(1, 1200);
     return CaptionScaffold(
-      title: 'Finish in Instagram',
+      title: marked ? 'Instagram record' : 'Finish in Instagram',
+      bodyPadding: EdgeInsets.zero,
       primaryAction: FilledButton(
+        focusNode: _returnQuestion ? _returnFocus : null,
         onPressed: _busy || (!_checkFailed && _progress == null)
             ? null
+            : marked
+            ? _undo
+            : _returnQuestion
+            ? () => _confirm(_returnFocus)
             : _checkFailed
             ? _check
             : remaining == 0
@@ -265,6 +452,10 @@ class _InstagramScreenState extends State<InstagramScreen>
         child: Text(
           _busy
               ? 'Working…'
+              : marked
+              ? 'Undo my confirmation'
+              : _returnQuestion
+              ? "I've posted it"
               : remaining == 0 && !_checkFailed
               ? 'Open Instagram'
               : saveLabel,
@@ -280,158 +471,294 @@ class _InstagramScreenState extends State<InstagramScreen>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const CaptionText('Prepared on this device'),
-          const SizedBox(height: 12),
-          const Text(
-            'Your reviewed caption, photo order and descriptions are kept below. You select and check the photos, choose the account and finish in Instagram. This app cannot verify publication.',
-          ),
-          const SizedBox(height: 20),
-          if (_progress != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                '$saved of ${package.photos.length} saved',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            )
-          else if (!_checkFailed)
-            const Text('Checking saved photos…'),
-          const SizedBox(height: 8),
-          const Text(
-            'Gallery destination: Pictures/CrossPosting. Check the numbered photos below and select them in this order; your gallery may sort them differently.',
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Semantics(liveRegion: true, child: Text(_error!)),
-          ],
-          const SizedBox(height: 20),
-          if (remaining > 0 || _checkFailed)
-            OutlinedButton(
-              onPressed: _busy ? null : () => _handoff(),
-              child: const Text('Open Instagram'),
-            ),
-          if (service.shareCapability.supports(package.photos.length)) ...[
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _busy ? null : () => _handoff(share: true),
-              child: const Text('Send photos to Instagram'),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Copy the caption separately. Sending photos does not confirm their import or publication.',
-            ),
-          ],
-          if (_transferMessage != null) ...[
-            const SizedBox(height: 12),
-            Semantics(liveRegion: true, child: Text(_transferMessage!)),
-          ],
-          const SizedBox(height: 24),
-          Text(
-            package.ownCaption ? 'Own caption' : 'Shared caption',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          if (package.caption.isEmpty)
-            const Text('No caption')
-          else
-            ColoredBox(
-              color: CaptionTokens.raised,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: SelectableText(
-                  package.caption,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: package.ownCaption
-                        ? CaptionTokens.own
-                        : CaptionTokens.text,
-                    backgroundColor: CaptionTokens.stage,
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: _busy ? null : _copy,
-            child: Text(_copyFailed ? 'Retry copy' : 'Copy caption'),
-          ),
-          if (_copyMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Semantics(liveRegion: true, child: Text(_copyMessage!)),
-            ),
-          const SizedBox(height: 16),
-          const Text(
-            'Descriptions stay selectable here; enter them inside Instagram if needed. Saving photos does not transfer these descriptions.',
-          ),
-          for (final photo in package.photos) ...[
-            const Divider(height: 40),
-            Text(
-              'Photo ${photo.ordinal} of ${package.photos.length}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            FutureBuilder<File>(
-              future: _files[photo.ordinal],
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${snapshot.error}'),
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() {
-                                _files[photo.ordinal] = service.fileFor(
-                                  package,
-                                  photo,
-                                );
-                              }),
-                        child: const Text('Retry photo check'),
-                      ),
-                    ],
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const SizedBox(
-                    height: 160,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: 'Checking prepared photo',
-                      ),
+          ColoredBox(
+            color: CaptionTokens.stage,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // One ordered gallery, available by horizontal scroll at every count.
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final photo in package.photos)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: SizedBox(
+                              width: 170,
+                              child: Stack(
+                                children: [
+                                  _photo(photo, decodePixels),
+                                  Positioned(
+                                    left: 8,
+                                    bottom: 8,
+                                    child: ExcludeSemantics(
+                                      child: ColoredBox(
+                                        color: CaptionTokens.stage,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          child: Text(
+                                            '${photo.ordinal}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  );
-                }
-                return Image(
-                  image: ResizeImage(
-                    FileImage(snapshot.data!),
-                    width: decodePixels,
-                    height: decodePixels,
-                    policy: ResizeImagePolicy.fit,
                   ),
-                  height: 220,
-                  fit: BoxFit.contain,
-                  semanticLabel: photo.altText.isEmpty
-                      ? 'Prepared photo ${photo.ordinal}'
-                      : photo.altText,
-                  errorBuilder: (_, _, _) => Text(
-                    'Prepared photo ${photo.ordinal} could not be displayed. Keep this package and check storage.',
+                  const SizedBox(height: 16),
+                  Text(
+                    marked
+                        ? 'Marked posted'
+                        : handedOff
+                        ? (returned ? 'Status: still Handed off' : 'Handed off')
+                        : (returned
+                              ? 'Status: still Ready to share'
+                              : 'Ready to share'),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                );
-              },
+                  const SizedBox(height: 8),
+                  if (marked) ...[
+                    Text(
+                      'Your confirmation at $localTime. Not verified by the app.',
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Undo changes only this phone's record. Nothing is changed in Instagram.",
+                    ),
+                  ] else if (_returnQuestion) ...[
+                    Text(
+                      _chooserReturn
+                          ? 'Back to your post'
+                          : 'Back from Instagram. Did you finish posting?',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "This app can't see Instagram. Your answer is the record.",
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _returnQuestion = false),
+                      child: const Text('Not yet'),
+                    ),
+                  ] else
+                    const Text(
+                      'Nothing is on Instagram until you publish it there.',
+                    ),
+                  if (_transferMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Semantics(liveRegion: true, child: Text(_transferMessage!)),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            SelectableText(
-              photo.altText.isEmpty ? 'No description' : photo.altText,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '1  Copy the caption',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  package.ownCaption ? 'Own caption' : 'Shared caption',
+                  style: const TextStyle(color: CaptionTokens.secondary),
+                ),
+                const SizedBox(height: 8),
+                if (package.caption.isEmpty)
+                  const Text('No caption')
+                else
+                  SelectableText(
+                    package.caption,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: package.ownCaption
+                          ? CaptionTokens.own
+                          : CaptionTokens.text,
+                      backgroundColor: CaptionTokens.stage,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _busy ? null : _copy,
+                  child: Text(_copyFailed ? 'Retry copy' : 'Copy caption'),
+                ),
+                if (_copyMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(_copyMessage!),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  '2  Save photos in order',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (_checkFailed)
+                  const Text('Saved photo check unavailable')
+                else if (_progress != null)
+                  Text('$saved of ${package.photos.length} saved')
+                else if (!_checkFailed)
+                  const Text('Checking saved photos…'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Gallery: Pictures/CrossPosting. Select the numbered photos in order; your gallery may sort them differently.',
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Semantics(liveRegion: true, child: Text(_error!)),
+                  ),
+                if (marked || _returnQuestion || remaining == 0) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : _checkFailed
+                        ? _check
+                        : remaining == 0
+                        ? null
+                        : _save,
+                    child: Text(saveLabel),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                Text(
+                  '3  Post it in Instagram',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'New feed post, photos in order, paste the caption, check the account, publish.',
+                ),
+                if (remaining > 0 ||
+                    _checkFailed ||
+                    marked ||
+                    _returnQuestion) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _handoff(),
+                    child: const Text('Open Instagram'),
+                  ),
+                ],
+                if (service.shareCapability.supports(
+                  package.photos.length,
+                )) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _handoff(share: true),
+                    child: const Text('Send photos to Instagram'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Copy the caption separately. Sending photos does not confirm their import or publication.',
+                  ),
+                ],
+                if (!marked && !_returnQuestion)
+                  TextButton(
+                    focusNode: _manualFocus,
+                    onPressed: _busy || _progress == null
+                        ? null
+                        : () => _confirm(_manualFocus),
+                    child: const Text("I've posted it"),
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  'Photo descriptions',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Descriptions stay here; enter them inside Instagram if needed. Saving photos does not transfer descriptions.',
+                ),
+                for (final photo in package.photos) ...[
+                  const SizedBox(height: 16),
+                  Text('Photo ${photo.ordinal} description'),
+                  SelectableText(
+                    photo.altText.isEmpty ? 'No description' : photo.altText,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                const Text(
+                  'Prepared versions stay on this device independently of the source draft. Uninstalling the app removes them.',
+                  style: TextStyle(color: CaptionTokens.secondary),
+                ),
+              ],
             ),
-          ],
-          const SizedBox(height: 24),
-          const Text(
-            'Prepared versions stay on this device independently of the source draft. Uninstalling the app removes them.',
-            style: TextStyle(color: CaptionTokens.secondary),
           ),
         ],
       ),
     );
   }
+
+  Widget _photo(PreparedPhoto photo, int decodePixels) => FutureBuilder<File>(
+    future: _files[photo.ordinal],
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${snapshot.error}'),
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(
+                      () => _files[photo.ordinal] = service.fileFor(
+                        package,
+                        photo,
+                      ),
+                    ),
+              child: const Text('Retry photo check'),
+            ),
+          ],
+        );
+      }
+      if (!snapshot.hasData) {
+        return const SizedBox(
+          height: 110,
+          child: Center(
+            child: CircularProgressIndicator(
+              semanticsLabel: 'Checking prepared photo',
+            ),
+          ),
+        );
+      }
+      return Image(
+        image: ResizeImage(
+          FileImage(snapshot.data!),
+          width: decodePixels,
+          height: decodePixels,
+          policy: ResizeImagePolicy.fit,
+        ),
+        height: 110,
+        fit: BoxFit.cover,
+        semanticLabel:
+            'Photo ${photo.ordinal} of ${package.photos.length}. ${photo.altText.isEmpty ? 'No description' : photo.altText}',
+        errorBuilder: (_, _, _) => Text(
+          'Prepared photo ${photo.ordinal} could not be displayed. Keep this package and check storage.',
+        ),
+      );
+    },
+  );
 }

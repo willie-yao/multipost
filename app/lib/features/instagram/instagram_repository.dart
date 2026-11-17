@@ -51,7 +51,8 @@ class InstagramRepository {
           whereArgs: [packageId],
         );
         if (rows.isEmpty) throw const FormatException();
-        _validateEvent(event, _decodePackage(rows.single));
+        final package = _decodePackage(rows.single);
+        _validateEvent(event, package);
         final existing = await tx.query(
           'instagram_events',
           where: 'id = ?',
@@ -63,6 +64,33 @@ class InstagramRepository {
             throw const FormatException();
           }
           return;
+        }
+        // Check the state and append in the same transaction. Distinct event
+        // IDs from simultaneous taps must not produce duplicate confirmations.
+        if ({
+          InstagramEventKind.markedPosted,
+          InstagramEventKind.markUndone,
+          InstagramEventKind.returnAcknowledged,
+        }.contains(event.kind)) {
+          final activity = await tx.query(
+            'instagram_events',
+            where: 'package_id = ?',
+            whereArgs: [packageId],
+            orderBy: 'rowid ASC',
+          );
+          final current = _project(package, activity);
+          final pending =
+              current.state == InstagramState.ready ||
+              current.state == InstagramState.handedOff;
+          if (event.kind == InstagramEventKind.markedPosted && !pending ||
+              event.kind == InstagramEventKind.markUndone &&
+                  current.state != InstagramState.userMarked ||
+              event.kind == InstagramEventKind.returnAcknowledged &&
+                  (!pending ||
+                      event.launchId != current.activeLaunchId ||
+                      event.launchId == current.promptedLaunchId)) {
+            return;
+          }
         }
         await tx.insert('instagram_events', {
           'id': event.id,
@@ -119,6 +147,13 @@ class InstagramRepository {
       whereArgs: [packageId],
       orderBy: 'rowid ASC',
     );
+    return _project(package, rows);
+  }
+
+  InstagramProgress _project(
+    InstagramPackage package,
+    List<Map<String, Object?>> rows,
+  ) {
     var result = InstagramProgress(state: InstagramState.ready);
     try {
       for (final row in rows) {
@@ -150,7 +185,8 @@ class InstagramRepository {
           case InstagramEventKind.returnAcknowledged:
             result = result.copyWith(promptedLaunchId: event.launchId);
           case InstagramEventKind.markedPosted:
-            if (result.state != InstagramState.userMarked) {
+            if (result.state == InstagramState.ready ||
+                result.state == InstagramState.handedOff) {
               result = result.copyWith(
                 state: InstagramState.userMarked,
                 priorPending: result.state,
@@ -311,7 +347,10 @@ class InstagramRepository {
     });
   }
 
-  Future<List<InstagramPackage>> pending() async {
+  Future<List<InstagramPackage>> pending() => _list(marked: false);
+  Future<List<InstagramPackage>> marked() => _list(marked: true);
+
+  Future<List<InstagramPackage>> _list({required bool marked}) async {
     final rows = await database.db.query(
       'instagram_packages',
       orderBy: 'rowid DESC',
@@ -319,7 +358,8 @@ class InstagramRepository {
     final packages = <InstagramPackage>[];
     for (final row in rows) {
       final package = _decodePackage(row);
-      if ((await progress(package.id)).state != InstagramState.userMarked) {
+      if (((await progress(package.id)).state == InstagramState.userMarked) ==
+          marked) {
         packages.add(package);
       }
     }

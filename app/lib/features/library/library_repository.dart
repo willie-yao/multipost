@@ -8,5 +8,6 @@ class LibraryRepository {
   final InstagramRepository instagram;
   final DraftRepository drafts;
   Future<List<Draft>> listDrafts() => drafts.list();
+  Future<List<InstagramPackage>> markedInstagram() => instagram.marked();
   Future<List<InstagramPackage>> pendingInstagram() => instagram.pending();
 }

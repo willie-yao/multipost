@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -181,6 +182,70 @@ class InstagramService {
   final _exporting = <String, Future<List<PhotoSaveResult>>>{};
   final _preparing = <String, Future<InstagramPackage>>{};
 
+  // Ephemeral evidence belongs only to a deliberate launch in this process.
+  // Old opened events alone cannot prove that the user left and returned.
+  final _trips = <String, _InstagramTrip>{};
+
+  void onExternalPause(String packageId) {
+    _trips[packageId]?.departed = true;
+  }
+
+  void discardUnobservedTrip(String packageId) {
+    final trip = _trips[packageId];
+    if (trip != null && !trip.departed && trip.recorded.isCompleted) {
+      _trips.remove(packageId);
+    }
+  }
+
+  Future<bool> onResume(String packageId) async {
+    final trip = _trips[packageId];
+    if (trip == null || !trip.departed) return false;
+    await trip.recorded.future;
+    final progress = await repository.progress(packageId);
+    return identical(_trips[packageId], trip) &&
+        trip.succeeded &&
+        progress.state != InstagramState.userMarked &&
+        progress.activeLaunchId == trip.launchId &&
+        progress.promptedLaunchId != trip.launchId;
+  }
+
+  Future<void> acknowledgeReturn(String packageId) async {
+    final trip = _trips[packageId];
+    if (trip == null ||
+        !await onResume(packageId) ||
+        !identical(_trips[packageId], trip)) {
+      return;
+    }
+    await repository.append(
+      packageId,
+      InstagramEvent(
+        id: ids.next(),
+        kind: InstagramEventKind.returnAcknowledged,
+        at: clock.now(),
+        launchId: trip.launchId,
+      ),
+    );
+    if (identical(_trips[packageId], trip)) _trips.remove(packageId);
+  }
+
+  Future<void> markPosted(String packageId) => repository.append(
+    packageId,
+    InstagramEvent(
+      id: ids.next(),
+      kind: InstagramEventKind.markedPosted,
+      at: clock.now(),
+    ),
+  );
+
+  Future<void> undoMarked(String packageId) => repository.append(
+    packageId,
+    InstagramEvent(
+      id: ids.next(),
+      kind: InstagramEventKind.markUndone,
+      at: clock.now(),
+    ),
+  );
+
   Future<InstagramPackage> _package(String id) async {
     final package = await repository.get(id);
     if (package == null) throw StateError('Prepared package unavailable.');
@@ -188,24 +253,35 @@ class InstagramService {
   }
 
   Future<LaunchResult> open(String packageId) async {
+    _trips.remove(packageId);
     await _package(packageId);
-    final launchId = ids.next();
-    final outcome = await transfer.openInstagram();
-    if (outcome == LaunchResult.opened) {
-      await repository.append(
-        packageId,
-        InstagramEvent(
-          id: ids.next(),
-          kind: InstagramEventKind.opened,
-          at: clock.now(),
-          launchId: launchId,
-        ),
-      );
+    final trip = _InstagramTrip(ids.next());
+    _trips[packageId] = trip;
+    try {
+      final outcome = await transfer.openInstagram();
+      if (outcome == LaunchResult.opened) {
+        await repository.append(
+          packageId,
+          InstagramEvent(
+            id: ids.next(),
+            kind: InstagramEventKind.opened,
+            at: clock.now(),
+            launchId: trip.launchId,
+          ),
+        );
+        trip.succeeded = true;
+      }
+      return outcome;
+    } finally {
+      trip.recorded.complete();
+      if (!trip.succeeded && identical(_trips[packageId], trip)) {
+        _trips.remove(packageId);
+      }
     }
-    return outcome;
   }
 
   Future<ShareDispatch> share(String packageId) async {
+    _trips.remove(packageId);
     final package = await _package(packageId);
     if (!shareCapability.supports(package.photos.length)) {
       return ShareDispatch.unavailable;
@@ -213,29 +289,38 @@ class InstagramService {
     for (final photo in package.photos) {
       await fileFor(package, photo);
     }
-    final launchId = ids.next();
-    final outcome = await transfer.sharePhotos(package);
-    final kind = switch (outcome) {
-      ShareDispatch.dispatchedToInstagram =>
-        InstagramEventKind.targetDispatched,
-      ShareDispatch.chooserOpened => InstagramEventKind.chooserOpened,
-      _ => null,
-    };
-    if (kind != null) {
-      await repository.append(
-        packageId,
-        InstagramEvent(
-          id: ids.next(),
-          kind: kind,
-          at: clock.now(),
-          launchId: launchId,
-          targetPackage: outcome == ShareDispatch.dispatchedToInstagram
-              ? 'com.instagram.android'
-              : null,
-        ),
-      );
+    final trip = _InstagramTrip(ids.next());
+    _trips[packageId] = trip;
+    try {
+      final outcome = await transfer.sharePhotos(package);
+      final kind = switch (outcome) {
+        ShareDispatch.dispatchedToInstagram =>
+          InstagramEventKind.targetDispatched,
+        ShareDispatch.chooserOpened => InstagramEventKind.chooserOpened,
+        _ => null,
+      };
+      if (kind != null) {
+        await repository.append(
+          packageId,
+          InstagramEvent(
+            id: ids.next(),
+            kind: kind,
+            at: clock.now(),
+            launchId: trip.launchId,
+            targetPackage: outcome == ShareDispatch.dispatchedToInstagram
+                ? 'com.instagram.android'
+                : null,
+          ),
+        );
+        trip.succeeded = true;
+      }
+      return outcome;
+    } finally {
+      trip.recorded.complete();
+      if (!trip.succeeded && identical(_trips[packageId], trip)) {
+        _trips.remove(packageId);
+      }
     }
-    return outcome;
   }
 
   Future<void> copyCaption(String packageId) async {
@@ -591,4 +676,12 @@ class InstagramService {
       throw const FormatException();
     }
   }
+}
+
+class _InstagramTrip {
+  _InstagramTrip(this.launchId);
+  final String launchId;
+  final recorded = Completer<void>();
+  bool departed = false;
+  bool succeeded = false;
 }

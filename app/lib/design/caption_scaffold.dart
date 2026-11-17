@@ -10,6 +10,7 @@ class CaptionScaffold extends StatelessWidget {
     this.primaryAction,
     this.stageIndicator,
     this.actions = const [],
+    this.bodyPadding = const EdgeInsets.all(16),
   });
 
   final String title;
@@ -17,6 +18,7 @@ class CaptionScaffold extends StatelessWidget {
   final Widget? primaryAction;
   final Widget? stageIndicator;
   final List<Widget> actions;
+  final EdgeInsetsGeometry bodyPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +63,7 @@ class CaptionScaffold extends StatelessWidget {
                           child: stageIndicator,
                         ),
                       ),
-                    Padding(padding: const EdgeInsets.all(16), child: body),
+                    Padding(padding: bodyPadding, child: body),
                   ],
                 ),
               ),

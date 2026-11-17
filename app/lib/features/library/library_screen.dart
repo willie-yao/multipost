@@ -32,6 +32,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   List<Draft>? _drafts;
   List<InstagramPackage> _packages = [];
+  List<InstagramPackage> _markedPackages = [];
   Object? _error;
   bool _results = false;
   bool _busy = false;
@@ -55,10 +56,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
       final drafts = await repository.listDrafts();
       final packages = await repository.pendingInstagram();
+      final markedPackages = await repository.markedInstagram();
       if (mounted) {
         setState(() {
           _drafts = drafts;
           _packages = packages;
+          _markedPackages = markedPackages;
         });
       }
     } catch (error) {
@@ -213,7 +216,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
       ],
       primaryAction:
-          _drafts != null && !_results && (!empty || _packages.isNotEmpty)
+          _drafts != null &&
+              !_results &&
+              (!empty || _packages.isNotEmpty || _markedPackages.isNotEmpty)
           ? FilledButton.icon(
               onPressed: _busy ? null : _create,
               icon: const Icon(Icons.add),
@@ -353,10 +358,44 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (_results)
+            if (_results && _markedPackages.isNotEmpty) ...[
+              for (final package in _markedPackages) ...[
+                Text(
+                  'Instagram · Marked posted',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  package.ownCaption ? 'Own caption' : 'Shared caption',
+                  style: const TextStyle(color: CaptionTokens.secondary),
+                ),
+                Text(
+                  package.caption.isEmpty ? 'Prepared photos' : package.caption,
+                  style: TextStyle(
+                    color: package.ownCaption
+                        ? CaptionTokens.own
+                        : CaptionTokens.text,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Your confirmation on this phone. Not verified by the app.',
+                ),
+                OutlinedButton(
+                  onPressed: _busy ? null : () => _openPackage(package),
+                  child: const Text('View Instagram record'),
+                ),
+                const Divider(height: 32),
+              ],
+            ] else if (_results)
               const Text('No posting results yet')
-            else if (empty && _packages.isNotEmpty)
-              const Text('No drafts. Your prepared packages are kept above.')
+            else if (empty &&
+                (_packages.isNotEmpty || _markedPackages.isNotEmpty))
+              const Text(
+                'No drafts. Prepared packages and Instagram records are kept in Your posts.',
+              )
             else if (empty) ...[
               const SizedBox(height: 16),
               const CaptionText('Write once.'),
