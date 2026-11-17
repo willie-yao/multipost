@@ -310,3 +310,125 @@ supported per-namespace reinitialization/reset API that restores non-destructive
 configuration. Reinspect exact names/cache/reset semantics on package upgrades.
 The real key-loss fixture and two-provider process-persistence evidence are in
 task-13-report.md; synthetic test-only instrumentation is excluded from production.
+
+
+## P3 bounded Bluesky implementation (production still unavailable)
+
+P3 installs exact atproto_oauth **0.8.3**, atproto_core **2.4.1**, bluesky
+**2.18.0** and flutter_web_auth_2 **5.1.0** in the application graph. The SDK
+archive pins retain the earlier reviewed versions; the app lockfile records
+all resolved archive hashes. The browser package supports the selected Dart /
+Flutter versions and Android API 21+, below Caption's provisional API 29 floor.
+Its Android code uses maintained AndroidX Auth Tabs / Custom Tabs. Its current
+Kotlin Gradle Plugin application produces Flutter's future migration warning;
+current Android compilation succeeds. This version coupling needs rechecking
+on Flutter or plugin upgrades.
+
+The controller explicitly selected a smaller supported account boundary for
+this slice: **did:plc accounts hosted by Bluesky**. This supersedes P1's broad
+arbitrary-federation transport requirement for this implementation. The official
+[API directory](https://docs.bsky.app/docs/api-directory) lists the entryway as
+`https://bsky.social` and PDS instances as
+`https://<NAME>.<REGION>.host.bsky.network`. The app admits exactly two ordinary
+DNS labels before `.host.bsky.network`, bare HTTPS origins, and exact issuer
+`https://bsky.social`; it does not infer a broader `*.bsky.network` allowance.
+Ordinary and custom handles are lookup inputs: the pinned official identity
+resolver checks handle/DID association through fixed
+`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle` and
+`https://plc.directory/<did:plc:...>` paths. It never fetches a custom handle's
+website. did:web and custom PDS accounts receive a named unsupported message,
+with the previous connection and drafts retained. Supporting additional DID
+methods, issuers, PDSes or external video services requires a fresh policy
+and acceptance decision.
+
+Transport uses the app-owned native `http.Client` with ordinary certificate-
+and hostname-validating TLS. No custom DNS resolver, reserved-address list,
+address pinning or certificate override was implemented. The security
+assumptions are OS trust and continued provider ownership of admitted domains;
+a DNS response alone cannot authenticate a different service without a trusted
+certificate for the admitted hostname. Owner-configured client metadata is
+an unauthenticated HTTPS fetch at its single exact configured URL. Arbitrary
+response endpoints cannot be admitted. This is a bounded native-client policy,
+not a claim of general AT Protocol federation or DNS-pinning conformance.
+
+All used SDK metadata, identity, OAuth and API HTTP paths pass the same
+feature-owned admission policy. It disables redirects, rejects all 3xx,
+requires HTTPS/default port/no user-info/no fragment, bounds connection/body
+reads to 20 seconds each and response bodies to 512 KiB, and rejects signed
+requests outside the bound account PDS or accepted PAR/token URLs. The driver
+uses only public `OAuthClient` HTTP/resolver/store/nonce hooks,
+`OAuthSessionManager.fromSession(client:, nonceCache:)` and
+`Bluesky.fromOAuth(getClient:, postClient:)` hooks. There is no SDK fork,
+protocol/crypto implementation, generic transport framework or password
+fallback. SDK cryptography generates and signs the P-256/ES256 keys/proofs.
+
+Client metadata must exactly bind its emitted client_id, sole configured
+redirect, native application type, none token authentication, DPoP flag,
+authorization_code/refresh_token grants and code response. Requested and granted
+scopes are restricted to `atproto`,
+`repo:app.bsky.feed.post?action=create`, `blob:image/*` and `blob:video/*`.
+This permission selection does not enable video publishing or prove provider
+scope grants/account limits; live acceptance remains outstanding.
+
+Raw protected-resource metadata must match its bound resource PDS and the
+sole supported issuer. Raw authorization-server metadata must declare that
+exact issuer, required PAR, S256, ES256 DPoP, response issuer support, code,
+none authentication and both grants. Authorization/PAR/token endpoints must
+be distinct exact HTTPS URLs on that issuer origin. No PAR/token request is
+admitted unless this raw document was accepted; rejected/absent/throwing
+metadata leaves admission closed even though OAuth0.8.3 swallows discovery
+exceptions and tries guessed endpoint paths. Refresh repeats discovery under
+the same policy. Raw successful token JSON is checked before SDK normalization:
+explicit DPoP type, exact expected DID, complete allowed scopes, nonempty access
+token, positive expiry and matching optional client_id/iss fields. SDK context
+and awaited session persistence repeat DID/client/issuer/PDS binding.
+
+Every response to a DPoP request requires a nonempty case-insensitive
+DPoP-Nonce before the SDK consumes it, including PAR, token, API GET, JSON
+procedure, binary upload and error paths. Header names are normalized when
+forwarded to the SDK; originating request metadata is preserved for SDK
+challenge/error construction. The transport awaits nonce persistence before
+returning any signed response. The SDK receives a nonce-cache adapter that
+reads this persisted value and treats its additional set notifications as
+already committed; this prevents its fire-and-forget success callback from
+starting late secure writes. Nonces expire locally after five minutes. SDK
+challenge loops remain bounded; ordinary transient retries are disabled and an
+ambiguous create failure is never automatically resent.
+
+BlueskyConnection owns one SDK manager and a feature-local serial mutation
+queue. A single opaque versioned envelope in CredentialVault's existing fixed
+Bluesky namespace holds session, private DPoP/PKCE material, per-origin nonces,
+pending state timestamps/claim and public identity/configuration provenance.
+Every package access still goes through SecureCredentialVault's shared queue;
+P3 does not directly use FlutterSecureStorage or extend its native repair API.
+Only public AccountView JSON enters SQLite. State claims are durably committed
+before returning SDK context. The SDK's awaited sessionStore.set is the durable
+refresh authority before manager publication; onSessionUpdated is not used as
+an unawaited persistence mechanism. Secure errors expose repairRequired and
+invalidate cached clients; removal first records removalPending and remains
+retryable after restart. Explicit repair uses the existing confirmed Accounts
+action and keeps fresh connection separate. Disconnect fences late HTTP,
+callback, nonce/session writes and clients already acquired by a provider
+adapter. The adapter must supply its immutable reviewed DID to authorizedClient.
+
+FlutterWebAuth2 is composed explicitly with the connection in AppServices;
+there is one owned HTTP lifetime. Its Android CallbackActivity is a scheme
+receiver; exact target/no-fragment/query-cardinality/issuer and durable state
+checks happen in Dart before SDK exchange. BLUESKY_CALLBACK_SCHEME feeds Dart,
+Gradle and the native redirect preflight through the existing Flutter define
+source. The default receiver is disabled with an inert unconfigured scheme.
+This does not register ownership of a callback. Pending browser flows cancel
+on process loss: the plugin's process callback and connection's in-memory
+state admission are not restored. A subsequent authorization or usable session
+restore removes stale pending keys; there is no cold-process browser resumption
+promise; Caption schedules no automatic authorization retry or send. Browser cancel preserves prior account
+metadata/session. All UI errors use fixed safe copy; SDK/raw callback failures
+are never interpolated.
+
+Production availability remains **false**, including before metadata fetch or
+browser launch. No metadata/domain was selected, published or registered, no
+account was logged in, and no provider post/upload or paid service was used.
+Reserved example.com build values verify compilation only. Actual owned
+metadata, callback association, warm/cold/cancel/MFA behavior, account/scopes,
+release logging/privacy, native visual/TalkBack and iOS acceptance remain
+unverified. P2's AppAuth state-logging gate remains independently unresolved.

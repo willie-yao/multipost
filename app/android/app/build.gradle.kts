@@ -21,6 +21,19 @@ require(xRedirectTarget.isEmpty() || (xRedirect != null && xRedirect.isAbsolute 
     "X_REDIRECT_URI must be a callback target without query, fragment or user information"
 }
 
+// Same Flutter public define as Dart; an empty default never captures callbacks.
+val blueskySchemes = providers.gradleProperty("dart-defines").orElse("").get()
+    .split(',').mapNotNull { encoded ->
+        runCatching { String(Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrNull()
+            ?.takeIf { it.startsWith("BLUESKY_CALLBACK_SCHEME=") }?.removePrefix("BLUESKY_CALLBACK_SCHEME=")
+    }
+require(blueskySchemes.size <= 1) { "Supply BLUESKY_CALLBACK_SCHEME only once" }
+val blueskyScheme = blueskySchemes.singleOrNull() ?: ""
+require(blueskyScheme.isEmpty() || Regex("[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+").matches(blueskyScheme)) {
+    "BLUESKY_CALLBACK_SCHEME must be a reverse-domain callback scheme"
+}
+val blueskyRedirect = if (blueskyScheme.isEmpty()) "" else "$blueskyScheme:/callback"
+
 android {
     buildFeatures { buildConfig = true }
     namespace = "org.example.crossposting"
@@ -36,6 +49,9 @@ android {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "org.example.crossposting"
         testInstrumentationRunner = "org.example.crossposting.CredentialKeyLossInstrumentation"
+        manifestPlaceholders["captionBlueskyCallbackEnabled"] = blueskyScheme.isNotEmpty().toString()
+        manifestPlaceholders["captionBlueskyCallbackScheme"] = blueskyScheme.ifEmpty { "org.example.crossposting.bluesky.unconfigured" }
+        buildConfigField("String", "CAPTION_BLUESKY_REDIRECT_URI", "\"$blueskyRedirect\"")
         manifestPlaceholders["appAuthRedirectScheme"] = "org.example.crossposting.unconfigured"
         manifestPlaceholders["captionXCallbackEnabled"] = xRedirectTarget.isNotEmpty().toString()
         manifestPlaceholders["captionXCustomScheme"] = if (xRedirect?.scheme != "https")

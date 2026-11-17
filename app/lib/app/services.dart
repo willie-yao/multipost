@@ -13,6 +13,9 @@ import '../features/accounts/account_repository.dart';
 import '../features/accounts/account.dart';
 import '../features/accounts/credential_vault.dart';
 import '../features/accounts/x_connection.dart';
+import '../features/accounts/bluesky_connection.dart';
+import '../features/accounts/bluesky_oauth.dart';
+import '../features/accounts/bluesky_browser.dart';
 import '../features/drafts/draft.dart';
 import '../features/drafts/draft_editor.dart';
 import '../features/drafts/draft_repository.dart';
@@ -85,6 +88,19 @@ class AppServices {
     final client = http.Client();
     return AppServices(
       connections: {
+        Destination.bluesky: BlueskyConnection(
+          configuration: configuration,
+          vault: const SecureCredentialVault(),
+          accounts: accounts,
+          driverFactory: (stores) {
+            // Fail before even fetching metadata while production is unaccepted.
+            if (!configuration.connection(Destination.bluesky).available) {
+              throw const AccountConnectionUnavailable();
+            }
+            return HostedATProtoOAuthDriver(configuration, stores, client);
+          },
+          authorizeInBrowser: BlueskyBrowser(configuration).open,
+        ),
         Destination.x: XConnection(
           configuration: configuration,
           driver: AppAuthXDriver(configuration),

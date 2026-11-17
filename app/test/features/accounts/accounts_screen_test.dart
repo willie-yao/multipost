@@ -5,6 +5,7 @@ import 'package:cross_posting_app/features/accounts/account.dart';
 import 'package:cross_posting_app/features/accounts/account_repository.dart';
 import 'package:cross_posting_app/features/accounts/accounts_screen.dart';
 import 'package:cross_posting_app/features/accounts/credential_vault.dart';
+import 'package:cross_posting_app/features/accounts/bluesky_oauth.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +46,7 @@ class _Connection implements AccountConnection {
   final _Accounts accounts;
   Object? error;
   Completer<void>? barrier;
+  String? receivedHandle;
   int connectCalls = 0;
   int disconnectCalls = 0;
   int repairCalls = 0;
@@ -52,10 +54,11 @@ class _Connection implements AccountConnection {
   @override
   Future<AccountIdentity> connect({String? handle}) async {
     connectCalls++;
+    receivedHandle = handle;
     await barrier?.future;
     if (error case final value?) throw value;
-    const identity = AccountIdentity(
-      destination: Destination.x,
+    final identity = AccountIdentity(
+      destination: accounts.value.destination,
       subject: '123',
       handle: '@person',
     );
@@ -96,6 +99,78 @@ class _Connection implements AccountConnection {
 }
 
 void main() {
+  testWidgets(
+    'Bluesky asks for a handle and cancel does not start authorization',
+    (tester) async {
+      final accounts = _Accounts();
+      accounts.value = accounts.value.copyWith(
+        destination: Destination.bluesky,
+      );
+      final connection = _Connection(accounts);
+      await tester.pumpWidget(
+        CaptionApp(
+          home: AccountsScreen(
+            accounts: accounts,
+            connections: {Destination.bluesky: connection},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Connect Bluesky'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bluesky handle'), findsOneWidget);
+      await tester.tap(find.text('Keep drafting'));
+      await tester.pumpAndSettle();
+      expect(connection.connectCalls, 0);
+      await tester.tap(find.text('Connect Bluesky'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), '  custom.example  ');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(connection.receivedHandle, 'custom.example');
+      expect(find.text('Connected'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'unsupported Bluesky hosting displays safe named reason at 320dp 200 percent',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final accounts = _Accounts();
+      accounts.value = accounts.value.copyWith(
+        destination: Destination.bluesky,
+      );
+      final connection = _Connection(accounts)
+        ..error = const UnsupportedBlueskyAccount();
+      await tester.pumpWidget(
+        CaptionApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: AccountsScreen(
+              accounts: accounts,
+              connections: {Destination.bluesky: connection},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Connect Bluesky'));
+      await tester.tap(find.text('Connect Bluesky'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), 'custom.example');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Continue'));
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Custom PDS'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'connect shows stable handle and disconnect updates public account',
     (tester) async {

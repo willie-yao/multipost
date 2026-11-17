@@ -49,6 +49,10 @@ internal class AccountsChannel(context: Context, private val engine: FlutterEngi
                             }
                         }
                     }
+                    "prepareBlueskyAuthorization" -> {
+                        val configured = BuildConfig.CAPTION_BLUESKY_REDIRECT_URI
+                        result.success(configured.isNotEmpty() && call.arguments == configured)
+                    }
                     "prepareXAuthorization" -> {
                         // AppAuth otherwise falls back to plain PKCE if SHA-256 is absent.
                         MessageDigest.getInstance("SHA-256")

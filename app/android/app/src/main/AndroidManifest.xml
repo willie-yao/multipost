@@ -27,6 +27,17 @@
                     android:path="${captionXHttpsPath}" />
             </intent-filter>
         </activity>
+        <!-- Scheme dispatch only; exact target and single-use state checked in Dart before exchange. -->
+        <activity android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:enabled="${captionBlueskyCallbackEnabled}"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${captionBlueskyCallbackScheme}" />
+            </intent-filter>
+        </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.instagram-files"

@@ -7,6 +7,7 @@ import '../drafts/draft_editor.dart';
 import 'account.dart';
 import 'account_repository.dart';
 import 'credential_vault.dart';
+import 'bluesky_oauth.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({
@@ -140,7 +141,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
       } else if (disconnect) {
         await connection.disconnect();
       } else {
-        await connection.connect();
+        String? handle;
+        if (account.destination == Destination.bluesky) {
+          handle = await _askBlueskyHandle();
+          if (handle == null) return;
+        }
+        await connection.connect(handle: handle);
       }
       await _load();
     } catch (error) {
@@ -154,6 +160,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   : disconnect
                   ? "Couldn't remove this connection. Retry removal below. Your drafts are safe."
                   : error.toString(),
+            UnsupportedBlueskyAccount() => error.toString(),
             AccountConnectionCancelled() =>
               'Connection cancelled. Your drafts are safe.',
             AccountConnectionExpired() =>
@@ -172,6 +179,48 @@ class _AccountsScreenState extends State<AccountsScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<String?> _askBlueskyHandle() {
+    var handle = '';
+    return showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          scrollable: true,
+          title: const Text('Connect Bluesky'),
+          content: TextField(
+            autofocus: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.go,
+            decoration: const InputDecoration(
+              labelText: 'Bluesky handle',
+              hintText: 'you.bsky.social or a custom handle',
+              helperText: 'Use your handle, never a password.',
+              helperMaxLines: 3,
+            ),
+            onChanged: (value) => update(() => handle = value.trim()),
+            onSubmitted: (_) {
+              if (handle.isNotEmpty) Navigator.pop(context, handle);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Keep drafting'),
+            ),
+            FilledButton(
+              onPressed: handle.isEmpty
+                  ? null
+                  : () => Navigator.pop(context, handle),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _repairConnection(AccountView account) async {
