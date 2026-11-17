@@ -273,8 +273,14 @@ void main() {
       await settleStorage(tester);
       await tester.tap(find.text('Connection setup required').first);
       await tester.pumpAndSettle();
+      final xAccount = (await tester.runAsync(
+        () => services.accounts.get(Destination.x),
+      ))!;
       expect(
-        find.textContaining('configuration has not been supplied'),
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(xAccount.capability),
+        ),
         findsOneWidget,
       );
       await tester.tap(find.text('Keep drafting'));

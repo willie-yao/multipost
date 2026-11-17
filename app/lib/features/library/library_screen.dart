@@ -120,7 +120,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _accounts() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AccountsScreen(accounts: widget.services.accounts),
+        builder: (_) => AccountsScreen(
+          accounts: widget.services.accounts,
+          connections: widget.services.connections,
+        ),
       ),
     );
     if (mounted) await _load();
@@ -539,6 +542,7 @@ class _ComposeHostState extends State<_ComposeHost> {
       ? ChooseScreen(
           controller: _controller,
           accounts: widget.services.accounts,
+          connections: widget.services.connections,
           onContinue: _syncSavedStage,
           onRepairMedia: _repairMedia,
         )
@@ -619,6 +623,7 @@ class _ComposeHostState extends State<_ComposeHost> {
         controller: _controller,
         child: AccountsScreen(
           accounts: widget.services.accounts,
+          connections: widget.services.connections,
           controller: _controller,
         ),
       ),

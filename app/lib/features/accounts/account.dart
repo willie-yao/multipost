@@ -34,3 +34,29 @@ String destinationName(Destination value) => switch (value) {
   Destination.bluesky => 'Bluesky',
   Destination.instagram => 'Instagram',
 };
+
+/// A connection owns authorization only; publishing capability is checked separately.
+abstract interface class AccountConnection {
+  Future<AccountIdentity> connect({String? handle});
+  Future<void> disconnect();
+  Future<void> ensureAuthorized();
+}
+
+class AccountConnectionCancelled implements Exception {
+  const AccountConnectionCancelled();
+  @override
+  String toString() => 'Connection cancelled. Your drafts are safe.';
+}
+
+class AccountConnectionExpired implements Exception {
+  const AccountConnectionExpired();
+  @override
+  String toString() => 'Connection expired. Reconnect to continue.';
+}
+
+class AccountConnectionUnavailable implements Exception {
+  const AccountConnectionUnavailable();
+  @override
+  String toString() =>
+      "Couldn't connect right now. Check your connection and try again. Your drafts are safe.";
+}

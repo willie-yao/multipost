@@ -61,7 +61,7 @@ plc.directory and did:web documents; an optional resolver remains undecided.
 ## Exact published compatibility evidence
 
 The isolated harness resolved and executed under Flutter3.50.0/Dart3.14.0.
-The app lockfile and production dependency list are unchanged.
+At the P1 probe, the app lockfile and production dependency list were unchanged; P2 additions are recorded below.
 
 | Package | Exact resolved candidate | License inspected |
 | --- | --- | --- |
@@ -155,3 +155,104 @@ maintained solution before enabling production connections. This task neither
 rejects all SDK usage nor certifies the current candidate. Exact X OAuth/native
 and weighted-text counter selection similarly remains unavailable until its
 own focused implementation/conformance tests and genuine owner setup exist.
+
+## P2 X connection implementation and remaining acceptance
+
+The app now pins flutter_appauth13.0.0 (BSD-3-Clause),
+flutter_secure_storage11.2.0 (BSD-3-Clause) and uses http1.6.0 directly.
+FlutterAppAuth's published Android build declares net.openid:appauth:0.11.1
+(Apache-2.0); the app declares that same native artifact for its receiver API.
+Exact Pub archive hashes are in app/pubspec.lock. Package upgrades must recheck
+the native/source boundaries below. This is Android-first implementation;
+there is no iOS callback/storage acceptance evidence.
+
+AppServices explicitly composes one XConnection with AppAuthXDriver,
+SecureCredentialVault, LocalAccountRepository, clock and one owned http.Client.
+The existing production ConnectionGate.available remains false even with valid
+public build metadata. Neither a test fixture nor Android callback metadata
+enables it. Accounts shows the actual setup/verification reason; drafting and
+Instagram preparation remain independent. Public Connected metadata and direct
+publishing capability are separate checks.
+
+The X driver uses https://x.com/i/oauth2/authorize and
+https://api.x.com/2/oauth2/token with tweet.read, tweet.write, users.read,
+offline.access and media.write, without a client secret. Login/consent/MFA belong
+to the external browser. Identity comes from a nonredirecting official
+GET https://api.x.com/2/users/me; stable numeric subject and validated username
+are bound into secure session material. Credentials are committed before public
+Connected metadata. No callback URI, token or raw provider/native exception is
+logged or interpolated by Caption's account code/UI.
+
+Source inspection of the exact native AppAuth0.11.1 sources establishes:
+AuthorizationRequest.Builder generates random state and code verifier;
+CodeVerifierUtil derives S256 when SHA-256 exists. The native preflight requires
+SHA-256, preventing its plain fallback. AuthorizationManagementActivity checks
+state before returning successful code authorization. The default exported
+RedirectUriReceiverActivity merely forwards the received URI. Caption replaces
+that export with a private receiver and exposes XRedirectActivity, which checks
+exact scheme/raw authority (including port)/raw path, no fragment, unambiguous
+nonempty state and code-or-error query, pending lifetime (ten minutes) and one-use
+consumption before forwarding into AppAuth. Query parameters remain available
+to AppAuth. Wrong target/ambiguous query does not consume a valid pending flow.
+The SDK still owns cryptographic state verification and token exchange.
+
+The one public Flutter --dart-define=X_REDIRECT_URI value feeds both Dart and native
+routing. The Android Gradle script selects that key from Flutter's existing
+base64 dart-defines project value and rejects duplicate X_REDIRECT_URI definitions
+with safe copy. It does not emit other defines or create a second setup setting.
+The prepareXAuthorization bridge still compares the emitted Dart target with
+native BuildConfig before any browser launch. Missing
+native metadata disables XRedirectActivity; the default BuildConfig target is
+empty and manifest scheme/host values are inert unconfigured markers, not release
+registration. HTTPS filters have a configured host/path; custom-scheme filters
+are narrowed by the receiver's runtime exact-target check. A claimed HTTPS app
+link still needs genuine owner association/registration and device acceptance.
+No release scheme, app identity or owner domain was selected. A process restart
+loses Caption's pending callback guard and fails closed: the user reconnects.
+Cold-process OAuth resumption is not claimed. Normal native activity recreation
+and actual external-browser return/cancel still require device/provider tests.
+
+Secure storage uses package RSA-OAEP key wrapping backed by Android Keystore and
+AES-GCM ciphertext under the fixed caption_credentials namespace. Automatic
+reset-on-error is disabled; invalidation expires the public account and requires
+reconnection while retaining drafts/results. Session JSON binds version1,
+public client ID, exact redirect, stable identity, access/refresh tokens and expiry.
+Public metadata alone lives in SQLite accounts (schema4).
+
+The pinned package's FlutterSecureStorage.writeUnsafe calls Editor.apply and
+returns before the disk write; the wrapped key and namespaced cipher config also
+use preferences. Caption awaits its package write/delete, then invokes one
+accounts-owned background commit barrier covering the three artifacts in that
+single namespace: FlutterSecureKeyStorage:caption_credentials,
+FlutterSecureStorageConfiguration:caption_credentials, caption_credentials.
+Each empty editor.commit waits for preceding applies in that file and returns a
+boolean; false/native failures become CredentialStorageFailure. This reuses
+package encryption and Android's durability contract, without custom crypto.
+Owning API29 source: android-10.0.0_r47 SharedPreferencesImpl.java, commit at
+576-599 and enqueueDiskWrite at626-674; writes are serialized and the commit
+awaits writtenToDiskLatch. Source URL:
+https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-10.0.0_r47/core/java/android/app/SharedPreferencesImpl.java
+Both pre-31 backup rules and API31+ cloud/device-transfer rules exclude all
+shared preferences; allowBackup=false also remains explicit. Keystore keys do
+not migrate with ordinary application backup. Host channel mocks alone do not
+prove physical OS persistence; native phase evidence belongs in task-13-report.
+
+One XConnection serializes durable mutations, single-flights refresh and fences
+network completions by generation. Disconnect increments the fence before
+awaiting metadata clear and secure deletion, preventing late connect/refresh
+resurrection. A rejected/revoked refresh expires the account; offline/timeout
+retains its credentials and reports unavailable connectivity. Failed rotation
+storage expires the account and blocks healthy authorization until reconnect.
+Changed subject invalidates the immutable reviewed account through the existing
+ReviewService revalidation comparison. No content/results are deleted.
+
+A specific acceptance gap remains: native AppAuth0.11.1
+AuthorizationManagementActivity.java:353-357 logs both returned and expected
+state on mismatch through its internal Logger. No supported public logging
+control was found. Caption never exposes that exception text, but that does not
+sanitize SDK logcat. Production availability remains false; debug live OAuth is
+not privacy-accepted. R2 must validate a maintained log-safe SDK approach or
+release-only R8 stripping plus artifact/device evidence before accepting that
+boundary. This task does not use reflection, SDK test hooks or an SDK fork.
+Registered callback/owner access and billing decisions, actual browser/MFA/cancel,
+logcat privacy, release artifact routing and real account checks remain unresolved.

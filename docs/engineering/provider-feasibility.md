@@ -126,3 +126,11 @@ All sources directly accessed **2026-11-16**. Mutable branches should be pinned 
 - SDK6 manifest: https://pub.dev/api/packages/bluesky_text/versions/1.8.0
 
 Discovery limitations: search summaries supplied stale/broken schema paths, invented OAuth doc paths, unverified ten-minute duration. Those summaries were not used as official evidence. Old docs.bsky.app tutorial URLs returned HTML meta redirects, followed to working URLs above. api.github.com later returned unauthenticated rate-limit 403; canonical raw sources remained accessible. Guessed JSON OpenAPI paths were not treated as schemas.
+
+P2 implementation update: the account service, production AppAuth adapter,
+Keystore-backed vault with an awaited native disk barrier, public schema4 account
+metadata and X-only callback guard are implemented. Synthetic unit/channel/native
+checks are reported separately in task-13-report.md and OAuth configuration's P2
+section. They do not change the unavailable direct capability gate. In particular,
+AppAuth0.11.1 logs state values on mismatch; registered browser return and privacy
+acceptance remain unresolved. No live connection or API request was performed.

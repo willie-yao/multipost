@@ -47,7 +47,7 @@ class AppConfiguration {
         return const ConnectionGate(
           configured: true,
           available: false,
-          reason: 'X connection verification is incomplete in this build. Keep drafting while app setup and provider checks are completed.',
+          reason: 'X connection verification is incomplete in this build. Keep drafting while app setup, native browser return and privacy checks are completed.',
         );
       case Destination.bluesky:
         if (!_metadata(blueskyMetadataUri) ||

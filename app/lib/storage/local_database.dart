@@ -50,6 +50,11 @@ class LocalDatabase {
         ordinal INTEGER NOT NULL, uri TEXT, completed INTEGER NOT NULL DEFAULT 0,
         UNIQUE(package_id, ordinal))''');
     },
+    (db) async {
+      await db.execute(
+        'CREATE TABLE accounts(destination TEXT PRIMARY KEY, payload TEXT NOT NULL)',
+      );
+    },
   ];
 
   static Future<LocalDatabase> open(

@@ -18,9 +18,11 @@ class ChooseScreen extends StatefulWidget {
     required this.accounts,
     required this.onContinue,
     this.onRepairMedia,
+    this.connections = const {},
   });
   final DraftController controller;
   final AccountRepository accounts;
+  final Map<Destination, AccountConnection> connections;
   final VoidCallback onContinue;
   final Future<void> Function()? onRepairMedia;
   @override
@@ -77,6 +79,7 @@ class _ChooseScreenState extends State<ChooseScreen> {
             controller: widget.controller,
             child: AccountsScreen(
               accounts: widget.accounts,
+              connections: widget.connections,
               controller: widget.controller,
             ),
           ),

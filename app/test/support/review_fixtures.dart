@@ -11,6 +11,14 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 class ReviewAccounts implements AccountRepository {
+  @override
+  Future<AccountView> get(Destination destination) async =>
+      (await list()).firstWhere((a) => a.destination == destination);
+  @override
+  Future<void> save(AccountView account) async => throw UnimplementedError();
+  @override
+  Future<void> setState(Destination destination, AccountState state) async =>
+      throw UnimplementedError();
   bool fail = false;
   bool expired = false;
   String subject = 'person';

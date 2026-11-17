@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -9,6 +10,9 @@ import 'package:sqflite/sqflite.dart';
 import '../core/clock.dart';
 import '../core/ids.dart';
 import '../features/accounts/account_repository.dart';
+import '../features/accounts/account.dart';
+import '../features/accounts/credential_vault.dart';
+import '../features/accounts/x_connection.dart';
 import '../features/drafts/draft.dart';
 import '../features/drafts/draft_editor.dart';
 import '../features/drafts/draft_repository.dart';
@@ -31,11 +35,13 @@ class AppServices {
     required this.ids,
     required this.instagramPackageRoot,
     this.onClose,
+    this.connections = const {},
   }) : pickerImports = PickerImports(media, ids);
   final LocalDatabase database;
   final MediaFiles media;
   final DraftRepository drafts;
   final AccountRepository accounts;
+  final Map<Destination, AccountConnection> connections;
   final Clock clock;
   final Ids ids;
   final PickerImports pickerImports;
@@ -72,7 +78,22 @@ class AppServices {
       const Ids(),
     );
     final configuration = AppConfiguration.fromEnvironment();
+    final accounts = LocalAccountRepository(
+      database,
+      configuration: configuration,
+    );
+    final client = http.Client();
     return AppServices(
+      connections: {
+        Destination.x: XConnection(
+          configuration: configuration,
+          driver: AppAuthXDriver(configuration),
+          vault: const SecureCredentialVault(),
+          accounts: accounts,
+          client: client,
+        ),
+      },
+      onClose: () async => client.close(),
       // path_provider_android 2.3.1 getApplicationSupportPath returns filesDir.
       // I3 FileProvider must scope files-path to exactly instagram-packages/.
       instagramPackageRoot: Directory(
@@ -81,7 +102,7 @@ class AppServices {
       database: database,
       media: media,
       drafts: SqliteDraftRepository(database, media: media),
-      accounts: LocalAccountRepository(database, configuration: configuration),
+      accounts: accounts,
       clock: const Clock(),
       ids: const Ids(),
     );

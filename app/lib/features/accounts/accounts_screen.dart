@@ -6,10 +6,17 @@ import '../drafts/draft_controller.dart';
 import '../drafts/draft_editor.dart';
 import 'account.dart';
 import 'account_repository.dart';
+import 'credential_vault.dart';
 
 class AccountsScreen extends StatefulWidget {
-  const AccountsScreen({super.key, required this.accounts, this.controller});
+  const AccountsScreen({
+    super.key,
+    required this.accounts,
+    this.controller,
+    this.connections = const {},
+  });
   final AccountRepository accounts;
+  final Map<Destination, AccountConnection> connections;
   final DraftController? controller;
   @override
   State<AccountsScreen> createState() => _AccountsScreenState();
@@ -18,7 +25,7 @@ class AccountsScreen extends StatefulWidget {
 class _AccountsScreenState extends State<AccountsScreen> {
   List<AccountView>? _accounts;
   bool _assisted = true;
-  Object? _error;
+  String? _error;
   bool _busy = false;
   @override
   void initState() {
@@ -38,7 +45,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = 'Accounts could not load or save. Try again. Your drafts are safe.',
+        );
+      }
     }
   }
 
@@ -93,19 +104,68 @@ class _AccountsScreenState extends State<AccountsScreen> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = 'Accounts could not load or save. Try again. Your drafts are safe.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  void _connectionSetup(Destination destination) => showDialog<void>(
+  Future<void> _connectionAction(
+    AccountView account, {
+    bool disconnect = false,
+  }) async {
+    if (_busy) return;
+    final connection = widget.connections[account.destination];
+    if (connection == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      if (widget.controller != null && !await widget.controller!.flush()) {
+        return;
+      }
+      if (disconnect) {
+        await connection.disconnect();
+      } else {
+        await connection.connect();
+      }
+      await _load();
+    } catch (error) {
+      // Neither provider/native exceptions nor callback parameters enter the UI.
+      if (mounted) {
+        setState(
+          () => _error = switch (error) {
+            CredentialStorageFailure() => error.toString(),
+            AccountConnectionCancelled() =>
+              'Connection cancelled. Your drafts are safe.',
+            AccountConnectionExpired() =>
+              'Connection expired. Reconnect to continue.',
+            _ => "Couldn't connect right now. Check your connection and try again. Your drafts are safe.",
+          },
+        );
+      }
+      // A storage failure can have expired or disconnected public metadata.
+      try {
+        final accounts = await widget.accounts.list();
+        if (mounted) setState(() => _accounts = accounts);
+      } catch (_) {
+        /* Keep the safe operation error. */
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _connectionSetup(AccountView account) => showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Connection setup required'),
-      content: Text(
-        '${destinationName(destination)} connection is unavailable because its official connection configuration has not been supplied. You can keep drafting now.',
-      ),
+      content: Text(account.capability),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -131,7 +191,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           'Connect only where you publish. Writing drafts never needs an account.',
         ),
         if (_error != null) ...[
-          Text('Accounts could not load or save. $_error'),
+          Text(_error!),
           TextButton(onPressed: _load, child: const Text('Retry')),
         ],
         if (_accounts == null && _error == null)
@@ -170,10 +230,36 @@ class _AccountsScreenState extends State<AccountsScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton(
-                onPressed: () => _connectionSetup(account.destination),
-                child: const Text('Connection setup required'),
+                onPressed: _busy
+                    ? null
+                    : account.state == AccountState.unavailable ||
+                          !widget.connections.containsKey(account.destination)
+                    ? () => _connectionSetup(account)
+                    : () => _connectionAction(account),
+                child: Text(
+                  account.state == AccountState.unavailable ||
+                          !widget.connections.containsKey(account.destination)
+                      ? 'Connection setup required'
+                      : account.state == AccountState.connected ||
+                            account.state == AccountState.expired
+                      ? 'Reconnect ${destinationName(account.destination)}'
+                      : 'Connect ${destinationName(account.destination)}',
+                ),
               ),
             ),
+            if (account.identity != null &&
+                widget.connections.containsKey(account.destination))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _connectionAction(account, disconnect: true),
+                  child: Text(
+                    'Disconnect ${destinationName(account.destination)}',
+                  ),
+                ),
+              ),
           ],
         ],
         const SizedBox(height: 24),
