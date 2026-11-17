@@ -27,7 +27,7 @@ void main() {
         'payload': '{"preserved":true}',
       });
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 4);
+      expect(await fixture.database.db.getVersion(), 5);
       expect((await fixture.database.db.query('drafts')).single['revision'], 7);
     },
   );
@@ -71,7 +71,7 @@ void main() {
     final newer = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: (db, _) => db.execute('CREATE TABLE keep_me(value TEXT)'),
       ),
     );
@@ -96,7 +96,7 @@ void main() {
     );
     expect(expectedDiagnostics, hasLength(1));
     final retained = await databaseFactoryFfi.openDatabase(path);
-    expect(await retained.getVersion(), 5);
+    expect(await retained.getVersion(), 6);
     expect((await retained.query('keep_me')).single['value'], 'original');
     await retained.close();
   });
@@ -154,6 +154,7 @@ void main() {
         'updated_at': 'original time',
         'payload': 'original bytes',
       });
+      await dropPostingTables(fixture.database);
       await fixture.database.db.execute('DROP TABLE accounts');
       await fixture.database.db.execute('DROP TABLE export_jobs');
       await fixture.database.db.execute('DROP TABLE instagram_events');
@@ -161,7 +162,7 @@ void main() {
       await fixture.database.db.execute('DROP TABLE local_preferences');
       await fixture.database.db.setVersion(1);
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 4);
+      expect(await fixture.database.db.getVersion(), 5);
       expect(
         (await fixture.database.db.query('drafts')).single['payload'],
         'original bytes',
@@ -189,13 +190,14 @@ void main() {
         'draft_id': 'kept',
         'draft_revision': 4,
       });
+      await dropPostingTables(fixture.database);
       await fixture.database.db.execute('DROP TABLE accounts');
       await fixture.database.db.execute('DROP TABLE export_jobs');
       await fixture.database.db.execute('DROP TABLE instagram_events');
       await fixture.database.db.execute('DROP TABLE instagram_packages');
       await fixture.database.db.setVersion(2);
       await fixture.reopen();
-      expect(await fixture.database.db.getVersion(), 4);
+      expect(await fixture.database.db.getVersion(), 5);
       expect(
         (await fixture.database.db.query('drafts')).single['payload'],
         'original draft bytes',
@@ -240,10 +242,11 @@ void main() {
       'at': 'time',
       'payload': 'original result bytes',
     });
+    await dropPostingTables(fixture.database);
     await fixture.database.db.execute('DROP TABLE accounts');
     await fixture.database.db.setVersion(3);
     await fixture.reopen();
-    expect(await fixture.database.db.getVersion(), 4);
+    expect(await fixture.database.db.getVersion(), 5);
     expect(
       (await fixture.database.db.query('drafts')).single['payload'],
       'original draft bytes',
@@ -262,4 +265,40 @@ void main() {
     );
     expect(await fixture.database.db.query('accounts'), isEmpty);
   });
+
+  test('version four migration preserves account and draft bytes while adding an empty posting journal', () async {
+    final fixture = await DatabaseFixture.create();
+    addTearDown(fixture.dispose);
+    await fixture.database.db.insert('accounts', {
+      'destination': 'x',
+      'payload': 'original account bytes',
+    });
+    await fixture.database.db.insert('drafts', {
+      'id': 'kept',
+      'revision': 7,
+      'updated_at': 'time',
+      'payload': 'original draft bytes',
+    });
+    await dropPostingTables(fixture.database);
+    await fixture.database.db.setVersion(4);
+    await fixture.reopen();
+    expect(await fixture.database.db.getVersion(), 5);
+    expect(
+      (await fixture.database.db.query('accounts')).single['payload'],
+      'original account bytes',
+    );
+    expect(
+      (await fixture.database.db.query('drafts')).single['payload'],
+      'original draft bytes',
+    );
+    expect(await fixture.database.db.query('attempt_groups'), isEmpty);
+    expect(await fixture.database.db.query('destination_attempts'), isEmpty);
+    expect(await fixture.database.db.query('attempt_events'), isEmpty);
+  });
+}
+
+Future<void> dropPostingTables(LocalDatabase database) async {
+  await database.db.execute('DROP TABLE attempt_events');
+  await database.db.execute('DROP TABLE destination_attempts');
+  await database.db.execute('DROP TABLE attempt_groups');
 }

@@ -89,8 +89,15 @@ class ReviewService {
     }
   }
 
-  Future<ReviewResult> review(Draft draft, {bool? directOnline}) async {
-    await _requirePersisted(draft);
+  Future<ReviewResult> review(Draft draft, {bool? directOnline}) =>
+      _review(draft, directOnline: directOnline);
+
+  Future<ReviewResult> _review(
+    Draft draft, {
+    bool? directOnline,
+    bool requirePersisted = true,
+  }) async {
+    if (requirePersisted) await _requirePersisted(draft);
     List<AccountView>? accounts;
     var assisted = true;
     var assistedChecked = true;
@@ -230,7 +237,7 @@ class ReviewService {
         );
       }
     }
-    await _requirePersisted(draft);
+    if (requirePersisted) await _requirePersisted(draft);
     return ReviewResult(
       snapshot: ReviewedPost(
         draftId: draft.id,
@@ -240,6 +247,99 @@ class ReviewService {
         reviewedAt: _clock.now(),
       ),
       issues: issues,
+    );
+  }
+
+  /// Fresh validation for a new submission/child, scoped to only its destinations.
+  Future<ReviewResult> revalidateSaved(
+    ReviewedPost snapshot, {
+    required Set<Destination> destinations,
+    bool? directOnline,
+  }) async {
+    final draft = await _drafts.get(snapshot.draftId);
+    if (draft == null ||
+        draft.deletedAt != null ||
+        draft.revision != snapshot.revision) {
+      throw const StaleReviewException();
+    }
+    final current = await review(draft, directOnline: directOnline);
+    return _requireSame(snapshot, current, destinations);
+  }
+
+  /// Rechecks the exact retained content, never a newer editable draft version.
+  /// A synthetic source is only an input to the same owned-file/account/policy
+  /// validation; it is never saved or substituted for the frozen snapshot.
+  Future<ReviewResult> revalidateFrozen(
+    ReviewedPost snapshot, {
+    required Set<Destination> destinations,
+    bool? directOnline,
+  }) async {
+    _requireDestinations(snapshot, destinations);
+    final posts = destinations.map((d) => snapshot.posts[d]!).toList();
+    final sharedText =
+        posts
+            .where((p) => !p.ownCaption)
+            .map((p) => p.content.text)
+            .firstOrNull ??
+        '';
+    if (posts.any((p) => !p.ownCaption && p.content.text != sharedText)) {
+      throw const StaleReviewException();
+    }
+    final source = Draft(
+      id: snapshot.draftId,
+      revision: snapshot.revision,
+      updatedAt: snapshot.reviewedAt,
+      selected: destinations,
+      shared: PostContent(text: sharedText),
+      versions: {
+        for (final post in posts)
+          post.destination: DestinationVersion(
+            ownText: post.ownCaption ? post.content.text : null,
+            ownMedia: post.content.media,
+          ),
+      },
+    );
+    final current = await _review(
+      source,
+      directOnline: directOnline,
+      requirePersisted: false,
+    );
+    return _requireSame(snapshot, current, destinations);
+  }
+
+  void _requireDestinations(
+    ReviewedPost snapshot,
+    Set<Destination> destinations,
+  ) {
+    if (destinations.isEmpty ||
+        !snapshot.posts.keys.toSet().containsAll(destinations)) {
+      throw const StaleReviewException();
+    }
+  }
+
+  ReviewResult _requireSame(
+    ReviewedPost snapshot,
+    ReviewResult current,
+    Set<Destination> destinations,
+  ) {
+    _requireDestinations(snapshot, destinations);
+    for (final destination in destinations) {
+      if (snapshot.posts[destination] != current.snapshot.posts[destination] ||
+          snapshot.capabilityVersions[destination] !=
+              current.snapshot.capabilityVersions[destination]) {
+        throw const StaleReviewException();
+      }
+    }
+    return ReviewResult(
+      snapshot: snapshot.copyWith(
+        posts: {for (final d in destinations) d: snapshot.posts[d]!},
+        capabilityVersions: {
+          for (final d in destinations) d: snapshot.capabilityVersions[d]!,
+        },
+      ),
+      issues: current.issues
+          .where((i) => destinations.contains(i.destination))
+          .toList(),
     );
   }
 

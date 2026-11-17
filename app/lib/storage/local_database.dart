@@ -55,6 +55,24 @@ class LocalDatabase {
         'CREATE TABLE accounts(destination TEXT PRIMARY KEY, payload TEXT NOT NULL)',
       );
     },
+    (db) async {
+      await db.execute('''CREATE TABLE attempt_groups(id TEXT PRIMARY KEY,
+        draft_id TEXT NOT NULL, revision INTEGER NOT NULL,
+        operation_id TEXT UNIQUE NOT NULL, payload TEXT NOT NULL,
+        instagram_state TEXT, instagram_package_id TEXT REFERENCES instagram_packages(id),
+        instagram_reason TEXT, UNIQUE(draft_id))''');
+      await db.execute('''CREATE TABLE destination_attempts(id TEXT PRIMARY KEY,
+        group_id TEXT NOT NULL REFERENCES attempt_groups(id),
+        parent_id TEXT UNIQUE REFERENCES destination_attempts(id),
+        retry_operation TEXT UNIQUE, destination TEXT NOT NULL,
+        state TEXT NOT NULL, dispatch_at TEXT, payload TEXT NOT NULL,
+        review_payload TEXT, busy INTEGER NOT NULL DEFAULT 0)''');
+      await db.execute(
+        '''CREATE TABLE attempt_events(seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        attempt_id TEXT NOT NULL REFERENCES destination_attempts(id),
+        at TEXT NOT NULL, payload TEXT NOT NULL)''',
+      );
+    },
   ];
 
   static Future<LocalDatabase> open(

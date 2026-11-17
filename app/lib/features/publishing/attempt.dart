@@ -1,3 +1,5 @@
+import '../review/review.dart';
+
 enum PublishStatus {
   pending,
   preparing,
@@ -94,4 +96,112 @@ class PublishContext {
   /// exclusive claim, and await its durable boundary before completing.
   final Future<void> Function() markDispatch;
   final Future<void> Function(String key, String value) saveUpload;
+}
+
+class AttemptGroup {
+  const AttemptGroup({
+    required this.id,
+    required this.snapshot,
+    required this.operationId,
+    required this.createdAt,
+  });
+  final String id, operationId;
+  final ReviewedPost snapshot;
+  final DateTime createdAt;
+  AttemptGroup copyWith({
+    String? id,
+    ReviewedPost? snapshot,
+    String? operationId,
+    DateTime? createdAt,
+  }) => AttemptGroup(
+    id: id ?? this.id,
+    snapshot: snapshot ?? this.snapshot,
+    operationId: operationId ?? this.operationId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'snapshot': snapshot.toJson(),
+    'operationId': operationId,
+    'createdAt': createdAt.toUtc().toIso8601String(),
+  };
+  factory AttemptGroup.fromJson(Map<String, dynamic> json) => AttemptGroup(
+    id: json['id'] as String,
+    snapshot: ReviewedPost.fromJson(json['snapshot'] as Map<String, dynamic>),
+    operationId: json['operationId'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
+class DestinationAttempt {
+  DestinationAttempt({
+    required this.id,
+    required this.groupId,
+    this.parentId,
+    required this.snapshot,
+    required this.outcome,
+    this.dispatchAt,
+    required Map<String, String> uploadState,
+  }) : uploadState = Map<String, String>.unmodifiable(uploadState);
+  final String id, groupId;
+  final String? parentId;
+  final ResolvedPost snapshot;
+  final PublishOutcome outcome;
+  final DateTime? dispatchAt;
+  final Map<String, String> uploadState;
+  DestinationAttempt copyWith({
+    String? id,
+    String? groupId,
+    String? parentId,
+    ResolvedPost? snapshot,
+    PublishOutcome? outcome,
+    DateTime? dispatchAt,
+    Map<String, String>? uploadState,
+  }) => DestinationAttempt(
+    id: id ?? this.id,
+    groupId: groupId ?? this.groupId,
+    parentId: parentId ?? this.parentId,
+    snapshot: snapshot ?? this.snapshot,
+    outcome: outcome ?? this.outcome,
+    dispatchAt: dispatchAt ?? this.dispatchAt,
+    uploadState: uploadState ?? this.uploadState,
+  );
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'groupId': groupId,
+    'parentId': parentId,
+    'snapshot': snapshot.toJson(),
+    'outcome': outcome.toJson(),
+    'dispatchAt': dispatchAt?.toUtc().toIso8601String(),
+    'uploadState': uploadState,
+  };
+  factory DestinationAttempt.fromJson(
+    Map<String, dynamic> json,
+  ) => DestinationAttempt(
+    id: json['id'] as String,
+    groupId: json['groupId'] as String,
+    parentId: json['parentId'] as String?,
+    snapshot: ResolvedPost.fromJson(json['snapshot'] as Map<String, dynamic>),
+    outcome: PublishOutcome.fromJson(json['outcome'] as Map<String, dynamic>),
+    dispatchAt: json['dispatchAt'] == null
+        ? null
+        : DateTime.parse(json['dispatchAt'] as String),
+    uploadState: Map<String, String>.from(json['uploadState'] as Map),
+  );
+}
+
+/// Local preparation only. Instagram package/events own all handoff evidence.
+enum InstagramPreparationState { pending, preparing, failed, ready }
+
+class InstagramPreparation {
+  const InstagramPreparation({
+    required this.groupId,
+    required this.state,
+    this.packageId,
+    this.reason,
+  });
+  final String groupId;
+  final InstagramPreparationState state;
+  final String? packageId, reason;
+  String get operationId => 'attempt-group:$groupId:instagram';
 }

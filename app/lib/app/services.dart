@@ -23,6 +23,9 @@ import '../features/instagram/instagram_repository.dart';
 import '../features/instagram/instagram_service.dart';
 import '../features/media/picker_imports.dart';
 import '../features/providers/capabilities.dart';
+import '../features/providers/provider.dart';
+import '../features/publishing/attempt_repository.dart';
+import '../features/publishing/publish_coordinator.dart';
 import '../features/review/review_service.dart';
 import '../storage/local_database.dart';
 import '../storage/media_files.dart';
@@ -39,12 +42,17 @@ class AppServices {
     required this.instagramPackageRoot,
     this.onClose,
     this.connections = const {},
-  }) : pickerImports = PickerImports(media, ids);
+    Map<Destination, PublishProvider> publishProviders = const {},
+    this.publishingOnline,
+  }) : publishProviders = Map.unmodifiable(publishProviders),
+       pickerImports = PickerImports(media, ids);
   final LocalDatabase database;
   final MediaFiles media;
   final DraftRepository drafts;
   final AccountRepository accounts;
   final Map<Destination, AccountConnection> connections;
+  final Map<Destination, PublishProvider> publishProviders;
+  final FutureOr<bool?> Function()? publishingOnline;
   final Clock clock;
   final Ids ids;
   final PickerImports pickerImports;
@@ -62,6 +70,15 @@ class AppServices {
     instagramPolicy,
     ids,
     clock,
+  );
+  late final attempts = AttemptRepository(database, clock, ids);
+  late final publishing = PublishCoordinator(
+    attempts: attempts,
+    review: review,
+    instagram: instagram,
+    providers: publishProviders,
+    clock: clock,
+    directOnline: publishingOnline,
   );
   final Future<void> Function()? onClose;
   bool pickerRecoveryReady = false;
