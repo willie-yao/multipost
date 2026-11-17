@@ -154,29 +154,12 @@ class XPublisher implements PublishProvider {
               'The previous media upload did not finish. Start a new attempt after review.',
             );
           }
-          if (upload.state == 'failed') {
-            throw const _PreparationFailure(
-              'media-processing-failed',
-              'X could not process this media. Replace it before publishing.',
-            );
-          }
-          if (upload.state != 'succeeded') {
-            if (upload.nextCheck != null &&
-                clock.now().isBefore(upload.nextCheck!)) {
-              return _processing(upload);
-            }
-            final response = await _exchange(
-              _jsonRequest(
-                'GET',
-                '/2/media/upload',
-                token,
-                query: {'command': 'STATUS', 'media_id': upload.id},
-              ),
-            );
-            _accepted(response, {200});
-            upload = _processingReceipt(upload, _data(response), clock.now());
-            await context.saveUpload(key, upload.encode());
-          }
+          upload = await _pollMediaIfDue(
+            upload,
+            token: token,
+            key: key,
+            context: context,
+          );
         } else if (asset.mimeType.startsWith('video/')) {
           final init = await _exchange(
             _jsonRequest(
@@ -230,7 +213,6 @@ class XPublisher implements PublishProvider {
             ..followRedirects = false
             ..headers['Authorization'] = 'Bearer $token'
             ..fields['media_category'] = 'tweet_image'
-            ..fields['media_type'] = asset.mimeType
             ..files.add(
               http.MultipartFile(
                 'media',
@@ -470,25 +452,12 @@ class XPublisher implements PublishProvider {
             message: 'The X upload expired. Start a new attempt after review.',
           );
         }
-        if (upload.state != 'succeeded' &&
-            upload.state != 'failed' &&
-            upload.state != 'uploading') {
-          if (upload.nextCheck != null &&
-              clock.now().isBefore(upload.nextCheck!)) {
-            return _processing(upload);
-          }
-          final response = await _exchange(
-            _jsonRequest(
-              'GET',
-              '/2/media/upload',
-              token,
-              query: {'command': 'STATUS', 'media_id': upload.id},
-            ),
-          );
-          _accepted(response, {200});
-          upload = _processingReceipt(upload, _data(response), clock.now());
-          await context.saveUpload(key, upload.encode());
-        }
+        upload = await _pollMediaIfDue(
+          upload,
+          token: token,
+          key: key,
+          context: context,
+        );
         if (upload.state == 'failed') {
           return _outcome(
             PublishStatus.notPublished,
@@ -511,6 +480,34 @@ class XPublisher implements PublishProvider {
       /* A failed check is not evidence that processing failed. */
     }
     return previous;
+  }
+
+  // Read-only at X. Both orchestrators share due/terminal guards and the
+  // accepted STATUS receipt's durable transition, without any upload/create.
+  Future<_Upload> _pollMediaIfDue(
+    _Upload upload, {
+    required String token,
+    required String key,
+    required PublishContext context,
+  }) async {
+    if (upload.state == 'succeeded' ||
+        upload.state == 'failed' ||
+        upload.state == 'uploading' ||
+        (upload.nextCheck != null && clock.now().isBefore(upload.nextCheck!))) {
+      return upload;
+    }
+    final response = await _exchange(
+      _jsonRequest(
+        'GET',
+        '/2/media/upload',
+        token,
+        query: {'command': 'STATUS', 'media_id': upload.id},
+      ),
+    );
+    _accepted(response, {200});
+    final updated = _processingReceipt(upload, _data(response), clock.now());
+    await context.saveUpload(key, updated.encode());
+    return updated;
   }
 
   static final _id = RegExp(r'^[1-9][0-9]{0,18}$');

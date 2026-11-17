@@ -60,7 +60,10 @@ Protocol fixtures in `protocol.json` feed the synthetic HTTP fixture transport.
 The implementation uses only fixed `https://api.x.com` endpoints:
 
 1. Still photos use raw multipart `POST /2/media/upload`, `media_category` of
-   `tweet_image`, explicit `media_type`, and a streamed owned `media` file.
+   `tweet_image` and a streamed owned `media` file. The exact simple-upload
+   schema permits only `media`, `media_category` and optional `additional_owners`
+   (`additionalProperties:false`); this app sends no additional owners and no
+   `media_type` field. The wire regression checks the exact two-part body.
 2. MP4 uses JSON `POST /2/media/upload/initialize` with `total_bytes`, `media_type`
    and `tweet_video`; raw multipart `POST /2/media/upload/{id}/append` uses
    zero-based `segment_index` and at most 5,000,000 bytes per segment, below the

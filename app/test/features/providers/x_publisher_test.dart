@@ -52,6 +52,57 @@ void main() {
       expect(h.uploadState.values.any((s) => s.contains('101')), isTrue);
     },
   );
+  test(
+    'simple photo wire body contains exactly category and owned media parts',
+    () async {
+      final h = await xPublisherHarness();
+      addTearDown(h.close);
+      expect(
+        (await h.provider.send(h.photoPost, h.context())).status,
+        PublishStatus.published,
+      );
+      final upload = h.requests.singleWhere(
+        (r) => r.method == 'POST' && r.url.path == '/2/media/upload',
+      );
+      final contentType = upload.headers['content-type']!;
+      expect(contentType, startsWith('multipart/form-data; boundary='));
+      final boundary = contentType.substring(
+        contentType.indexOf('boundary=') + 'boundary='.length,
+      );
+      final sections = latin1.decode(upload.bodyBytes).split('--$boundary');
+      expect(sections.first, isEmpty);
+      expect(sections.last, '--\r\n');
+      final parts = sections.sublist(1, sections.length - 1);
+      // Exact schema property/part set: an extra field cannot hide behind an
+      // accepting fake response. No additional_owners is sent for owned media.
+      expect(parts, hasLength(2));
+      final dispositions = parts
+          .map(
+            (part) => RegExp(
+              r'content-disposition: form-data; name="([^"]+)"(?:; filename="([^"]*)")?',
+              caseSensitive: false,
+            ).firstMatch(part)!,
+          )
+          .toList();
+      expect(dispositions.map((m) => m.group(1)), ['media_category', 'media']);
+      expect(dispositions.map((m) => m.group(2)), [null, 'photo.png']);
+      expect(
+        parts.first,
+        '\r\ncontent-disposition: form-data; name="media_category"\r\n\r\ntweet_image\r\n',
+      );
+      final filePart = parts.last;
+      final headerEnd = filePart.indexOf('\r\n\r\n');
+      expect(headerEnd, greaterThan(0));
+      expect(filePart.endsWith('\r\n'), isTrue);
+      final file = await h.account.fixture.files.fileFor(
+        h.photoPost.assets.single.id,
+      );
+      expect(
+        latin1.encode(filePart.substring(headerEnd + 4, filePart.length - 2)),
+        await file.readAsBytes(),
+      );
+    },
+  );
   test('text only preserves the exact caption and links', () async {
     final h = await xPublisherHarness();
     addTearDown(h.close);

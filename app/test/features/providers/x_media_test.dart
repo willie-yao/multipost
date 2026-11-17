@@ -117,6 +117,46 @@ void main() {
     },
   );
   test(
+    'explicit send continuation polls only when due and reuses saved upload',
+    () async {
+      final h = await xPublisherHarness();
+      addTearDown(h.close);
+      await videoPost(h);
+      h.processingState = 'in_progress';
+      expect(
+        (await h.provider.send(h.photoPost, h.context())).status,
+        PublishStatus.processing,
+      );
+      final requestCount = h.requests.length;
+      expect(
+        (await h.provider.send(h.photoPost, h.context())).status,
+        PublishStatus.processing,
+      );
+      expect(h.requests.length, requestCount);
+      h.account.clock.value = h.account.clock.value.add(
+        const Duration(seconds: 1),
+      );
+      h.processingState = 'succeeded';
+      expect(
+        (await h.provider.send(h.photoPost, h.context())).status,
+        PublishStatus.published,
+      );
+      expect(
+        h.requests.where((r) => r.url.path.endsWith('/initialize')),
+        hasLength(1),
+      );
+      expect(
+        h.requests.singleWhere((r) => r.method == 'GET').url.queryParameters,
+        {'command': 'STATUS', 'media_id': '201'},
+      );
+      expect(
+        jsonDecode(h.uploadState['x.media.synthetic-video']!)['state'],
+        'succeeded',
+      );
+      expect(h.createRequestCount, 1);
+    },
+  );
+  test(
     'failed processing stays a safe failure across reconstructed contexts',
     () async {
       final h = await xPublisherHarness();
