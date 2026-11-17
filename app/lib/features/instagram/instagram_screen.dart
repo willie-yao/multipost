@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_tokens.dart';
+import '../../core/safe_errors.dart';
 import 'instagram_package.dart';
 import 'android_transfer.dart';
 import 'instagram_service.dart';
@@ -717,7 +718,10 @@ class _InstagramScreenState extends State<InstagramScreen>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${snapshot.error}'),
+            Text(switch (snapshot.error) {
+              InstagramPreparationException(:final message) => message,
+              _ => userSafeMessage('unknown'),
+            }),
             TextButton(
               onPressed: _busy
                   ? null

@@ -40,7 +40,7 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
   bool _busy = false;
   bool _exitPending = false;
   bool get _blocked => _busy || _exitPending;
-  Object? _error;
+  String? _error;
   @override
   void initState() {
     super.initState();
@@ -90,7 +90,14 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
         );
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = switch (error) {
+            MediaFileException(:final message) => message,
+            _ => 'The media action could not finish. Keep this editor open and retry or replace the item.',
+          },
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -188,7 +195,7 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
       if (result != null && mounted) {
         await widget.media.fileFor(result.id);
         if (!listEquals(_items, originalItems)) {
-          throw StateError(
+          throw const MediaFileException(
             'The media changed while editing. Your original attachments are kept.',
           );
         }
@@ -197,7 +204,14 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
         _commit(next);
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = switch (error) {
+            MediaFileException(:final message) => message,
+            _ => 'The media action could not finish. Keep this editor open and retry or replace the item.',
+          },
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -234,7 +248,7 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  '$_error',
+                  _error!,
                   style: const TextStyle(color: CaptionTokens.error),
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
 import '../../storage/media_files.dart';
+import '../../storage/local_database.dart';
 import '../accounts/account.dart';
 import '../accounts/account_repository.dart';
 import '../accounts/accounts_screen.dart';
@@ -144,7 +145,10 @@ class _ChooseScreenState extends State<ChooseScreen> {
             if (_accounts == null && _error == null)
               const Center(child: CircularProgressIndicator()),
             if (_error != null) ...[
-              Text('Destinations could not load. $_error'),
+              Text(switch (_error) {
+                LocalStorageException(:final message) => message,
+                _ => 'Destinations could not load. Keep this screen open and retry.',
+              }),
               TextButton(onPressed: _load, child: const Text('Retry')),
             ],
             for (final account in _accounts ?? <AccountView>[]) ...[

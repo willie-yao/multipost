@@ -27,7 +27,7 @@ class PhotoTransformScreen extends StatefulWidget {
 class _PhotoTransformScreenState extends State<PhotoTransformScreen> {
   MediaAsset? _asset;
   File? _file;
-  Object? _error;
+  String? _error;
   bool _busy = false;
   double _ratio = 1;
   @override
@@ -52,7 +52,14 @@ class _PhotoTransformScreenState extends State<PhotoTransformScreen> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = switch (error) {
+            MediaFileException(:final message) => message,
+            _ => 'The photo edit could not finish. Your original photo is unchanged. Try again.',
+          },
+        );
+      }
     }
   }
 
@@ -88,7 +95,14 @@ class _PhotoTransformScreenState extends State<PhotoTransformScreen> {
       await widget.media.fileFor(result.id);
       if (mounted) Navigator.pop(context, result);
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        setState(
+          () => _error = switch (error) {
+            MediaFileException(:final message) => message,
+            _ => 'The photo edit could not finish. Your original photo is unchanged. Try again.',
+          },
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -120,7 +134,7 @@ class _PhotoTransformScreenState extends State<PhotoTransformScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_error != null)
-            Text('$_error', style: const TextStyle(color: CaptionTokens.error)),
+            Text(_error!, style: const TextStyle(color: CaptionTokens.error)),
           if (_file != null) ...[
             const Text('Original'),
             const SizedBox(height: 8),

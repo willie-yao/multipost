@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'app/app.dart';
 import 'app/services.dart';
 import 'design/caption_scaffold.dart';
+import 'storage/local_database.dart';
 import 'features/library/library_screen.dart';
 
 void main() {
@@ -61,9 +62,10 @@ class _BootstrapState extends State<_Bootstrap> {
                 )
               : Column(
                   children: [
-                    Text(
-                      'Local storage could not open. Your saved data has been kept. $_error',
-                    ),
+                    Text(switch (_error) {
+                      LocalStorageException(:final message) => message,
+                      _ => 'Local storage could not open. Keep this data and try again.',
+                    }),
                     OutlinedButton(
                       onPressed: _open,
                       child: const Text('Retry'),

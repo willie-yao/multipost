@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_tokens.dart';
+import '../../core/safe_errors.dart';
+import '../../storage/local_database.dart';
 import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../drafts/draft_controller.dart';
@@ -159,11 +161,17 @@ class _DraftSessionState extends State<DraftSession>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
-                              "Couldn't save — keep this screen open",
-                              style: TextStyle(color: CaptionTokens.error),
+                            Text(
+                              userSafeMessage('storage-failed'),
+                              style: const TextStyle(color: CaptionTokens.error),
                             ),
-                            Text('${widget.controller.lastError}'),
+                            // Only feature-owned, sanitized exception types may add detail.
+                            if (widget.controller.lastError
+                                case DraftConflict() ||
+                                    DraftRecoveryException() ||
+                                    MediaFileException() ||
+                                    LocalStorageException())
+                              Text(widget.controller.lastError.toString()),
                             Wrap(
                               spacing: 12,
                               children: [

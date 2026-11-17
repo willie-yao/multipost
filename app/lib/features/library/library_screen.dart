@@ -6,6 +6,8 @@ import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
 import '../../storage/media_files.dart';
+import '../../storage/local_database.dart';
+import '../drafts/draft_repository.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_screen.dart';
 import '../compose/choose_screen.dart';
@@ -314,7 +316,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   const CaptionText('A media selection needs your attention.'),
                   const SizedBox(height: 8),
                   if (widget.services.pickerRecoveryError != null)
-                    Text('${widget.services.pickerRecoveryError}'),
+                    Text(switch (widget.services.pickerRecoveryError) {
+                      MediaFileException(:final message) => message,
+                      _ => 'Media recovery could not finish. Keep this data and retry recovery.',
+                    }),
                   if (widget.services.pickerRecoveryError != null)
                     TextButton(
                       onPressed: _recovering ? null : _retryRecovery,
@@ -347,7 +352,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (_error != null) ...[
-                  Text('Your saved data has been kept. $_error'),
+                  Text(switch (_error) {
+                    DraftConflict() ||
+                    DraftRecoveryException() => _error.toString(),
+                    MediaFileException(:final message) ||
+                    LocalStorageException(:final message) => message,
+                    _ => 'This action could not finish. Keep this library open and retry.',
+                  }),
                   OutlinedButton(onPressed: _load, child: const Text('Retry')),
                 ],
                 if (_drafts != null) ...[
