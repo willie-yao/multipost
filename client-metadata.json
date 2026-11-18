@@ -1,0 +1,12 @@
+{
+  "client_id": "https://willie-yao.github.io/multipost/client-metadata.json",
+  "client_name": "Multipost (development)",
+  "client_uri": "https://willie-yao.github.io/multipost/",
+  "application_type": "native",
+  "token_endpoint_auth_method": "none",
+  "dpop_bound_access_tokens": true,
+  "redirect_uris": ["io.github.willie-yao:/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "scope": "atproto repo:app.bsky.feed.post?action=create blob:image/* blob:video/* account:email?action=read rpc:app.bsky.video.getUploadLimits?aud=* rpc:com.atproto.repo.uploadBlob?aud=*"
+}
