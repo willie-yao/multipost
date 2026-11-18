@@ -13,6 +13,7 @@ import '../media/picker_imports.dart';
 import '../media/draft_media_picker.dart';
 import '../media/media_editor_screen.dart';
 import '../media/media_strip.dart';
+import 'destination_length.dart';
 import 'draft_session.dart';
 
 class VersionScreen extends StatefulWidget {
@@ -236,7 +237,7 @@ class _VersionScreenState extends State<VersionScreen> {
                 Text('${destinationName(widget.destination)} own caption'),
                 SelectableText(
                   _version.ownText ?? _draft.shared.text,
-                  style: const TextStyle(color: CaptionTokens.own),
+                  style: TextStyle(color: CaptionTokens.of(context).own),
                 ),
               ],
             ),
@@ -354,44 +355,15 @@ class _VersionScreenState extends State<VersionScreen> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                widget.destination == Destination.instagram
-                    ? 'You finish it in Instagram · choose the account there'
-                    : 'Publishes from this app once connected',
-                style: const TextStyle(color: CaptionTokens.secondary),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Shared caption'),
-                    selected: !own,
-                    onSelected: _blocked ? null : (_) => _resetCaption(),
-                    selectedColor: CaptionTokens.text,
-                    checkmarkColor: CaptionTokens.onAction,
-                    side: !own
-                        ? BorderSide.none
-                        : const BorderSide(color: CaptionTokens.boundary),
-                    labelStyle: TextStyle(
-                      color: !own ? CaptionTokens.onAction : CaptionTokens.text,
-                    ),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Own caption'),
-                    selected: own,
-                    onSelected: _blocked ? null : (_) => _ownCaption(),
-                    selectedColor: CaptionTokens.own,
-                    checkmarkColor: CaptionTokens.onAction,
-                    side: own
-                        ? BorderSide.none
-                        : const BorderSide(color: CaptionTokens.boundary),
-                    labelStyle: TextStyle(
-                      color: own ? CaptionTokens.onAction : CaptionTokens.text,
-                    ),
-                  ),
-                ],
+              // Caption and media each choose a source the same way.
+              Text('Caption', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              _SourceChoice(
+                kind: 'caption',
+                own: own,
+                ownColor: CaptionTokens.of(context).own,
+                onShared: _blocked ? null : _resetCaption,
+                onOwn: _blocked ? null : _ownCaption,
               ),
               const SizedBox(height: 16),
               CaptionEditor(
@@ -419,31 +391,22 @@ class _VersionScreenState extends State<VersionScreen> {
                 spacing: 16,
                 runSpacing: 4,
                 children: [
-                  Text(
-                    '${_text.text.characters.length} characters',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: CaptionTokens.secondary,
+                  if (widget.destination == Destination.instagram)
+                    Text(
+                      '${_text.text.characters.length} characters',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: CaptionTokens.of(context).secondary,
+                      ),
+                    )
+                  else
+                    DestinationLength(
+                      destination: widget.destination,
+                      text: _text.text,
                     ),
-                  ),
                   DraftSaveStatus(controller: widget.controller),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '$name limits are checked at review',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: CaptionTokens.secondary,
-                ),
-              ),
-              if (!own)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Using the shared caption. Choose Own caption to write a separate version.',
-                  ),
-                ),
               if (_captionUndo != null)
                 TextButton(
                   onPressed: _blocked ? null : _undoCaption,
@@ -460,15 +423,22 @@ class _VersionScreenState extends State<VersionScreen> {
                   child: const Text('Compare captions'),
                 ),
               ],
-              const SizedBox(height: 24),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Use shared photos'),
-                subtitle: Text(
-                  'Turn off to choose different ${widget.destination == Destination.instagram ? 'photos' : 'media'} for $name.',
-                ),
-                value: _version.ownMedia == null,
-                onChanged: _blocked ? null : _toggleMedia,
+              const SizedBox(height: 28),
+              Text(
+                widget.destination == Destination.instagram
+                    ? 'Photos'
+                    : 'Media',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              _SourceChoice(
+                kind: widget.destination == Destination.instagram
+                    ? 'photos'
+                    : 'media',
+                own: _version.ownMedia != null,
+                ownColor: CaptionTokens.of(context).text,
+                onShared: _blocked ? null : () => _toggleMedia(true),
+                onOwn: _blocked ? null : () => _toggleMedia(false),
               ),
               if (_mediaUndo != null)
                 TextButton(
@@ -508,12 +478,51 @@ class _VersionScreenState extends State<VersionScreen> {
               if (_mediaError != null)
                 Text(
                   '$_mediaError Return to Your posts for media recovery.',
-                  style: const TextStyle(color: CaptionTokens.error),
+                  style: TextStyle(color: CaptionTokens.of(context).error),
                 ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Shared X" / "Own X" chips. Selecting the current one does nothing;
+/// switching runs the screen's own guarded reset or copy.
+class _SourceChoice extends StatelessWidget {
+  const _SourceChoice({
+    required this.kind,
+    required this.own,
+    required this.ownColor,
+    required this.onShared,
+    required this.onOwn,
+  });
+  final String kind;
+  final bool own;
+  final Color ownColor;
+  final VoidCallback? onShared, onOwn;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = CaptionTokens.of(context);
+    Widget chip(String label, bool selected, Color fill, VoidCallback? tap) =>
+        ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: tap == null ? null : (_) => selected ? null : tap(),
+          selectedColor: fill,
+          checkmarkColor: t.onAction,
+          side: selected ? BorderSide.none : BorderSide(color: t.boundary),
+          labelStyle: TextStyle(color: selected ? t.onAction : t.text),
+        );
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        chip('Shared $kind', !own, t.text, onShared),
+        chip('Own $kind', own, ownColor, onOwn),
+      ],
     );
   }
 }

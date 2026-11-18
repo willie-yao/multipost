@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
+import '../../design/impression.dart';
+import '../../design/post_sheet.dart';
 import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../compose/draft_session.dart';
@@ -28,6 +30,7 @@ class ReviewScreen extends StatefulWidget {
     this.contextNotice,
     this.onEdit,
     this.onManageAccounts,
+    this.onChangeDestinations,
   });
   final DraftController controller;
   final ReviewService service;
@@ -41,6 +44,9 @@ class ReviewScreen extends StatefulWidget {
   /// null edits shared content; a destination edits only its own version.
   final Future<void> Function(Destination?)? onEdit;
   final Future<void> Function()? onManageAccounts;
+
+  /// Back to Choose, so an empty review is never a dead end.
+  final Future<void> Function()? onChangeDestinations;
   @override
   State<ReviewScreen> createState() => _ReviewScreenState();
 }
@@ -273,6 +279,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
     return DraftSession(
       controller: widget.controller,
       exitBlocked: _busy,
+      // Retry versions open from Results, so Back returns there instead.
+      onStepBack: widget.onEdit == null || widget.onChangeDestinations == null
+          ? null
+          : () => _edit(null),
       onExitPendingChanged: (pending) {
         if (!mounted) return;
         setState(() => _exitPending = pending);
@@ -283,9 +293,18 @@ class _ReviewScreenState extends State<ReviewScreen> {
       },
       child: CaptionScaffold(
         title: 'New post',
-        stageIndicator: const CaptionStageIndicator(currentStage: 3),
+        stageIndicator: CaptionStageIndicator(
+          currentStage: 3,
+          onStep: widget.onEdit == null || widget.onChangeDestinations == null
+              ? null
+              : (step) => step == 1
+                    ? _navigate(widget.onChangeDestinations!)
+                    : _edit(null),
+        ),
         leading: IconButton(
-          tooltip: 'Back to library',
+          tooltip: widget.onEdit == null || widget.onChangeDestinations == null
+              ? 'Back to library'
+              : 'Back to Write',
           onPressed: _blocked ? null : () => Navigator.maybePop(context),
           icon: const Icon(Icons.arrow_back),
         ),
@@ -293,20 +312,25 @@ class _ReviewScreenState extends State<ReviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              draft.selected.any((d) => d != Destination.instagram)
-                  ? result?.canProceed == true
-                        ? 'Publish only these reviewed versions.'
-                        : 'Publishing setup required'
-                  : 'Prepare a local photo package; finish in Instagram.',
-              style: const TextStyle(
-                fontSize: 14,
-                color: CaptionTokens.secondary,
+            if (_firstBlocker(result) case final issue?) ...[
+              Text(
+                '${destinationName(issue.destination)} · ${issueLabel(issue.code)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: CaptionTokens.of(context).error,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ],
             FilledButton(
-              onPressed: _blocked || !_canPrepare(result) ? null : _confirm,
+              onPressed: draft.selected.isEmpty
+                  ? (_blocked || widget.onChangeDestinations == null
+                        ? null
+                        : () => _navigate(widget.onChangeDestinations!))
+                  : _blocked || !_canPrepare(result)
+                  ? null
+                  : _confirm,
               child: Text(
                 draft.selected.isEmpty
                     ? 'Choose destinations'
@@ -324,8 +348,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
             ],
             if (_online == false &&
                 widget.controller.saveState == SaveState.saved) ...[
-              const Text(
-                "You are offline. Your draft is saved on this device. Review again when connected; nothing sends automatically.",
+              ColoredBox(
+                color: CaptionTokens.of(context).raised,
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    "You're offline. Review again when connected; nothing sends automatically.",
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -337,8 +367,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
               const LinearProgressIndicator(
                 semanticsLabel: 'Checking this saved post',
               ),
-            if (draft.selected.isEmpty)
-              const Text('Choose at least one destination before continuing.'),
             if (result != null) ...[
               for (final group in [false, true])
                 if (result.snapshot.posts.keys.any(
@@ -349,10 +377,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     group ? 'Prepare only' : 'Publish now',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  if (group)
-                    const Text(
-                      'You finish it in Instagram · choose the account there',
-                    ),
+                  if (group) const Text('You finish it in Instagram.'),
                   for (final post in result.snapshot.posts.values.where(
                     (post) =>
                         (post.destination == Destination.instagram) == group,
@@ -386,15 +411,39 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Your draft stays on this device. Instagram preparation keeps a reviewed local copy; you select and check the photos and finish in Instagram.',
-              style: TextStyle(fontSize: 14, color: CaptionTokens.secondary),
-            ),
-            const SizedBox(height: 8),
             DraftSaveStatus(controller: widget.controller),
           ],
         ),
       ),
+    );
+  }
+
+  ReviewIssue? _firstBlocker(ReviewResult? result) {
+    if (result == null || widget.controller.draft.selected.isEmpty) return null;
+    for (final issue in result.issues) {
+      if (issue.blocking) return issue;
+    }
+    return null;
+  }
+
+  /// Ready, or the first blocking problem, as a mark under the name.
+  ImpressionMark _readinessMark(
+    Destination destination,
+    List<ReviewIssue> issues,
+  ) {
+    final blocking = issues.where((issue) => issue.blocking).toList();
+    if (blocking.isNotEmpty) {
+      return ImpressionMark(
+        label: issueLabel(blocking.first.code),
+        tone: ImpressionTone.attention,
+      );
+    }
+    return ImpressionMark(
+      label: destination == Destination.instagram
+          ? 'Ready to prepare'
+          : 'Ready to publish',
+      tone: ImpressionTone.waiting,
+      icon: Icons.check_circle_outline,
     );
   }
 
@@ -425,49 +474,48 @@ class _ReviewScreenState extends State<ReviewScreen> {
               destinationName(destination),
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            if (post.account != null) Text(post.account!.handle),
+            if (post.account != null)
+              Text(
+                post.account!.handle,
+                style: TextStyle(color: CaptionTokens.of(context).secondary),
+              ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          post.ownCaption ? 'Own caption' : 'Shared caption',
-          style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _readinessMark(destination, issues),
         ),
-        const Text(
-          'Approximate preview',
-          style: TextStyle(fontSize: 14, color: CaptionTokens.secondary),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        CaptionSourceLabel(own: post.ownCaption),
+        const SizedBox(height: 6),
         if (post.content.text.isEmpty)
           const Text('No caption')
         else
           _ReviewCaption(text: post.content.text, own: post.ownCaption),
-        const SizedBox(height: 8),
-        Text(
-          version?.ownMedia != null ? 'Own media' : 'Shared media',
-          style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary),
-        ),
-        if (post.content.media.isEmpty) const Text('No media'),
-        for (var index = 0; index < post.content.media.length; index++) ...[
-          const SizedBox(height: 8),
-          Text('Media ${index + 1} of ${post.content.media.length}'),
-          SizedBox(
-            height: 144,
-            child: MediaPreview(
-              attachment: post.content.media[index],
-              media: widget.service.media,
+        const SizedBox(height: 12),
+        MediaSourceLabel(ownCount: version?.ownMedia?.length),
+        const SizedBox(height: 6),
+        if (post.content.media.isEmpty)
+          const Text('No media')
+        else ...[
+          MediaStrip(items: post.content.media, media: widget.service.media),
+          for (var index = 0; index < post.content.media.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${index + 1} · ${post.content.media[index].altText.isEmpty ? 'No description' : post.content.media[index].altText}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: CaptionTokens.of(context).secondary,
+                ),
+              ),
             ),
-          ),
-          Text(
-            post.content.media[index].altText.isEmpty
-                ? 'No description'
-                : post.content.media[index].altText,
-          ),
         ],
         if (issues.isNotEmpty) ...[
           const SizedBox(height: 12),
           ColoredBox(
-            color: CaptionTokens.raised,
+            color: CaptionTokens.of(context).raised,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -524,6 +572,25 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 }
 
+/// A short name for a review issue, used on marks and the footer.
+String issueLabel(String code) => switch (code) {
+  'connection-expired' => 'Connection expired',
+  'connection-needed' => 'Connection needed',
+  'assisted-sharing-off' => 'Assisted sharing off',
+  'instagram-photos-only' || 'instagram-photos-required' => 'Photos only',
+  'empty-post' => 'Nothing to post',
+  'media-unavailable' => 'Media missing',
+  'unsupported-media' ||
+  'mixed-media' ||
+  'multiple-videos' => 'Media not supported',
+  'not-available' => 'Not available in this build',
+  'offline' => 'Offline',
+  'connectivity-unverified' => 'Connection not checked',
+  'validation-unavailable' => "Couldn't check requirements",
+  'requirements-unverified' => "Couldn't check the text",
+  _ => 'Needs checking',
+};
+
 class _ReviewCaption extends StatefulWidget {
   const _ReviewCaption({required this.text, required this.own});
   final String text;
@@ -537,15 +604,15 @@ class _ReviewCaptionState extends State<_ReviewCaption> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: widget.text,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-        maxLines: 3,
-      )..layout(maxWidth: constraints.maxWidth);
+      final painter =
+          TextPainter(
+            text: TextSpan(text: widget.text, style: captionStyle(context)),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 3,
+          )..layout(
+            maxWidth: constraints.maxWidth - (widget.own ? ownCaptionInset : 0),
+          );
       final truncated = painter.didExceedMaxLines;
       painter.dispose();
       return Column(

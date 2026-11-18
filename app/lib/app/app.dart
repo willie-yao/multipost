@@ -10,10 +10,11 @@ class CaptionApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Caption',
+      title: 'Multipost',
       debugShowCheckedModeBanner: false,
-      theme: captionTheme(),
-      themeMode: ThemeMode.dark,
+      theme: captionTheme(Brightness.light),
+      darkTheme: captionTheme(Brightness.dark),
+      themeMode: ThemeMode.system,
       home: home,
     );
   }

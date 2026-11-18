@@ -31,7 +31,9 @@ void main() {
         result.issues.any(
           (i) =>
               i.destination == Destination.bluesky &&
-              i.code == 'connection-needed',
+              // Bluesky is switched off in this build, so Review says so
+              // instead of asking for a connection that cannot be made.
+              i.code == 'not-available',
         ),
         isTrue,
       );

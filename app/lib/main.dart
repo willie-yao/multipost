@@ -52,7 +52,7 @@ class _BootstrapState extends State<_Bootstrap> {
   @override
   Widget build(BuildContext context) => _services == null
       ? CaptionScaffold(
-          title: 'Caption',
+          title: 'Multipost',
           body: _error == null
               ? const Column(
                   children: [

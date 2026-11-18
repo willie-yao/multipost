@@ -166,7 +166,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await capture('l6-version-large');
-        await tester.ensureVisible(find.text('Use shared photos'));
+        await tester.ensureVisible(find.text('Shared media'));
         expect(find.text('Done').hitTestable(), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(

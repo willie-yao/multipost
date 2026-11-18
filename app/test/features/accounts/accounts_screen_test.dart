@@ -189,11 +189,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Connected'), findsOneWidget);
       expect(find.text('@person'), findsOneWidget);
+      await tester.tap(find.text('Details'));
+      await tester.pumpAndSettle();
       expect(
         find.text('Publishing verification still required.'),
         findsOneWidget,
       );
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Disconnect X'));
+      await tester.pumpAndSettle();
+      // Disconnecting is confirmed first.
+      expect(find.text('Disconnect X?'), findsOneWidget);
+      await tester.tap(find.text('Disconnect X').last);
       await tester.pumpAndSettle();
       expect(find.text('Not connected'), findsOneWidget);
       expect(find.text('@person'), findsNothing);
@@ -258,13 +266,15 @@ void main() {
         CaptionApp(home: AccountsScreen(accounts: accounts)),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Connection setup required'));
+      // The mark says it; the setup detail stays behind "Why…?".
+      expect(find.text('Not available'), findsOneWidget);
+      await tester.tap(find.text("Why isn't X available?"));
       await tester.pumpAndSettle();
       expect(
         find.text(
           'X connection verification is incomplete in this build. Keep drafting.',
         ),
-        findsNWidgets(2),
+        findsOneWidget,
       );
       expect(find.text('Keep drafting'), findsOneWidget);
     },
@@ -285,7 +295,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Accounts'), findsOneWidget);
-    await tester.scrollUntilVisible(find.textContaining('Sign-in uses'), 200);
+    await tester.scrollUntilVisible(find.text('X'), 200);
     expect(tester.takeException(), isNull);
   });
   testWidgets(
@@ -314,6 +324,8 @@ void main() {
       await tester.ensureVisible(find.text('Reconnect X'));
       await tester.ensureVisible(find.text('Disconnect X'));
       await tester.tap(find.text('Disconnect X'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Disconnect X').last);
       await tester.pumpAndSettle();
       expect(find.text('Removal pending'), findsOneWidget);
       expect(find.text('Connect X'), findsNothing);
@@ -381,4 +393,21 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Accounts loads in place with animations off', (tester) async {
+    await tester.pumpWidget(
+      CaptionApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: AccountsScreen(accounts: _Accounts()),
+        ),
+      ),
+    );
+    // Rows are there before saved state arrives, then fill in without the
+    // size transition (which would otherwise assert during layout).
+    expect(find.text('X'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Checking…'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

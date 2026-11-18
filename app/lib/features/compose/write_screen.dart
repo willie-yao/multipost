@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
+import '../../design/post_sheet.dart';
 import '../../storage/media_files.dart';
 import '../accounts/account.dart';
 import '../drafts/draft.dart';
@@ -12,6 +13,7 @@ import '../media/picker_imports.dart';
 import '../media/draft_media_picker.dart';
 import '../media/media_editor_screen.dart';
 import '../media/media_strip.dart';
+import 'destination_length.dart';
 import 'draft_session.dart';
 import 'compose_stage.dart';
 import 'version_screen.dart';
@@ -189,6 +191,9 @@ class _WriteScreenState extends State<WriteScreen> {
       controller: widget.controller,
       allowMediaRepairReturn: widget.repairOnly,
       exitBlocked: _busy,
+      onStepBack: widget.repairOnly || widget.onChangeDestinations == null
+          ? null
+          : _choose,
       onExitPendingChanged: (value) {
         if (mounted) setState(() => _exitPending = value);
       },
@@ -198,9 +203,18 @@ class _WriteScreenState extends State<WriteScreen> {
           title: widget.repairOnly ? 'Repair draft media' : 'New post',
           stageIndicator: widget.repairOnly
               ? null
-              : const CaptionStageIndicator(currentStage: 2),
+              : CaptionStageIndicator(
+                  currentStage: 2,
+                  onStep: widget.onChangeDestinations == null
+                      ? null
+                      : (_) => _choose(),
+                ),
           leading: IconButton(
-            tooltip: widget.repairOnly ? 'Return to draft' : 'Back to library',
+            tooltip: widget.repairOnly
+                ? 'Return to draft'
+                : widget.onChangeDestinations == null
+                ? 'Back to library'
+                : 'Back to Choose',
             onPressed: _blocked ? null : () => Navigator.maybePop(context),
             icon: const Icon(Icons.arrow_back),
           ),
@@ -215,81 +229,86 @@ class _WriteScreenState extends State<WriteScreen> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                children: [
-                  Text(
-                    'Media · ${draft.shared.media.length}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  TextButton.icon(
-                    onPressed:
-                        _blocked || _pickerFailed || !widget.canLaunchPicker
-                        ? null
-                        : _pickMedia,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add media'),
-                  ),
-                  if (draft.shared.media.isNotEmpty)
-                    IconButton(
-                      tooltip: 'Edit media',
-                      onPressed: _blocked ? null : _editMedia,
-                      icon: const Icon(Icons.tune),
+              PostSheet(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      children: [
+                        Text(
+                          'Media · ${draft.shared.media.length}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        TextButton.icon(
+                          onPressed:
+                              _blocked ||
+                                  _pickerFailed ||
+                                  !widget.canLaunchPicker
+                              ? null
+                              : _pickMedia,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add media'),
+                        ),
+                        if (draft.shared.media.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Edit media',
+                            onPressed: _blocked ? null : _editMedia,
+                            icon: const Icon(Icons.tune),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-              if (draft.shared.media.isNotEmpty) ...[
-                MediaStrip(
-                  items: draft.shared.media,
-                  media: widget.media,
-                  onEdit: _blocked ? null : _editMedia,
-                ),
-              ] else
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Photos and video for your post. You can also write without media.',
-                  ),
-                ),
-              if (_mediaError != null)
-                Text(
-                  '$_mediaError Return to Your posts for media recovery.',
-                  style: const TextStyle(color: CaptionTokens.error),
-                ),
-              const SizedBox(height: 16),
-              CaptionEditor(
-                controller: _text,
-                label: 'Shared caption',
-                own: false,
-                onChanged: (value) {
-                  if (!_blocked) {
-                    widget.controller.change(
-                      editSharedCaption(
-                        widget.controller.draft,
-                        value,
-                        DateTime.now().toUtc(),
+                    if (draft.shared.media.isNotEmpty) ...[
+                      MediaStrip(
+                        items: draft.shared.media,
+                        media: widget.media,
+                        onEdit: _blocked ? null : _editMedia,
                       ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                spacing: 16,
-                runSpacing: 4,
-                children: [
-                  Text(
-                    '${draft.shared.text.characters.length} characters',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: CaptionTokens.secondary,
+                    ],
+                    if (_mediaError != null)
+                      Text(
+                        '$_mediaError Return to Your posts for media recovery.',
+                        style: TextStyle(
+                          color: CaptionTokens.of(context).error,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    CaptionEditor(
+                      controller: _text,
+                      label: 'Shared caption',
+                      own: false,
+                      onChanged: (value) {
+                        if (!_blocked) {
+                          widget.controller.change(
+                            editSharedCaption(
+                              widget.controller.draft,
+                              value,
+                              DateTime.now().toUtc(),
+                            ),
+                          );
+                        }
+                      },
                     ),
-                  ),
-                  DraftSaveStatus(controller: widget.controller),
-                ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 16,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '${draft.shared.text.characters.length} characters',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: CaptionTokens.of(context).secondary,
+                          ),
+                        ),
+                        DraftSaveStatus(controller: widget.controller),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -324,9 +343,23 @@ class _WriteScreenState extends State<WriteScreen> {
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: _DestinationCaptionSample(
-                      text: resolveContent(draft, destination).text,
-                      own: draft.versions[destination]?.ownText != null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _DestinationCaptionSample(
+                          text: resolveContent(draft, destination).text,
+                          own: draft.versions[destination]?.ownText != null,
+                        ),
+                        const SizedBox(height: 4),
+                        MediaSourceLabel(
+                          ownCount:
+                              draft.versions[destination]?.ownMedia?.length,
+                        ),
+                        DestinationLength(
+                          destination: destination,
+                          text: resolveContent(draft, destination).text,
+                        ),
+                      ],
                     ),
                   ),
                   trailing: const Icon(Icons.chevron_right),
@@ -349,30 +382,26 @@ class _DestinationCaptionSample extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      // A shared caption is the text on the sheet above: the ditto sign says
+      // "the same again". Only a destination's own caption is repeated here.
+      if (!own) return const CaptionSourceLabel(own: false);
       final sample = CaptionText(
         text.isEmpty ? 'No caption yet' : text,
-        own: own,
+        own: true,
         maxLines: 1,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          height: 1.5,
-        ),
+        style: const TextStyle(fontSize: 16),
       );
-      final source = Text(
-        own ? 'Own caption' : 'Shared',
-        style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary),
-      );
+      const source = CaptionSourceLabel(own: true);
       if (constraints.maxWidth < 260 ||
           MediaQuery.textScalerOf(context).scale(16) > 24) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [sample, const SizedBox(height: 2), source],
+          children: [sample, const SizedBox(height: 4), source],
         );
       }
       return Row(
         children: [
-          Expanded(child: sample),
+          Flexible(child: sample),
           const SizedBox(width: 12),
           source,
         ],

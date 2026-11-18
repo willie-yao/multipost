@@ -94,6 +94,8 @@ void main() {
       }
 
       await openLibrary();
+      // The attention row carries the same per-destination marks as Results.
+      expect(find.text('Bluesky · Unknown'), findsOneWidget);
       await openRiskReview();
       await openFinalDecision();
       await tester.tap(find.text('Keep checking'));

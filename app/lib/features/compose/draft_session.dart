@@ -20,8 +20,13 @@ class DraftSession extends StatefulWidget {
     this.onExitPendingChanged,
     this.exitBlocked = false,
     this.allowMediaRepairReturn = false,
+    this.onStepBack,
   });
   final DraftController controller;
+
+  /// When set, Back (the arrow or the system gesture) returns to the previous
+  /// compose stage instead of leaving the draft.
+  final Future<void> Function()? onStepBack;
   final Widget child;
   final ValueChanged<bool>? onExitPendingChanged;
   final bool exitBlocked;
@@ -97,6 +102,18 @@ class _DraftSessionState extends State<DraftSession>
     });
   }
 
+  Future<void> _stepBack() async {
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
+    }
+    if (_leaving || _reloading || widget.exitBlocked) return;
+    // Like leaving, stepping back waits for a successful save, so a failed
+    // save never bounces between stages.
+    if (!await widget.controller.flush() || !mounted) return;
+    await widget.onStepBack!();
+  }
+
   Future<void> _reload() async {
     if (_leaving || _reloading || widget.exitBlocked) return;
     final local = widget.controller.draft;
@@ -136,7 +153,9 @@ class _DraftSessionState extends State<DraftSession>
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) unawaited(_leave());
+      if (!didPop) {
+        unawaited(widget.onStepBack == null ? _leave() : _stepBack());
+      }
     },
     child: AnimatedBuilder(
       animation: widget.controller,
@@ -152,7 +171,7 @@ class _DraftSessionState extends State<DraftSession>
             if (widget.controller.saveState == SaveState.failed)
               Flexible(
                 child: Material(
-                  color: CaptionTokens.raised,
+                  color: CaptionTokens.of(context).raised,
                   child: SafeArea(
                     bottom: false,
                     child: SingleChildScrollView(
@@ -163,8 +182,8 @@ class _DraftSessionState extends State<DraftSession>
                           children: [
                             Text(
                               userSafeMessage('storage-failed'),
-                              style: const TextStyle(
-                                color: CaptionTokens.error,
+                              style: TextStyle(
+                                color: CaptionTokens.of(context).error,
                               ),
                             ),
                             // Only feature-owned, sanitized exception types may add detail.
@@ -235,10 +254,18 @@ class DraftSaveStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     liveRegion: true,
-    child: Text(switch (controller.saveState) {
-      SaveState.saving => 'Saving on this device…',
-      SaveState.saved => 'Saved on this device',
-      SaveState.failed => 'Unsaved changes',
-    }, style: const TextStyle(fontSize: 14, color: CaptionTokens.secondary)),
+    child: Text(
+      switch (controller.saveState) {
+        SaveState.saving => 'Saving…',
+        SaveState.saved => 'Saved',
+        SaveState.failed => 'Unsaved changes',
+      },
+      style: TextStyle(
+        fontSize: 14,
+        color: controller.saveState == SaveState.failed
+            ? CaptionTokens.of(context).error
+            : CaptionTokens.of(context).secondary,
+      ),
+    ),
   );
 }

@@ -134,7 +134,10 @@ class _PhotoTransformScreenState extends State<PhotoTransformScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_error != null)
-            Text(_error!, style: const TextStyle(color: CaptionTokens.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: CaptionTokens.of(context).error),
+            ),
           if (_file != null) ...[
             const Text('Original'),
             const SizedBox(height: 8),

@@ -1,5 +1,7 @@
 # Visual acceptance — Caption
 
+> **Superseded.** The Caption look was replaced by the Multipost "Impression" identity on 2026-11-17. Current evidence is in [multipost-visual.md](multipost-visual.md). This record stays as history for the earlier look.
+
 Evidence date: 2026-11-17. Visual authority remains the selected Caption v2 boards under `docs/design/options-dark/`, with Atkinson Hyperlegible Next, a true-black stage, opaque subtitles, cyan for destination-owned captions, and one white action per screen. Browser boards are composition references, not pixel-exact Flutter goldens.
 
 Task 19 corrects the shared leading Back placement, top safe-area paint and first-run stage, makes own-version dialogs scroll at enlarged text, and finds the first actual image across effective X/Bluesky snapshots followed by the frozen Instagram snapshot. It preserves the accepted compact Results hierarchy and Instagram photo/status-first surface.

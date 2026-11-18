@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
 import '../../design/caption_tokens.dart';
+import '../../design/impression.dart';
+import '../../design/post_sheet.dart';
 import '../accounts/account.dart';
 import '../drafts/draft.dart';
 import '../instagram/instagram_package.dart';
@@ -50,6 +52,85 @@ String outcomeDetail(PublishOutcome outcome) {
           'This destination may have published it. Check before sending again.',
         _ => '',
       };
+}
+
+/// How each outcome is impressed: filled when confirmed (by the provider or by
+/// you), outline when it waits on you or failed, dashed when unknown.
+ImpressionTone outcomeTone(PublishOutcome outcome) => switch (outcome.status) {
+  PublishStatus.published => ImpressionTone.confirmed,
+  PublishStatus.userReported => ImpressionTone.user,
+  PublishStatus.unknown => ImpressionTone.unknown,
+  PublishStatus.notPublished ||
+  PublishStatus.connectionNeeded => ImpressionTone.attention,
+  PublishStatus.pending ||
+  PublishStatus.preparing ||
+  PublishStatus.sending ||
+  PublishStatus.processing => ImpressionTone.waiting,
+};
+
+/// Instagram's state in a group. With a package, its local progress decides
+/// ([state] null means the progress record could not be read); without one,
+/// the preparation does.
+String instagramLabel(
+  InstagramPreparation preparation, {
+  required bool hasPackage,
+  InstagramState? state,
+}) => hasPackage
+    ? switch (state) {
+        InstagramState.preparing => 'Preparing photos',
+        InstagramState.ready => 'Ready to share',
+        InstagramState.handedOff => 'Handed off',
+        InstagramState.userMarked => 'Marked posted',
+        null => 'Prepared package status unavailable',
+      }
+    : switch (preparation.state) {
+        InstagramPreparationState.pending => 'Not prepared',
+        InstagramPreparationState.preparing => 'Preparing photos',
+        InstagramPreparationState.failed => 'Preparation needs attention',
+        InstagramPreparationState.ready => 'Prepared package unavailable',
+      };
+
+/// Marked posted is yours; failures and unavailable records need attention;
+/// everything else waits on you.
+ImpressionTone instagramTone(
+  InstagramPreparation preparation, {
+  required bool hasPackage,
+  InstagramState? state,
+}) => hasPackage
+    ? switch (state) {
+        InstagramState.userMarked => ImpressionTone.user,
+        null => ImpressionTone.attention,
+        _ => ImpressionTone.waiting,
+      }
+    : switch (preparation.state) {
+        InstagramPreparationState.failed ||
+        InstagramPreparationState.ready => ImpressionTone.attention,
+        _ => ImpressionTone.waiting,
+      };
+
+IconData outcomeIcon(PublishOutcome outcome) => switch (outcome.status) {
+  PublishStatus.pending => Icons.pause_circle_outline,
+  PublishStatus.preparing ||
+  PublishStatus.sending ||
+  PublishStatus.processing => Icons.sync,
+  PublishStatus.connectionNeeded => Icons.link_off,
+  _ => ImpressionMark.defaultIcon(outcomeTone(outcome)),
+};
+
+/// The time on a state mark: clock only when it happened today, otherwise
+/// with its date, so an older outcome never reads as tonight's.
+String markTime(BuildContext context, DateTime time) {
+  final local = time.toLocal();
+  final now = DateTime.now();
+  final clock = MaterialLocalizations.of(context).formatTimeOfDay(
+    TimeOfDay.fromDateTime(local),
+    alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+  );
+  return local.year == now.year &&
+          local.month == now.month &&
+          local.day == now.day
+      ? clock
+      : resultTime(context, time);
 }
 
 String resultTime(BuildContext context, DateTime time) {
@@ -141,6 +222,39 @@ class _ResultsScreenState extends State<ResultsScreen> {
           () => _notice = 'Saved results could not load. Keep the local data and try again.',
         );
       }
+    }
+  }
+
+  bool _finished(DestinationAttempt attempt) => const {
+    PublishStatus.published,
+    PublishStatus.userReported,
+  }.contains(attempt.outcome.status);
+
+  /// Marking a post as found is recorded as the person's own word and is not
+  /// undoable here, so it is confirmed first.
+  Future<void> _confirmFound(DestinationAttempt attempt) async {
+    final name = destinationName(attempt.snapshot.destination);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Mark $name as posted?'),
+        content: Text(
+          'Only if you found this post on $name. It is recorded as your confirmation, not verified by the app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep checking'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Mark as posted'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _act(() => widget.coordinator.reportFound(attempt.id));
     }
   }
 
@@ -266,7 +380,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
         .firstOrNull;
     var primaryLabel = 'Back to library';
     VoidCallback? primary = () => Navigator.maybePop(context);
-    if (instagramPending) {
+    // An Unknown direct result carries duplicate risk, so it leads; otherwise
+    // pending Instagram work does. The row the primary acts on comes first.
+    final unknownLeads = outstanding?.outcome.status == PublishStatus.unknown;
+    final instagramLeads = instagramPending && !unknownLeads;
+    if (instagramLeads) {
       primaryLabel = _package == null
           ? 'Continue preparing Instagram'
           : 'Finish in Instagram';
@@ -316,65 +434,50 @@ class _ResultsScreenState extends State<ResultsScreen> {
               child: Text('Loading saved results…'),
             ),
           if (group != null) ...[
-            Stack(
-              alignment: Alignment.bottomLeft,
-              children: [
-                if (headerPhoto != null)
-                  SizedBox(
-                    height: 220,
-                    width: double.infinity,
-                    child: MediaPreview(
-                      attachment: headerPhoto,
-                      media: widget.coordinator.review.media,
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: PostSheet(
+                child: _resultsHeader(
+                  headerPhoto == null
+                      ? null
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: SizedBox.square(
+                            key: const ValueKey('results-header-photo'),
+                            dimension: 72,
+                            child: MediaPreview(
+                              attachment: headerPhoto,
+                              media: widget.coordinator.review.media,
+                            ),
+                          ),
+                        ),
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // One line per destination: the at-a-glance outcome.
                       for (final attempt in _effective)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: ColoredBox(
-                            color: CaptionTokens.stage,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
-                              child: CaptionText(
-                                '${destinationName(attempt.snapshot.destination)} · ${outcomeLabel(attempt.outcome)}',
-                              ),
-                            ),
-                          ),
+                        _summaryLine(
+                          destinationName(attempt.snapshot.destination),
+                          outcomeLabel(attempt.outcome),
+                          outcomeTone(attempt.outcome),
                         ),
                       if (_preparation != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: ColoredBox(
-                            color: CaptionTokens.stage,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
-                              child: CaptionText(
-                                'Instagram · ${_instagramLabel()}',
-                              ),
-                            ),
-                          ),
+                        _summaryLine(
+                          'Instagram',
+                          _instagramLabel(),
+                          _instagramTone(),
                         ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Reviewed ${resultTime(context, group.createdAt)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: CaptionTokens.of(context).secondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Reviewed ${resultTime(context, group.createdAt)} · each result is kept on this device.',
-                style: const TextStyle(color: CaptionTokens.secondary),
               ),
             ),
           ],
@@ -387,8 +490,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
             const LinearProgressIndicator(
               semanticsLabel: 'Working on this explicit action',
             ),
-          for (final attempt in _effective) _destination(attempt),
-          if (_preparation != null) _instagramRow(),
+          // Rows that still need you come first; finished ones follow.
+          if (_preparation != null && instagramLeads) _instagramRow(),
+          for (final attempt in [
+            ..._effective.where((a) => !_finished(a)),
+            ..._effective.where(_finished),
+          ])
+            _destination(attempt),
+          if (_preparation != null && !instagramLeads) _instagramRow(),
           if (_history.length > _effective.length)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -422,6 +531,51 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+  /// Photo beside the summary; at large text the photo sits above it, so
+  /// each outcome line keeps the sheet's full width.
+  Widget _resultsHeader(Widget? photo, Widget summary) {
+    if (photo == null) return summary;
+    if (MediaQuery.textScalerOf(context).scale(16) > 24) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [photo, const SizedBox(height: 12), summary],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        photo,
+        const SizedBox(width: 12),
+        Expanded(child: summary),
+      ],
+    );
+  }
+
+  Widget _summaryLine(String name, String label, ImpressionTone tone) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 6),
+            child: Icon(
+              ImpressionMark.defaultIcon(tone),
+              size: 18,
+              color: ImpressionMark.iconColor(context, tone),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '$name · $label',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _destination(DestinationAttempt attempt) {
     final outcome = attempt.outcome;
     final name = destinationName(attempt.snapshot.destination);
@@ -436,8 +590,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
               a.outcome.status == PublishStatus.published,
         )
         .toList();
+    final t = CaptionTokens.of(context);
     return ColoredBox(
-      color: completed ? CaptionTokens.ground : CaptionTokens.raised,
+      color: completed ? t.ground : t.sheet,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -450,50 +605,32 @@ class _ResultsScreenState extends State<ResultsScreen> {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(name, style: Theme.of(context).textTheme.titleLarge),
+                Text(name, style: Theme.of(context).textTheme.titleMedium),
                 if (attempt.snapshot.account != null)
                   Text(
                     attempt.snapshot.account!.handle,
-                    style: const TextStyle(color: CaptionTokens.secondary),
+                    style: TextStyle(
+                      color: CaptionTokens.of(context).secondary,
+                    ),
                   ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      outcome.status == PublishStatus.unknown
-                          ? Icons.help_outline
-                          : completed
-                          ? Icons.check_circle_outline
-                          : Icons.info_outline,
-                      color: completed
-                          ? CaptionTokens.success
-                          : outcome.status == PublishStatus.unknown
-                          ? CaptionTokens.warning
-                          : ordinaryRetryAllowed(outcome)
-                          ? CaptionTokens.error
-                          : CaptionTokens.secondary,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        outcomeLabel(outcome),
-                        style: TextStyle(
-                          color: completed
-                              ? CaptionTokens.success
-                              : outcome.status == PublishStatus.unknown
-                              ? CaptionTokens.warning
-                              : CaptionTokens.text,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ImpressionMark(
+                label: outcomeLabel(outcome),
+                tone: outcomeTone(outcome),
+                icon: outcomeIcon(outcome),
+                time: outcomeTone(outcome) == ImpressionTone.waiting
+                    ? null
+                    : markTime(context, outcome.at),
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               outcome.status == PublishStatus.published
-                  ? 'Confirmed by $name · ${resultTime(context, outcome.at)}'
+                  ? 'Confirmed by $name'
                   : outcomeDetail(outcome),
             ),
             if (outcome.retryAfter != null)
@@ -560,18 +697,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 runSpacing: 8,
                 children: [
                   TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _act(
-                            () => widget.coordinator.reportFound(attempt.id),
-                          ),
+                    onPressed: _busy ? null : () => _confirmFound(attempt),
                     child: const Text('I found the post'),
                   ),
-                  TextButton(
+                  // Sending again can duplicate the post: it carries a warning
+                  // sign and goes through the duplicate-risk dialog.
+                  TextButton.icon(
                     onPressed: _busy || widget.onRetry == null
                         ? null
                         : () => _retry(attempt),
-                    child: const Text('Send again…'),
+                    icon: Icon(
+                      Icons.warning_amber_rounded,
+                      color: CaptionTokens.of(context).warning,
+                    ),
+                    label: const Text('Send again…'),
                   ),
                 ],
               ),
@@ -634,11 +773,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          post.ownCaption
+        CaptionSourceLabel(
+          own: post.ownCaption,
+          text: post.ownCaption
               ? 'Own caption · reviewed version'
               : 'Shared caption · reviewed version',
-          style: const TextStyle(color: CaptionTokens.secondary),
         ),
         const SizedBox(height: 6),
         CaptionText(
@@ -654,27 +793,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
           for (var index = 0; index < post.content.media.length; index++)
             Text(
               'Media ${index + 1} · ${post.content.media[index].altText.isEmpty ? 'No description' : post.content.media[index].altText}',
-              style: const TextStyle(color: CaptionTokens.secondary),
+              style: TextStyle(color: CaptionTokens.of(context).secondary),
             ),
         ],
       ],
     ),
   );
 
-  String _instagramLabel() => _package != null
-      ? switch (_instagramProgress?.state) {
-          InstagramState.preparing => 'Preparing photos',
-          InstagramState.ready => 'Ready to share',
-          InstagramState.handedOff => 'Handed off',
-          InstagramState.userMarked => 'Marked posted',
-          null => 'Prepared package status unavailable',
-        }
-      : switch (_preparation!.state) {
-          InstagramPreparationState.pending => 'Not prepared',
-          InstagramPreparationState.preparing => 'Preparing photos',
-          InstagramPreparationState.failed => 'Preparation needs attention',
-          InstagramPreparationState.ready => 'Prepared package unavailable',
-        };
+  ImpressionTone _instagramTone() => instagramTone(
+    _preparation!,
+    hasPackage: _package != null,
+    state: _instagramProgress?.state,
+  );
+
+  String _instagramLabel() => instagramLabel(
+    _preparation!,
+    hasPackage: _package != null,
+    state: _instagramProgress?.state,
+  );
 
   Widget _instagramRow() {
     return Padding(
@@ -684,9 +820,21 @@ class _ResultsScreenState extends State<ResultsScreen> {
         children: [
           const Divider(height: 1),
           const SizedBox(height: 16),
-          Text('Instagram', style: Theme.of(context).textTheme.titleLarge),
+          Text('Instagram', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ImpressionMark(
+              label: _instagramLabel(),
+              tone: _instagramTone(),
+              icon: switch (_instagramProgress?.state) {
+                InstagramState.handedOff => Icons.arrow_forward,
+                InstagramState.preparing => Icons.sync,
+                _ => null,
+              },
+            ),
+          ),
           const SizedBox(height: 8),
-          Text(_instagramLabel()),
           Text(
             _instagramProgress?.state == InstagramState.userMarked
                 ? 'Your confirmation on this phone · not verified by the app'
@@ -735,11 +883,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 child: const Text('Check this earlier attempt'),
               ),
               TextButton(
-                onPressed: _busy
-                    ? null
-                    : () => _act(
-                        () => widget.coordinator.reportFound(attempt.id),
-                      ),
+                onPressed: _busy ? null : () => _confirmFound(attempt),
                 child: const Text('I found this earlier post'),
               ),
             ],

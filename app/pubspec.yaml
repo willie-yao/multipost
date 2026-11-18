@@ -1,5 +1,5 @@
 name: cross_posting_app
-description: Caption, a human-operated personal posting app.
+description: Multipost (working name), a human-operated personal posting app.
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -48,3 +48,6 @@ flutter:
     - family: Atkinson Hyperlegible Next
       fonts:
         - asset: assets/fonts/AtkinsonHyperlegibleNext.ttf
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik.ttf

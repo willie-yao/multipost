@@ -117,6 +117,9 @@ void main() {
         ),
       );
       await settleEditor(tester);
+      // Replace, Rotate and Crop live in the item's More menu.
+      await tester.tap(find.byTooltip('More for media 1'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Crop'));
       await settleEditor(tester);
       expect(find.text('Result preview'), findsOneWidget);
@@ -134,6 +137,9 @@ void main() {
       );
       expect(cropAsset!.width, 6);
       expect(cropAsset.height, 6);
+      // Replace, Rotate and Crop live in the item's More menu.
+      await tester.tap(find.byTooltip('More for media 1'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Rotate'));
       await settleEditor(tester);
       expect(c.draft.shared.media.single.assetId, cropped.assetId);

@@ -45,17 +45,22 @@ class MediaStrip extends StatelessWidget {
                       Positioned(
                         left: 8,
                         bottom: 8,
-                        child: ColoredBox(
-                          color: CaptionTokens.stage,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: CaptionTokens.of(context).sheet,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 8,
                               vertical: 2,
                             ),
                             child: Text(
                               '${index + 1}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
+                              style: TextStyle(
+                                fontFamily: brandFace,
+                                fontWeight: FontWeight.w600,
+                                color: CaptionTokens.of(context).text,
                               ),
                             ),
                           ),
@@ -114,21 +119,21 @@ class _MediaPreviewState extends State<MediaPreview> {
     future: _source,
     builder: (context, snapshot) {
       if (snapshot.hasError) {
-        return const ColoredBox(
-          color: CaptionTokens.raised,
-          child: Center(child: Text('Media unavailable')),
+        return ColoredBox(
+          color: CaptionTokens.of(context).raised,
+          child: const Center(child: Text('Media unavailable')),
         );
       }
       final source = snapshot.data;
       if (source == null) {
-        return const ColoredBox(
-          color: CaptionTokens.raised,
-          child: Center(child: Icon(Icons.image_outlined)),
+        return ColoredBox(
+          color: CaptionTokens.of(context).raised,
+          child: const Center(child: Icon(Icons.image_outlined)),
         );
       }
       if (!source.$1.mimeType.startsWith('image/')) {
-        return const ColoredBox(
-          color: CaptionTokens.raised,
+        return ColoredBox(
+          color: CaptionTokens.of(context).raised,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

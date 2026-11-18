@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
+import '../../design/caption_tokens.dart';
 import '../../storage/media_files.dart';
 import '../../storage/local_database.dart';
 import '../accounts/account.dart';
@@ -123,14 +124,30 @@ class _ChooseScreenState extends State<ChooseScreen> {
           onPressed: _blocked ? null : () => Navigator.maybePop(context),
           icon: const Icon(Icons.arrow_back),
         ),
-        primaryAction: FilledButton(
-          onPressed:
-              _blocked ||
-                  widget.controller.draft.selected.isEmpty ||
-                  _accounts == null
-              ? null
-              : _continue,
-          child: const Text('Continue to writing'),
+        primaryAction: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.controller.draft.selected.isEmpty) ...[
+              Text(
+                'Choose at least one destination.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: CaptionTokens.of(context).secondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            FilledButton(
+              onPressed:
+                  _blocked ||
+                      widget.controller.draft.selected.isEmpty ||
+                      _accounts == null
+                  ? null
+                  : _continue,
+              child: const Text('Continue to writing'),
+            ),
+          ],
         ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,8 +156,6 @@ class _ChooseScreenState extends State<ChooseScreen> {
               'Where should this go?',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            const Text('Nothing is sent until you review it.'),
             const SizedBox(height: 24),
             if (_accounts == null && _error == null)
               const Center(child: CircularProgressIndicator()),
@@ -163,12 +178,15 @@ class _ChooseScreenState extends State<ChooseScreen> {
                 ),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 12),
-                  child: Text(
-                    account.destination == Destination.instagram
-                        ? 'You finish it in Instagram · choose the account there'
-                        : account.state == AccountState.connected
-                        ? 'Publishes from this app · connected'
-                        : 'Connect before publishing',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      accountMark(account),
+                      if (account.destination == Destination.instagram) ...[
+                        const SizedBox(height: 6),
+                        const Text('You finish it in Instagram.'),
+                      ],
+                    ],
                   ),
                 ),
                 value: widget.controller.draft.selected.contains(
@@ -209,11 +227,7 @@ class _ChooseScreenState extends State<ChooseScreen> {
                 onPressed: _blocked ? null : _repairMedia,
                 child: const Text('Repair draft media'),
               ),
-            Text(switch (widget.controller.saveState) {
-              SaveState.saving => 'Saving on this device…',
-              SaveState.saved => 'Saved on this device',
-              SaveState.failed => 'Unsaved changes',
-            }),
+            DraftSaveStatus(controller: widget.controller),
           ],
         ),
       ),

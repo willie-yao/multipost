@@ -1,0 +1,80 @@
+/* A · Impression. Light card stock, ink type, ultramarine for "your own version". */
+.a { --ground: #F2F3F0; --sheet: #FFFFFF; --text: #16171A; --text2: #4B5058; --hair: #D9DCDF;
+  --boundary: #80858C; --own: #2B3BC9; --ok: #1C6B3A; --err: #B3261E; --warn: #7A5300;
+  --indicator: #16171A; }
+.a .disp { font-family: "Rubik", sans-serif; }
+.a .appbar .title { font-family: "Rubik", sans-serif; font-weight: 600; font-size: 25px; letter-spacing: -0.01em; }
+.a .tabs { border-bottom: 1px solid var(--hair); }
+.a .btn.primary { background: var(--text); color: #fff; border-radius: 10px; }
+.a .btn.outline { border: 2px solid var(--text); color: var(--text); border-radius: 10px; background: transparent; }
+.a .btn.text { color: var(--text); width: auto; padding: 0 4px; height: 48px; display: inline-flex; font-size: 16px; }
+.a .bottom { border-top: 1px solid var(--hair); background: var(--ground); }
+
+/* The post plate: one white sheet, same composition on every screen. */
+.a .plate { background: var(--sheet); border-radius: 12px; margin: 12px 16px 0; padding: 12px; border: 1px solid var(--hair); }
+.a .plate .hd { display: flex; justify-content: space-between; align-items: center; height: 36px; }
+.a .plate .hd b { font-size: 16px; }
+.a .tbtn { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px; height: 48px; }
+.a .frames { display: flex; gap: 8px; margin-top: 4px; }
+.a .frame { flex: 1; height: 112px; border-radius: 6px; overflow: hidden; position: relative; }
+.a .frame img { width: 100%; height: 100%; }
+.a .frame .n { position: absolute; left: 6px; bottom: 6px; min-width: 26px; height: 26px; border-radius: 6px; background: var(--sheet);
+  color: var(--text); font: 600 15px/26px "Rubik", sans-serif; text-align: center; }
+.a .lbl { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 14px; color: var(--text2); }
+.a .lbl .saved { display: inline-flex; gap: 6px; align-items: center; }
+.a .field { font-size: 20px; font-weight: 600; line-height: 29px; padding: 6px 0 10px; border-bottom: 2px solid var(--text); }
+.a .caret { display: inline-block; width: 2px; height: 24px; background: var(--text); vertical-align: -4px; margin-left: 1px; }
+
+.a .sec { padding: 0 16px; }
+.a .sech { display: flex; justify-content: space-between; align-items: center; height: 52px; margin-top: 8px; }
+.a .sech b { font: 600 19px "Rubik", sans-serif; }
+.a .dest { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--hair); min-height: 76px; }
+.a .nm { font: 600 18px "Rubik", sans-serif; }
+.a .acct { color: var(--text2); font-size: 15px; margin-left: 8px; }
+.a .sample { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 15px; }
+.a .sample .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a .sample .shared { color: var(--text); }
+.a .sample .own { color: var(--own); border: 2px solid var(--own); border-radius: 6px; padding: 2px 8px; font-weight: 600; }
+.a .sample .src { flex: none; color: var(--text2); display: inline-flex; gap: 4px; align-items: center; }
+.a .sample .src.ownl { color: var(--own); font-weight: 700; }
+.a .ditto { font: 700 20px/1 "Rubik", sans-serif; color: var(--text); letter-spacing: -1px; }
+.a .chev { color: var(--text2); }
+
+/* Impressions: state as a dated mark. Shape carries meaning with the word and icon. */
+.a .imp { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 8px; border-radius: 6px;
+  font: 600 15px "Rubik", sans-serif; border: 2px solid currentColor; white-space: nowrap; }
+.a .imp time { font-weight: 400; font-variant-numeric: tabular-nums; }
+.a .imp.solid { color: #fff; }
+.a .imp.ok.solid { background: var(--ok); border-color: var(--ok); }
+.a .imp.err { color: var(--err); }
+.a .imp.warn { color: var(--warn); border-style: dashed; }
+.a .imp.ink { color: var(--text); }
+.a .imp.ink.solid { background: var(--text); border-color: var(--text); color: #fff; }
+.a .imp.sm { height: 28px; font-size: 14px; padding: 0 8px 0 6px; }
+
+.a .res { padding: 14px 16px; border-top: 1px solid var(--hair); }
+.a .res .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.a .res p { color: var(--text2); font-size: 16px; line-height: 1.45; margin-top: 8px; }
+.a .res .acts { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: var(--text2); font-size: 15px; }
+.a .res.focus { background: var(--sheet); }
+.a .mini { display: flex; gap: 10px; align-items: center; }
+.a .mini img, .a .mini .aa { width: 56px; height: 56px; border-radius: 6px; flex: none; }
+.a .mini .aa { background: var(--ground); display: grid; place-items: center; font: 600 20px "Rubik", sans-serif; border: 1px solid var(--hair); }
+.a .meta { color: var(--text2); font-size: 14px; margin-top: 3px; }
+.a .fab { position: absolute; right: 16px; bottom: 16px; height: 56px; padding: 0 22px 0 18px; border-radius: 16px; background: var(--text); color: #fff;
+  display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; box-shadow: 0 4px 10px rgba(0,0,0,.18); }
+
+/* Brand panel */
+.a.brand { padding: 30px 26px; gap: 0; }
+.a .lockup { display: flex; align-items: center; gap: 14px; }
+.a .lockup .wm { font: 700 40px "Rubik", sans-serif; letter-spacing: -0.02em; }
+.a .tag { font-size: 19px; margin-top: 10px; color: var(--text2); }
+.a .bh { font: 600 15px "Rubik", sans-serif; color: var(--text2); margin: 22px 0 8px; text-transform: none; }
+.a .icons { display: flex; align-items: flex-end; gap: 16px; }
+.a .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 13px; }
+.a .chips div { display: flex; align-items: center; gap: 8px; }
+.a .chips i { width: 22px; height: 22px; border-radius: 5px; border: 1px solid #00000033; flex: none; }
+.a .chips em { font-style: normal; color: var(--text2); font-variant-numeric: tabular-nums; }
+.a .spec { display: flex; flex-direction: column; gap: 4px; }
+.a .imps { display: flex; flex-wrap: wrap; gap: 8px; }
+.a .res .mark { margin-top: 8px; }

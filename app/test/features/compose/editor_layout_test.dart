@@ -70,8 +70,8 @@ void main() {
           findsOneWidget,
         );
         if (own) {
-          await tester.ensureVisible(find.text('Use shared photos'));
-          expect(find.text('Use shared photos').hitTestable(), findsOneWidget);
+          await tester.ensureVisible(find.text('Shared media'));
+          expect(find.text('Shared media').hitTestable(), findsOneWidget);
         } else {
           await tester.ensureVisible(find.text('Instagram'));
           expect(find.text('Instagram').hitTestable(), findsOneWidget);

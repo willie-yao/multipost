@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:cross_posting_app/app/app.dart';
+import 'package:cross_posting_app/design/caption_tokens.dart';
 import 'package:cross_posting_app/features/library/library_screen.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,8 +41,8 @@ void main() {
         expect(tester.takeException(), isNull);
         await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
         await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-        await tester.ensureVisible(find.text('Create a draft'));
-        await tester.tap(find.text('Create a draft'));
+        await tester.ensureVisible(find.text('New post'));
+        await tester.tap(find.text('New post'));
         await settleEditor(tester);
         expect(find.text('Where should this go?'), findsOneWidget);
         await tester.ensureVisible(find.byTooltip('Back'));
@@ -66,7 +67,7 @@ void main() {
   }
 
   testWidgets(
-    'first run paints a full-width black stage into the real top inset',
+    'first run paints the themed ground into the real top inset at full width',
     (tester) async {
       final services = (await tester.runAsync(localTestServices))!;
       addTearDown(services.close);
@@ -101,19 +102,20 @@ void main() {
       final pixels = (await tester.runAsync(
         () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
       ))!;
-      void blackAt(int x, int y) {
+      const ground = CaptionTokens.light;
+      void groundAt(int x, int y) {
         final offset = (y * image.width + x) * 4;
         expect(pixels.buffer.asUint8List(offset, 3), [
-          0,
-          0,
-          0,
-        ], reason: 'Rendered stage at $x,$y');
+          (ground.ground.r * 255).round(),
+          (ground.ground.g * 255).round(),
+          (ground.ground.b * 255).round(),
+        ], reason: 'Rendered ground at $x,$y');
       }
 
-      blackAt(5, 5);
-      final hero = tester.getRect(find.text('Review each destination.'));
-      blackAt(0, hero.center.dy.round());
-      blackAt(389, hero.center.dy.round());
+      groundAt(5, 5);
+      final hero = tester.getRect(find.text('Write once. Share your way.'));
+      groundAt(0, hero.center.dy.round());
+      groundAt(389, hero.center.dy.round());
       image.dispose();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

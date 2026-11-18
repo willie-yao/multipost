@@ -150,7 +150,15 @@ class ReviewService {
             .toList();
         final account = matching?.length == 1 ? matching!.single : null;
         identity = account?.identity;
-        if (accounts == null || (matching?.length ?? 0) > 1) {
+        if (account?.state == AccountState.unavailable) {
+          issues.add(
+            _issue(
+              destination,
+              'not-available',
+              "Posting to ${destinationName(destination)} isn't available in this build. Leave it out to publish the others.",
+            ),
+          );
+        } else if (accounts == null || (matching?.length ?? 0) > 1) {
           issues.add(
             _issue(
               destination,

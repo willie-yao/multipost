@@ -79,7 +79,12 @@ void main() {
       await settleEditor(tester);
       expect(find.text('Marked posted'), findsOneWidget);
       expect(find.textContaining('Instagram opened.'), findsNothing);
-      expect(find.textContaining('Your confirmation at'), findsOneWidget);
+      expect(
+        find.textContaining('Your confirmation, not verified'),
+        findsOneWidget,
+      );
+      // A finished record's main action is Done; Undo sits beside the mark.
+      expect(find.widgetWithText(FilledButton, 'Done'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
       final messenger = tester.state<ScaffoldMessengerState>(
         find.byType(ScaffoldMessenger),

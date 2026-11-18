@@ -10,10 +10,22 @@ class LibraryAttention {
     this.group,
     this.package,
     required List<Destination> destinations,
-  }) : destinations = List.unmodifiable(destinations);
+    List<DestinationAttempt> outcomes = const [],
+    this.preparation,
+    this.hasInstagramPackage = false,
+    this.instagramState,
+  }) : destinations = List.unmodifiable(destinations),
+       outcomes = List.unmodifiable(outcomes);
   final AttemptGroup? group;
   final InstagramPackage? package;
   final List<Destination> destinations;
+
+  /// Read-only copies of what Results shows, so the row can carry one
+  /// state mark per destination.
+  final List<DestinationAttempt> outcomes;
+  final InstagramPreparation? preparation;
+  final bool hasInstagramPackage;
+  final InstagramState? instagramState;
 }
 
 class LibraryRepository {
@@ -75,15 +87,19 @@ class LibraryRepository {
         }.contains(a.outcome.status),
       );
       final preparation = await attempts!.instagramPreparation(group.id);
+      InstagramPackage? package;
+      InstagramState? instagramState;
       if (preparation != null) {
-        final package = preparation.packageId == null
+        package = preparation.packageId == null
             ? null
             : await instagram.get(preparation.packageId!);
+        if (package != null) {
+          instagramState = (await instagram.progress(package.id)).state;
+        }
         pending =
             pending ||
             package == null ||
-            (await instagram.progress(package.id)).state !=
-                InstagramState.userMarked;
+            instagramState != InstagramState.userMarked;
       }
       if (pending) {
         result.add(
@@ -92,6 +108,10 @@ class LibraryRepository {
             destinations: Destination.values
                 .where(group.snapshot.posts.containsKey)
                 .toList(),
+            outcomes: outcomes,
+            preparation: preparation,
+            hasInstagramPackage: package != null,
+            instagramState: instagramState,
           ),
         );
       }

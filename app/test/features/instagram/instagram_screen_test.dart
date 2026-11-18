@@ -64,8 +64,8 @@ void main() {
         () => find.text('View prepared package').evaluate().isNotEmpty,
       );
       expect(
-        tester.widget<Text>(find.text('Matching words')).style?.color,
-        CaptionTokens.own,
+        tester.widget<Text>(find.text('Matching words')).textSpan?.style?.color,
+        CaptionTokens.light.own,
       );
       expect(find.text('Own caption'), findsOneWidget);
       expect(find.text('Shared caption'), findsNothing);
@@ -81,7 +81,7 @@ void main() {
           (w) => w is SelectableText && w.data == 'Matching words',
         ),
       );
-      expect(caption.style!.color, CaptionTokens.own);
+      expect(caption.style!.color, CaptionTokens.light.own);
       expect(package.ownCaption, isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -192,7 +192,7 @@ void main() {
             )
             .style!
             .color,
-        CaptionTokens.text,
+        CaptionTokens.light.text,
       );
       expect(find.byType(SelectableText), findsWidgets);
       expect((await tester.runAsync(s.instagramRepo.pending))!, hasLength(1));
@@ -213,6 +213,7 @@ void main() {
       await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s.app)));
       await settleEditor(tester);
       expect(find.text('Instagram needs finishing'), findsNothing);
+      expect(find.text('Instagram · Ready to share'), findsOneWidget);
       expect(find.text('Review posting results'), findsOneWidget);
       await tester.tap(find.text('Review posting results'));
       await settleEditor(tester);

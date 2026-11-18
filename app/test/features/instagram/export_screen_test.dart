@@ -77,10 +77,7 @@ void main() {
         {1, 2},
         {2},
       ]);
-      expect(
-        find.textContaining('enter them inside Instagram'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('add them in Instagram'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

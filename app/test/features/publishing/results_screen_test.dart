@@ -66,7 +66,7 @@ void main() {
           );
           await settleEditor(tester);
           final header = find.descendant(
-            of: find.byType(Stack).first,
+            of: find.byKey(const ValueKey('results-header-photo')),
             matching: find.byType(MediaPreview),
           );
           expect(header, findsOneWidget);
@@ -146,7 +146,7 @@ void main() {
       );
       await settleEditor(tester);
       final header = find.descendant(
-        of: find.byType(Stack).first,
+        of: find.byKey(const ValueKey('results-header-photo')),
         matching: find.byType(MediaPreview),
       );
       expect(header, findsOneWidget);
@@ -544,6 +544,10 @@ void main() {
     expect(find.text('Retry Bluesky'), findsNothing);
     await tester.ensureVisible(find.text('I found the post'));
     await tester.tap(find.text('I found the post'));
+    await tester.pumpAndSettle();
+    // Marking is the person's own word, so it is confirmed first.
+    expect(find.text('Mark Bluesky as posted?'), findsOneWidget);
+    await tester.tap(find.text('Mark as posted'));
     await settleEditor(tester);
     expect(
       find.text('You marked this as posted · not verified by the app'),

@@ -36,9 +36,9 @@ void main() {
         'Bluesky words',
       );
       expect(c.draft.shared.text, sampleDraft().shared.text);
-      expect(find.text('Use shared photos'), findsOneWidget);
+      expect(find.text('Shared media'), findsOneWidget);
       await settleEditor(tester);
-      expect(find.text('Saved on this device'), findsOneWidget);
+      expect(find.text('Saved'), findsOneWidget);
     },
   );
 
@@ -146,8 +146,8 @@ void main() {
           ),
         ),
       );
-      await tester.ensureVisible(find.byType(SwitchListTile));
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.ensureVisible(find.text('Own media'));
+      await tester.tap(find.text('Own media'));
       await tester.pump();
       expect(c.draft.versions[Destination.bluesky]!.ownMedia, isEmpty);
       expect(c.draft.versions[Destination.bluesky]!.ownText, isNull);
@@ -177,8 +177,8 @@ void main() {
           ),
         ),
       );
-      await tester.ensureVisible(find.byType(SwitchListTile));
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.ensureVisible(find.text('Shared media'));
+      await tester.tap(find.text('Shared media'));
       await tester.pump();
       expect(find.text('Keep own media'), findsNothing);
       expect(c.draft.versions[Destination.bluesky]!.ownMedia, isNull);

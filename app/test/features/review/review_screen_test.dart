@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/features/accounts/account.dart';
+import 'package:cross_posting_app/design/impression.dart';
 import 'package:cross_posting_app/design/caption_text.dart';
+import 'package:cross_posting_app/features/compose/choose_screen.dart';
 import 'package:cross_posting_app/features/compose/version_screen.dart';
 import 'package:cross_posting_app/features/compose/write_screen.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
@@ -117,8 +119,9 @@ void main() {
       expect(find.text('Prepare only'), findsOneWidget);
       expect(find.text('Shared caption'), findsNWidgets(2));
       expect(find.text('Own caption'), findsOneWidget);
-      expect(find.text('Approximate preview'), findsNWidgets(3));
-      expect(find.text('Publishing setup required'), findsOneWidget);
+      // Every destination wears a readiness mark under its name.
+      expect(find.byType(ImpressionMark), findsNWidgets(3));
+      expect(find.text('Shared media'), findsNWidgets(3));
       final button = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Publish & prepare'),
       );
@@ -200,10 +203,8 @@ void main() {
       ),
     );
     await settleEditor(tester);
-    expect(
-      find.text('Choose at least one destination before continuing.'),
-      findsOneWidget,
-    );
+    // With nothing selected, the bottom action leads back to Choose.
+    expect(find.text('Choose destinations'), findsOneWidget);
     await tester.runAsync(
       () => s.drafts.save(
         editSharedCaption(initial, 'competing', s.clock.now()),
@@ -272,10 +273,7 @@ void main() {
       online.value = true;
       await settleEditor(tester);
       expect(confirms, 0);
-      expect(
-        find.text('Publish only these reviewed versions.'),
-        findsOneWidget,
-      );
+      expect(find.text('Ready to publish'), findsWidgets);
       expect(
         find.byWidgetPredicate(
           (w) => w is CaptionText && w.text == 'Newest words',
@@ -340,7 +338,7 @@ void main() {
     expect(edited, Destination.instagram);
     expect(c.draft.shared.media.single.assetId, video.id);
     expect(c.draft.selected.contains(Destination.instagram), isTrue);
-    expect(find.text('A moving scene'), findsNWidgets(3));
+    expect(find.text('1 · A moving scene'), findsNWidgets(3));
   });
 
   testWidgets(
@@ -566,11 +564,11 @@ void main() {
       await settleEditorUntil(
         tester,
         () =>
-            find.text('own still photo').evaluate().isNotEmpty &&
+            find.text('1 · own still photo').evaluate().isNotEmpty &&
             find.byType(LinearProgressIndicator).evaluate().isEmpty,
       );
       expect(find.text('Choose own photos for Instagram'), findsNothing);
-      expect(find.text('Own media'), findsOneWidget);
+      expect(find.text('Own media · 1'), findsOneWidget);
       expect(review.controller.draft.shared.media.single.assetId, video.id);
       await tester.ensureVisible(find.text('Leave Instagram out'));
       await tester.tap(find.text('Leave Instagram out'));
@@ -651,7 +649,7 @@ void main() {
     addTearDown(s!.close);
     await tester.pumpWidget(CaptionApp(home: LibraryScreen(services: s)));
     await settleEditor(tester);
-    await tester.tap(find.text('Create a draft'));
+    await tester.tap(find.text('New post'));
     await settleEditor(tester);
     await tester.tap(find.byKey(const ValueKey('choose-bluesky')));
     await tester.pump();
@@ -660,9 +658,16 @@ void main() {
     expect(find.byType(WriteScreen), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Restored shared words');
     await settleEditor(tester);
-    await tester.tap(find.byTooltip('Back to library'));
+    // Back from Write returns to Choose; Back from Choose leaves the draft.
+    await tester.tap(find.byTooltip('Back to Choose'));
+    await settleEditor(tester);
+    expect(find.byType(ChooseScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
     await settleEditor(tester);
     await tester.tap(find.text('Restored shared words'));
+    await settleEditor(tester);
+    // The draft reopens at the stage it was left on: Choose.
+    await tester.tap(find.text('Continue to writing'));
     await settleEditor(tester);
     await tester.ensureVisible(find.text('Bluesky').last);
     await tester.tap(find.text('Bluesky').last);

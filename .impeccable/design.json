@@ -1,0 +1,689 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T21:52:12Z",
+  "title": "Design System: Multipost (working name)",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Card-stock Ground",
+        "canonical": "#F2F3F0",
+        "purpose": "Every screen, status bar and bottom slot (light).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252524",
+          "#424241",
+          "#61615F",
+          "#828380",
+          "#A5A5A3",
+          "#C9C9C8",
+          "#EEEEEE"
+        ]
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Post Sheet",
+        "canonical": "#FFFFFF",
+        "purpose": "PostSheet, dialogs, fields, the one row needing action (light).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "canonical": "#E6E8E4",
+        "purpose": "Notices, placeholders, switch track (light).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252524",
+          "#414240",
+          "#60625F",
+          "#818380",
+          "#A4A5A3",
+          "#C8C9C7",
+          "#EEEFED"
+        ]
+      },
+      "raised-2": {
+        "role": "neutral",
+        "displayName": "Raised 2",
+        "canonical": "#D9DCD7",
+        "purpose": "Disabled fills, containers (light).",
+        "tonalRamp": [
+          "#0B0B0A",
+          "#242524",
+          "#414340",
+          "#60625E",
+          "#81837F",
+          "#A4A6A2",
+          "#C8CAC7",
+          "#EEEFED"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Ink",
+        "canonical": "#16171A",
+        "purpose": "All text and the single filled action (light).",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414244",
+          "#606164",
+          "#818286",
+          "#A4A5A8",
+          "#C8C9CB",
+          "#EEEEEF"
+        ]
+      },
+      "pencil": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#4B5058",
+        "purpose": "Supporting text, labels, ditto glyph (light).",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232529",
+          "#3F4248",
+          "#5D6169",
+          "#7E838A",
+          "#A1A5AC",
+          "#C6C9CE",
+          "#EDEEF1"
+        ]
+      },
+      "own-ultramarine": {
+        "role": "secondary",
+        "displayName": "Own Ultramarine",
+        "canonical": "#2B3BC9",
+        "purpose": "A destination own caption only, always labelled (light).",
+        "tonalRamp": [
+          "#040823",
+          "#121D56",
+          "#25368F",
+          "#3850CD",
+          "#5575F4",
+          "#809FFF",
+          "#AEC6FF",
+          "#DEEEFF"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#D9DCDF",
+        "purpose": "Dividers and sheet edge (light).",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#404244",
+          "#5F6164",
+          "#808385",
+          "#A3A5A7",
+          "#C8C9CB",
+          "#EEEEEF"
+        ]
+      },
+      "boundary": {
+        "role": "neutral",
+        "displayName": "Boundary",
+        "canonical": "#7A7F87",
+        "purpose": "Control outlines, 3:1 (light).",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232528",
+          "#3F4247",
+          "#5D6168",
+          "#7E838A",
+          "#A2A5AB",
+          "#C7C9CD",
+          "#EDEEF1"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Proof Green",
+        "canonical": "#1C6B3A",
+        "purpose": "Confirmed state mark fill (light).",
+        "tonalRamp": [
+          "#030F05",
+          "#0E2C18",
+          "#1E4D2D",
+          "#2F7145",
+          "#529365",
+          "#82B38E",
+          "#B1D3B9",
+          "#E1F5E5"
+        ]
+      },
+      "on-success": {
+        "role": "tertiary",
+        "displayName": "On Proof Green",
+        "canonical": "#FFFFFF",
+        "purpose": "Text and icon on a confirmed mark (light).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "error": {
+        "role": "tertiary",
+        "displayName": "Signal Red",
+        "canonical": "#B3261E",
+        "purpose": "Attention marks and error text (light).",
+        "tonalRamp": [
+          "#1B0302",
+          "#460E0A",
+          "#761E17",
+          "#A92F26",
+          "#D15547",
+          "#E88678",
+          "#FCB4AA",
+          "#FFE3DC"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Ochre",
+        "canonical": "#7A5300",
+        "purpose": "Unknown (dashed) marks (light).",
+        "tonalRamp": [
+          "#110901",
+          "#322206",
+          "#563D11",
+          "#7D5A1D",
+          "#A07B41",
+          "#BDA075",
+          "#DBC6A7",
+          "#F9EDDB"
+        ]
+      },
+      "on-action": {
+        "role": "primary",
+        "displayName": "On Ink",
+        "canonical": "#FFFFFF",
+        "purpose": "Label on the filled action (light).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "ground-dark": {
+        "role": "neutral",
+        "displayName": "Card-stock Ground (dark)",
+        "canonical": "#121315",
+        "purpose": "Every screen, status bar and bottom slot (dark).",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414244",
+          "#606163",
+          "#818285",
+          "#A4A5A7",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "sheet-dark": {
+        "role": "neutral",
+        "displayName": "Post Sheet (dark)",
+        "canonical": "#1C1E21",
+        "purpose": "PostSheet, dialogs, fields, the one row needing action (dark).",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#404244",
+          "#5F6165",
+          "#808286",
+          "#A3A5A8",
+          "#C8C9CB",
+          "#EEEEF0"
+        ]
+      },
+      "raised-dark": {
+        "role": "neutral",
+        "displayName": "Raised (dark)",
+        "canonical": "#26292D",
+        "purpose": "Notices, placeholders, switch track (dark).",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#242527",
+          "#404245",
+          "#5E6166",
+          "#7F8387",
+          "#A3A5A9",
+          "#C7C9CC",
+          "#EDEEF0"
+        ]
+      },
+      "raised-2-dark": {
+        "role": "neutral",
+        "displayName": "Raised 2 (dark)",
+        "canonical": "#32363B",
+        "purpose": "Disabled fills, containers (dark).",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#232527",
+          "#3F4246",
+          "#5E6267",
+          "#7F8388",
+          "#A2A5A9",
+          "#C7C9CC",
+          "#EDEEF0"
+        ]
+      },
+      "ink-dark": {
+        "role": "primary",
+        "displayName": "Ink (dark)",
+        "canonical": "#F1F2EE",
+        "purpose": "All text and the single filled action (dark).",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252524",
+          "#424240",
+          "#61625F",
+          "#82837F",
+          "#A5A5A3",
+          "#C9C9C7",
+          "#EEEEED"
+        ]
+      },
+      "pencil-dark": {
+        "role": "neutral",
+        "displayName": "Pencil (dark)",
+        "canonical": "#B4B9BF",
+        "purpose": "Supporting text, labels, ditto glyph (dark).",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#232527",
+          "#3F4246",
+          "#5E6266",
+          "#7F8388",
+          "#A2A5A9",
+          "#C7C9CC",
+          "#EDEEF0"
+        ]
+      },
+      "own-ultramarine-dark": {
+        "role": "secondary",
+        "displayName": "Own Ultramarine (dark)",
+        "canonical": "#A9B4FF",
+        "purpose": "A destination own caption only, always labelled (dark).",
+        "tonalRamp": [
+          "#080A17",
+          "#1F223E",
+          "#383D69",
+          "#545B97",
+          "#747DBC",
+          "#99A1D4",
+          "#C0C7EB",
+          "#E9EDFF"
+        ]
+      },
+      "hairline-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "#2E3135",
+        "purpose": "Dividers and sheet edge (dark).",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#242527",
+          "#404245",
+          "#5E6165",
+          "#7F8387",
+          "#A3A5A9",
+          "#C7C9CC",
+          "#EDEEF0"
+        ]
+      },
+      "boundary-dark": {
+        "role": "neutral",
+        "displayName": "Boundary (dark)",
+        "canonical": "#7D848C",
+        "purpose": "Control outlines, 3:1 (dark).",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232528",
+          "#3E4247",
+          "#5C6269",
+          "#7D838A",
+          "#A1A6AB",
+          "#C6C9CE",
+          "#ECEFF1"
+        ]
+      },
+      "success-dark": {
+        "role": "tertiary",
+        "displayName": "Proof Green (dark)",
+        "canonical": "#86D3A0",
+        "purpose": "Confirmed state mark fill (dark).",
+        "tonalRamp": [
+          "#020F06",
+          "#0D2C1A",
+          "#1D4D30",
+          "#2D7148",
+          "#519368",
+          "#81B391",
+          "#B0D3BB",
+          "#E0F5E6"
+        ]
+      },
+      "on-success-dark": {
+        "role": "tertiary",
+        "displayName": "On Proof Green (dark)",
+        "canonical": "#0B1A10",
+        "purpose": "Text and icon on a confirmed mark (dark).",
+        "tonalRamp": [
+          "#090C0A",
+          "#202722",
+          "#3A453D",
+          "#56665B",
+          "#77877B",
+          "#9CA99F",
+          "#C3CCC5",
+          "#EBF0EC"
+        ]
+      },
+      "error-dark": {
+        "role": "tertiary",
+        "displayName": "Signal Red (dark)",
+        "canonical": "#FF9C94",
+        "purpose": "Attention marks and error text (dark).",
+        "tonalRamp": [
+          "#170605",
+          "#3D1816",
+          "#672E2B",
+          "#954641",
+          "#BA6761",
+          "#D4918B",
+          "#EDBBB6",
+          "#FFE7E3"
+        ]
+      },
+      "warning-dark": {
+        "role": "tertiary",
+        "displayName": "Ochre (dark)",
+        "canonical": "#E9C46A",
+        "purpose": "Unknown (dashed) marks (dark).",
+        "tonalRamp": [
+          "#110A00",
+          "#312300",
+          "#543E00",
+          "#7A5C00",
+          "#9D7E2D",
+          "#BBA269",
+          "#D9C8A0",
+          "#F8EED7"
+        ]
+      },
+      "on-action-dark": {
+        "role": "primary",
+        "displayName": "On Ink (dark)",
+        "canonical": "#16171A",
+        "purpose": "Label on the filled action (dark).",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414244",
+          "#606164",
+          "#818286",
+          "#A4A5A8",
+          "#C8C9CB",
+          "#EEEEEF"
+        ]
+      },
+      "mark-ultramarine": {
+        "role": "secondary",
+        "displayName": "Mark Ultramarine",
+        "canonical": "#2B3BC9",
+        "purpose": "Brand mark ground, fixed in both schemes.",
+        "tonalRamp": [
+          "#040823",
+          "#121D56",
+          "#25368F",
+          "#3850CD",
+          "#5575F4",
+          "#809FFF",
+          "#AEC6FF",
+          "#DEEEFF"
+        ]
+      },
+      "mark-paper": {
+        "role": "neutral",
+        "displayName": "Mark Paper",
+        "canonical": "#FFFFFF",
+        "purpose": "Brand mark strokes, fixed in both schemes.",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "First-run lockup only. The name is a temporary placeholder."
+      },
+      "title-large": {
+        "displayName": "Title Large",
+        "purpose": "Screen titles in the scaffold header."
+      },
+      "dialog-title": {
+        "displayName": "Dialog Title",
+        "purpose": "Dialog headings."
+      },
+      "title-medium": {
+        "displayName": "Title Medium",
+        "purpose": "Section titles."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Destination names."
+      },
+      "mark-label": {
+        "displayName": "Mark Label",
+        "purpose": "State-mark words; time at weight 400 with tabular figures."
+      },
+      "caption-editor": {
+        "displayName": "Caption Editor",
+        "purpose": "The caption being written."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "The person's caption shown back to them."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text, dialog content, chip labels."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Meta lines, counters, caption-source labels. Floor: 14sp."
+      },
+      "label-button": {
+        "displayName": "Label Button",
+        "purpose": "Filled buttons; outlined and text buttons use 16sp."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "material-default",
+        "value": "Flutter Material 3 defaults",
+        "purpose": "No custom motion. Reduced motion respected."
+      }
+    ],
+    "strokes": [
+      {
+        "name": "meaning",
+        "value": "2dp",
+        "purpose": "Mark edges, own-caption frame, outlined buttons, checkboxes, focus underline."
+      },
+      {
+        "name": "structure",
+        "value": "1dp",
+        "purpose": "Hairlines, sheet edge, chip outlines."
+      },
+      {
+        "name": "dash",
+        "value": "5dp on, 4dp off",
+        "purpose": "Unknown state mark edge only."
+      }
+    ],
+    "accessibility": {
+      "minTarget": "48dp",
+      "primaryActionMinHeight": "52dp",
+      "textScale": "Layouts hold at 200% system text.",
+      "contrast": "app/test/design/caption_tokens_test.dart: text pairs >= 4.5:1, boundaries and state fills >= 3:1, both schemes."
+    },
+    "schemes": "Light and dark follow the system setting. Keys ending -dark are the dark scheme. The brand mark keeps fixed colours in both."
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled ink action per screen, full width in the bottom slot.",
+      "html": "<div class=\"ds-slot\"><button class=\"ds-btn-primary\">Review post</button></div>",
+      "css": ".ds-slot { background: #F2F3F0; border-top: 1px solid #D9DCDF; padding: 12px 16px 16px; } .ds-btn-primary { width: 100%; min-height: 52px; background: #16171A; color: #FFFFFF; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 17px; font-weight: 700; padding: 14px 18px; border: none; border-radius: 10px; cursor: pointer; } .ds-btn-primary:hover { background: #2A2C30; } .ds-btn-primary:focus-visible { outline: 2px solid #16171A; outline-offset: 2px; } .ds-btn-primary:disabled { background: #D9DCD7; color: #4B5058; }"
+    },
+    {
+      "name": "Outlined Button",
+      "kind": "button",
+      "refersTo": "button-outlined",
+      "description": "Secondary choice: 2dp ink border, 48dp minimum.",
+      "html": "<button class=\"ds-btn-outlined\">Review posting results</button>",
+      "css": ".ds-btn-outlined { min-height: 48px; background: transparent; color: #16171A; border: 2px solid #16171A; border-radius: 10px; padding: 10px 16px; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; } .ds-btn-outlined:hover { background: #E6E8E4; } .ds-btn-outlined:focus-visible { outline: 2px solid #16171A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Caption Choice Chips",
+      "kind": "chip",
+      "refersTo": "chip-own-caption-selected",
+      "description": "Shared/Own caption choice; the labelled Own caption chip is the only chip that fills with ultramarine.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\">Shared caption</button><button class=\"ds-chip ds-chip-own\" aria-pressed=\"true\">&#10003; Own caption</button></div>",
+      "css": ".ds-chips { display: flex; gap: 8px; } .ds-chip { min-height: 48px; padding: 0 14px; background: #FFFFFF; color: #16171A; border: 1px solid #7A7F87; border-radius: 8px; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 16px; cursor: pointer; } .ds-chip:hover { background: #E6E8E4; } .ds-chip:focus-visible { outline: 2px solid #16171A; outline-offset: 2px; } .ds-chip-own { background: #2B3BC9; color: #FFFFFF; border-color: transparent; }"
+    },
+    {
+      "name": "Post Sheet",
+      "kind": "card",
+      "refersTo": "post-sheet",
+      "description": "The one raised surface: the post itself, or the single row that needs action. Not a general card.",
+      "html": "<div class=\"ds-sheet\"><div class=\"ds-sheet-title\">Needs your attention</div><div class=\"ds-sheet-meta\">X &middot; Bluesky &middot; Instagram</div></div>",
+      "css": ".ds-sheet { background: #FFFFFF; border: 1px solid #D9DCDF; border-radius: 12px; padding: 12px; } .ds-sheet-title { font-family: Rubik, sans-serif; font-weight: 600; font-size: 16px; color: #16171A; } .ds-sheet-meta { font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 14px; color: #4B5058; margin-top: 4px; }"
+    },
+    {
+      "name": "Impression Marks",
+      "kind": "custom",
+      "refersTo": "impression-confirmed",
+      "description": "Signature state mark. Filled = confirmed (provider or you), outline = waiting on you or failed, dashed = unknown. Always icon + word, time where known.",
+      "html": "<div class=\"ds-marks\"><span class=\"ds-mark ds-mark-confirmed\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z\"/></svg><b>Published</b> 1:12 PM</span><span class=\"ds-mark ds-mark-user\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 9c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-11a4 4 0 1 0 0 8 4 4 0 0 0 0-8m0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4\"/></svg><b>Marked posted</b></span><span class=\"ds-mark ds-mark-attention\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.47 2 2 6.5 2 12a10 10 0 1 0 10-10m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16\"/></svg><b>Not published</b> 1:12 PM</span><span class=\"ds-mark ds-mark-waiting\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16\"/></svg><b>Ready to share</b></span><span class=\"ds-mark ds-mark-unknown\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M11 18h2v-2h-2zm1-16a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m0-14a4 4 0 0 0-4 4h2a2 2 0 1 1 4 0c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5a4 4 0 0 0-4-4\"/></svg><b>Unknown</b></span></div>",
+      "css": ".ds-marks { display: flex; flex-wrap: wrap; gap: 8px; } .ds-mark { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; box-sizing: border-box; padding: 5px 10px 5px 8px; border: 2px solid; border-radius: 6px; font-family: Rubik, sans-serif; font-size: 15px; font-weight: 400; font-variant-numeric: tabular-nums; } .ds-mark b { font-weight: 600; margin-right: 2px; } .ds-mark-confirmed { background: #1C6B3A; color: #FFFFFF; border-color: #1C6B3A; } .ds-mark-user { background: #16171A; color: #F2F3F0; border-color: #16171A; } .ds-mark-attention { background: transparent; color: #B3261E; border-color: #B3261E; } .ds-mark-waiting { background: transparent; color: #16171A; border-color: #16171A; } .ds-mark-unknown { background: transparent; color: #7A5300; border: 2px dashed #7A5300; }"
+    },
+    {
+      "name": "Caption Source",
+      "kind": "custom",
+      "refersTo": "caption-own",
+      "description": "Shared caption: ditto glyph + words in pencil, plain ink caption. Own caption: ultramarine label, caption in a 2dp ultramarine frame.",
+      "html": "<div class=\"ds-src\"><span class=\"ds-src-shared\"><svg width=\"14\" height=\"15\" viewBox=\"0 0 14 15\"><path d=\"M6 3 3 12M12 3 9 12\" stroke=\"#4B5058\" stroke-width=\"2.4\" stroke-linecap=\"round\"/></svg>Shared caption</span><p class=\"ds-cap\">A little colour from today's walk.</p><span class=\"ds-src-own\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z\"/></svg>Own caption</span><p class=\"ds-cap ds-cap-own\">My own version for Bluesky.</p></div>",
+      "css": ".ds-src { font-family: 'Atkinson Hyperlegible Next', sans-serif; } .ds-src-shared, .ds-src-own { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.4; } .ds-src-shared { color: #4B5058; } .ds-src-own { color: #2B3BC9; font-weight: 700; } .ds-cap { margin: 4px 0 12px; font-size: 18px; font-weight: 600; line-height: 1.45; color: #16171A; } .ds-cap-own { color: #2B3BC9; border: 2px solid #2B3BC9; border-radius: 6px; padding: 6px 10px; }"
+    },
+    {
+      "name": "Caption Field",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Filled sheet field with boundary underline; 2dp ink underline on focus.",
+      "html": "<label class=\"ds-field\"><span>Shared caption</span><textarea rows=\"3\">Write once.</textarea></label>",
+      "css": ".ds-field { display: block; background: #FFFFFF; border-bottom: 1px solid #7A7F87; padding: 8px 12px 14px; } .ds-field span { display: block; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 14px; color: #4B5058; } .ds-field textarea { width: 100%; border: none; outline: none; resize: none; background: transparent; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 20px; font-weight: 600; line-height: 1.45; color: #16171A; caret-color: #16171A; } .ds-field:focus-within { border-bottom: 2px solid #16171A; }"
+    },
+    {
+      "name": "Stage Indicator",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Read-only Choose / Write / Review step display; 3dp ink underline on the current step.",
+      "html": "<div class=\"ds-stages\"><span>1&nbsp; Choose</span><span class=\"ds-on\">2&nbsp; Write</span><span>3&nbsp; Review</span></div>",
+      "css": ".ds-stages { display: flex; justify-content: space-around; border-bottom: 1px solid #D9DCDF; font-family: 'Atkinson Hyperlegible Next', sans-serif; font-size: 16px; } .ds-stages span { padding: 12px 10px; color: #4B5058; font-weight: 500; border-bottom: 3px solid transparent; } .ds-stages .ds-on { color: #16171A; font-weight: 700; border-bottom-color: #16171A; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Impression",
+    "overview": "Every destination receives an impression of the same post, and every outcome is a dated mark you can trust. The world borrows from rubber date stamps on card stock. Ink on paper, a single white post sheet, hairline rows, and one reserved ultramarine for a destination's own words. It is calm and dense in the way a ledger is dense: rows, not cards; words, not pills.\n\nThe app is Flutter on Android, Material 3 underneath. Material controls are themed, never replaced. Colour roles live in `CaptionTokens` (a `ThemeExtension`, `app/lib/design/caption_tokens.dart`); `captionTheme()` maps them onto Material (`app/lib/design/caption_theme.dart`). Light and dark follow the phone's system setting. Motion is Material defaults only, and reduced motion is respected.",
+    "keyCharacteristics": [
+      "Ink on card stock: neutral ground, white post sheet, near-black ink type and action.",
+      "Ultramarine means \"own caption\" and nothing else, and it is always labelled.",
+      "State is a dated impression mark: shape, icon, word and, where known, a time.",
+      "One filled ink action per screen, always in the bottom slot.",
+      "Hairline rows instead of cards; flat surfaces, no shadows."
+    ],
+    "rules": [
+      {
+        "name": "The Reserved Ultramarine Rule",
+        "body": "Ultramarine marks a destination's own caption and is always next to the words \"Own caption\". Material `tertiary` maps to ink and text selection is an ink tint (22% alpha) on purpose, so no stock widget can leak ultramarine. Never use it for links, focus, selection, emphasis or brand decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Mark Rule",
+        "body": "The brand mark is white on ultramarine (`mark-paper` on `mark-ultramarine`) in both schemes. It is the only place ultramarine appears without a label, because it is the logo, not UI.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Rubik speaks for the app: titles, names, marks. Atkinson speaks for the person and for every control. Never set the person's caption or a button in Rubik.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Floor Below 14 Rule",
+        "body": "No text is smaller than 14sp.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Stack Rule",
+        "body": "Lift is shown by a lighter sheet on ground, never by a shadow. If two surfaces nest, one of them is a mistake.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do read every colour from `CaptionTokens.of(context)` or the Material scheme; never hard-code hex in a screen.",
+      "Do show every outcome as an `ImpressionMark` with icon, word and, where known, a time.",
+      "Do pair ultramarine with the words \"Own caption\", and the ditto glyph with \"Shared caption\".",
+      "Do keep one filled ink action per screen, in the bottom slot, at least 52dp tall.",
+      "Do keep every touch target at least 48dp and check every screen at 200% text in both schemes.",
+      "Do add a new colour pair to `app/test/design/caption_tokens_test.dart`: text at 4.5:1 or more, boundaries and state fills at 3:1 or more.",
+      "Do use hairline rows for lists and keep `PostSheet` for the post or the one row that needs action."
+    ],
+    "donts": [
+      "Don't use ultramarine for links, focus, selection, highlights or decoration.",
+      "Don't signal state by colour alone, or show a state without its word.",
+      "Don't use gradients, glass or blur, shadows, or nested cards.",
+      "Don't add decorative metrics, counters-as-ornament or dashboard tiles.",
+      "Don't add AI sparkle icons or \"magic\" styling; the app has no AI features.",
+      "Don't add a second filled action or a floating action button.",
+      "Don't put the working name anywhere beyond the lockup and the Android label."
+    ]
+  }
+}

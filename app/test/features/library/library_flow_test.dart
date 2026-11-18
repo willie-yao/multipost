@@ -140,7 +140,7 @@ void main() {
       CaptionApp(home: LibraryScreen(services: services)),
     );
     await settleStorage(tester);
-    await tester.tap(find.text('Create a draft'));
+    await tester.tap(find.text('New post'));
     await settleStorage(tester);
     expect(find.text('Where should this go?'), findsOneWidget);
     expect(continueButton(tester).onPressed, isNull);
@@ -173,11 +173,11 @@ void main() {
     expect(find.text('Your next post starts here.'), findsOneWidget);
     expect(
       find.text(
-        'Direct publishing to X and Bluesky is unavailable in this build. Instagram needs no sign-in here; you finish posts in Instagram.',
+        "Posting to X and Bluesky isn't available in this build. You finish Instagram posts in Instagram.",
       ),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'Create a draft'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'New post'), findsOneWidget);
     await tester.tap(find.text('Results'));
     await tester.pumpAndSettle();
     expect(find.text('No posting results yet'), findsOneWidget);
@@ -207,9 +207,13 @@ void main() {
       await tester.tap(find.text('Kept locally'));
       await settleStorage(tester);
       expect(find.text('Publish now'), findsOneWidget);
-      expect(find.text('Publishing setup required'), findsOneWidget);
-      await tester.tap(find.byTooltip('Back to library'));
-      await settleStorage(tester);
+      // The footer names the first destination that blocks publishing.
+      expect(find.textContaining(RegExp(r'^(X|Bluesky) · ')), findsOneWidget);
+      // Back steps through the stages: Review → Write → Choose → library.
+      for (final back in ['Back to Write', 'Back to Choose', 'Back']) {
+        await tester.tap(find.byTooltip(back));
+        await settleStorage(tester);
+      }
       await tester.tap(find.byTooltip('Delete draft'));
       await settleStorage(tester);
       expect(find.text('Kept locally'), findsNothing);
@@ -247,7 +251,7 @@ void main() {
     );
     await settleStorage(tester);
     expect(find.text('Retry'), findsOneWidget);
-    expect(find.text('Create a draft'), findsNothing);
+    expect(find.text('New post'), findsNothing);
     await tester.tap(find.text('Retry'));
     await settleStorage(tester);
     final rows = await tester.runAsync(
@@ -273,10 +277,10 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 5));
     expect(find.text('Loading drafts…'), findsOneWidget);
-    expect(find.text('Create a draft'), findsNothing);
+    expect(find.text('New post'), findsNothing);
     pending.complete([]);
     await settleStorage(tester);
-    expect(find.text('Create a draft'), findsOneWidget);
+    expect(find.text('New post'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -380,7 +384,7 @@ void main() {
       await tester.ensureVisible(find.text('Manage accounts'));
       await tester.tap(find.text('Manage accounts'));
       await settleStorage(tester);
-      await tester.tap(find.text('Connection setup required').first);
+      await tester.tap(find.text("Why isn't X available?"));
       await tester.pumpAndSettle();
       final xAccount = (await tester.runAsync(
         () => services.accounts.get(Destination.x),

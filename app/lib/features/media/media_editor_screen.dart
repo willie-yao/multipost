@@ -168,9 +168,26 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
     _commit(next);
   }
 
+  /// Removing is immediate, so it offers Undo while nothing else changed.
   void _remove(int index) {
     if (_blocked || index < 0 || index >= _items.length) return;
-    _commit([..._items]..removeAt(index));
+    final before = List.of(_items);
+    final after = [..._items]..removeAt(index);
+    _commit(after);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text('Removed media ${index + 1}'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            if (!mounted || _blocked || !listEquals(_items, after)) return;
+            _commit(before);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _transform(int index, {required bool crop}) async {
@@ -249,7 +266,7 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   _error!,
-                  style: const TextStyle(color: CaptionTokens.error),
+                  style: TextStyle(color: CaptionTokens.of(context).error),
                 ),
               ),
             if (_items.isEmpty)
@@ -303,23 +320,27 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
                         : () => _move(index, 1),
                     icon: const Icon(Icons.arrow_downward),
                   ),
-                  TextButton(
-                    onPressed: _blocked || !widget.canLaunchPicker
-                        ? null
-                        : () => _pick(_items[index].assetId),
-                    child: const Text('Replace'),
-                  ),
-                  TextButton(
-                    onPressed: _blocked
-                        ? null
-                        : () => _transform(index, crop: false),
-                    child: const Text('Rotate'),
-                  ),
-                  TextButton(
-                    onPressed: _blocked
-                        ? null
-                        : () => _transform(index, crop: true),
-                    child: const Text('Crop'),
+                  PopupMenuButton<String>(
+                    tooltip: 'More for media ${index + 1}',
+                    enabled: !_blocked,
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (choice) => switch (choice) {
+                      'replace' => _pick(_items[index].assetId),
+                      'rotate' => _transform(index, crop: false),
+                      _ => _transform(index, crop: true),
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'replace',
+                        enabled: widget.canLaunchPicker,
+                        child: const Text('Replace'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'rotate',
+                        child: Text('Rotate'),
+                      ),
+                      const PopupMenuItem(value: 'crop', child: Text('Crop')),
+                    ],
                   ),
                   TextButton(
                     onPressed: _blocked ? null : () => _remove(index),

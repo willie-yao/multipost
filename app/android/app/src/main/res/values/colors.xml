@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#2B3BC9</color>
+    <!-- Light and dark grounds match CaptionTokens in lib/design. -->
+    <color name="window_ground">#F2F3F0</color>
+</resources>

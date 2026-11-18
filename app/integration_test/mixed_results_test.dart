@@ -31,6 +31,12 @@ void main() {
   testWidgets('R1 native synthetic visual and mixed-state acceptance', (
     tester,
   ) async {
+    // Some emulator images lock the system night mode; a build with
+    // --dart-define=CAPTURE_BRIGHTNESS=dark renders the same matrix dark.
+    if (const String.fromEnvironment('CAPTURE_BRIGHTNESS') == 'dark') {
+      binding.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(binding.platformDispatcher.clearPlatformBrightnessTestValue);
+    }
     await captureNativeMatrix(
       tester,
       binding,

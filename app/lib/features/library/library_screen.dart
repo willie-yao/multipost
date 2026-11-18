@@ -4,7 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/services.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
+import '../../design/brand_mark.dart';
 import '../../design/caption_tokens.dart';
+import '../../design/impression.dart';
+import '../../design/post_sheet.dart';
 import '../../storage/media_files.dart';
 import '../../storage/local_database.dart';
 import '../drafts/draft_repository.dart';
@@ -259,8 +262,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _groups.isEmpty &&
         _packages.isEmpty &&
         _markedPackages.isEmpty;
+    final t = CaptionTokens.of(context);
     return CaptionScaffold(
       title: 'Your posts',
+      showMark: !firstRun,
       bodyPadding: EdgeInsets.zero,
       actions: [
         IconButton(
@@ -269,13 +274,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           icon: const Icon(Icons.person_outline),
         ),
       ],
-      primaryAction:
-          _drafts != null &&
-              !_results &&
-              (!empty ||
-                  _groups.isNotEmpty ||
-                  _packages.isNotEmpty ||
-                  _markedPackages.isNotEmpty)
+      primaryAction: _drafts != null && !_results
           ? FilledButton.icon(
               onPressed: _busy ? null : _create,
               icon: const Icon(Icons.add),
@@ -286,21 +285,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (firstRun)
-            const ColoredBox(
-              color: CaptionTokens.stage,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 24, 16, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CaptionText('Write once.'),
-                    SizedBox(height: 6),
-                    CaptionText('Review each destination.'),
-                    SizedBox(height: 6),
-                    CaptionText('Finish Instagram yourself.'),
-                  ],
-                ),
-              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: BrandLockup(tagline: 'Write once. Share your way.'),
             ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -313,7 +300,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ],
                 if (operation != null ||
                     widget.services.pickerRecoveryError != null) ...[
-                  const CaptionText('A media selection needs your attention.'),
+                  Text(
+                    'A media selection needs your attention.',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   if (widget.services.pickerRecoveryError != null)
                     Text(switch (widget.services.pickerRecoveryError) {
@@ -362,62 +352,116 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   OutlinedButton(onPressed: _load, child: const Text('Retry')),
                 ],
                 if (_drafts != null) ...[
+                  if (_attention.any((item) => item.group != null)) ...[
+                    Text(
+                      'Needs your attention',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   for (final item in _attention.where(
                     (item) => item.group != null,
                   )) ...[
-                    const CaptionText('Needs your attention'),
-                    const SizedBox(height: 8),
-                    Text(item.destinations.map(destinationName).join(' · ')),
-                    Text(
-                      item.group!.snapshot.posts.values.first.content.text,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    PostSheet(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            item
+                                .group!
+                                .snapshot
+                                .posts
+                                .values
+                                .first
+                                .content
+                                .text,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: captionStyle(context).copyWith(fontSize: 16),
+                          ),
+                          const SizedBox(height: 10),
+                          // One dated-impression mark per destination, as on
+                          // Results, so the row says what needs you.
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final attempt in item.outcomes)
+                                ImpressionMark(
+                                  label:
+                                      '${destinationName(attempt.snapshot.destination)} · ${outcomeLabel(attempt.outcome)}',
+                                  tone: outcomeTone(attempt.outcome),
+                                  icon: outcomeIcon(attempt.outcome),
+                                ),
+                              if (item.preparation case final preparation?)
+                                ImpressionMark(
+                                  label:
+                                      'Instagram · ${instagramLabel(preparation, hasPackage: item.hasInstagramPackage, state: item.instagramState)}',
+                                  tone: instagramTone(
+                                    preparation,
+                                    hasPackage: item.hasInstagramPackage,
+                                    state: item.instagramState,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _openResults(item.group!.id),
+                              child: const Text('Review posting results'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _openResults(item.group!.id),
-                      child: const Text('Review posting results'),
-                    ),
-                    const Divider(height: 32),
+                    const SizedBox(height: 12),
                   ],
+                  if (_attention.any((item) => item.group != null))
+                    const SizedBox(height: 12),
                   if (_packages.isNotEmpty) ...[
-                    const CaptionText('Instagram needs finishing'),
+                    Text(
+                      'Instagram needs finishing',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     for (final package in _packages) ...[
-                      Text(
-                        package.ownCaption ? 'Own caption' : 'Shared caption',
-                        style: const TextStyle(
-                          color: CaptionTokens.secondary,
-                          fontSize: 14,
+                      PostSheet(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CaptionSourceLabel(own: package.ownCaption),
+                            const SizedBox(height: 6),
+                            CaptionText(
+                              package.caption.isEmpty
+                                  ? 'Prepared photos'
+                                  : package.caption,
+                              own: package.ownCaption,
+                              maxLines: 3,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${package.photos.length} prepared photos · ${_savedTime(package.createdAt)} · finish in Instagram',
+                              style: TextStyle(color: t.secondary),
+                            ),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: OutlinedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _openPackage(package),
+                                child: const Text('View prepared package'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        package.caption.isEmpty
-                            ? 'Prepared photos'
-                            : package.caption,
-                        style: TextStyle(
-                          color: package.ownCaption
-                              ? CaptionTokens.own
-                              : CaptionTokens.text,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${package.photos.length} prepared photos · ${_savedTime(package.createdAt)} · finish in Instagram',
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton(
-                          onPressed: _busy ? null : () => _openPackage(package),
-                          child: const Text('View prepared package'),
-                        ),
-                      ),
-                      const Divider(height: 32),
+                      const SizedBox(height: 24),
                     ],
                   ],
                   Row(
@@ -429,9 +473,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             decoration: BoxDecoration(
                               border: Border(
                                 bottom: BorderSide(
-                                  color: !_results
-                                      ? CaptionTokens.text
-                                      : CaptionTokens.ground,
+                                  color: !_results ? t.text : t.hairline,
                                   width: 3,
                                 ),
                               ),
@@ -450,9 +492,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             decoration: BoxDecoration(
                               border: Border(
                                 bottom: BorderSide(
-                                  color: _results
-                                      ? CaptionTokens.text
-                                      : CaptionTokens.ground,
+                                  color: _results ? t.text : t.hairline,
                                   width: 3,
                                 ),
                               ),
@@ -492,23 +532,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        package.ownCaption ? 'Own caption' : 'Shared caption',
-                        style: const TextStyle(color: CaptionTokens.secondary),
-                      ),
-                      Text(
+                      CaptionSourceLabel(own: package.ownCaption),
+                      const SizedBox(height: 4),
+                      CaptionText(
                         package.caption.isEmpty
                             ? 'Prepared photos'
                             : package.caption,
-                        style: TextStyle(
-                          color: package.ownCaption
-                              ? CaptionTokens.own
-                              : CaptionTokens.text,
-                        ),
+                        own: package.ownCaption,
                         maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 16),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
+                      const ImpressionMark(
+                        label: 'You marked posted',
+                        tone: ImpressionTone.user,
+                      ),
+                      const SizedBox(height: 6),
                       const Text(
                         'Your confirmation on this phone. Not verified by the app.',
                       ),
@@ -534,23 +573,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Drafts are saved on this device. You can write before connecting any account.',
+                      'Drafts stay on this device. Uninstalling the app removes them.',
                     ),
                     const SizedBox(height: 22),
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _create,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create a draft'),
-                    ),
-                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _accounts,
                       icon: const Icon(Icons.person_outline),
                       label: const Text('Set up accounts'),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Direct publishing to X and Bluesky is unavailable in this build. Instagram needs no sign-in here; you finish posts in Instagram.',
+                    Text(
+                      'Posting to X and Bluesky isn\'t available in this build. You finish Instagram posts in Instagram.',
+                      style: TextStyle(color: t.secondary),
                     ),
                   ] else ...[
                     for (final draft in _drafts!) ...[
@@ -575,10 +609,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Drafts live on this device only. Uninstalling the app removes them.',
-                    ),
                   ],
                 ],
               ],
@@ -692,6 +722,9 @@ class _ComposeHostState extends State<_ComposeHost> {
           service: widget.services.review,
           onEdit: _editReview,
           onManageAccounts: _reviewAccounts,
+          onChangeDestinations: widget.initial.retryParentAttemptId == null
+              ? _choose
+              : null,
           observeOnline: () async =>
               await widget.services.publishingOnline?.call(),
           contextNotice: widget.initial.retryParentAttemptId == null ? null : "Only this saved recovery version will be sent. Successful destinations and the original source stay frozen. Sending an Unknown version again requires a duplicate-risk decision.",

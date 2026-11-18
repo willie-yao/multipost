@@ -5,6 +5,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_tokens.dart';
+import '../../design/impression.dart';
+import '../../design/post_sheet.dart';
 import '../../core/safe_errors.dart';
 import 'instagram_package.dart';
 import 'android_transfer.dart';
@@ -340,17 +342,8 @@ class _InstagramScreenState extends State<InstagramScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: CaptionTokens.stage,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-              side: const BorderSide(color: CaptionTokens.boundary),
-            ),
-            content: const Text(
-              'Instagram marked as posted.',
-              style: TextStyle(color: CaptionTokens.text),
-            ),
+            content: Text('Instagram marked as posted.'),
             action: SnackBarAction(
-              textColor: CaptionTokens.text,
               label: 'Undo',
               onPressed: () => unawaited(_undo()),
             ),
@@ -384,14 +377,8 @@ class _InstagramScreenState extends State<InstagramScreen>
         setState(() => _progress = progress);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: CaptionTokens.stage,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-              side: const BorderSide(color: CaptionTokens.boundary),
-            ),
-            content: const Text(
+            content: Text(
               "Confirmation undone. Only this phone's record changed.",
-              style: TextStyle(color: CaptionTokens.text),
             ),
           ),
         );
@@ -442,7 +429,7 @@ class _InstagramScreenState extends State<InstagramScreen>
         onPressed: _busy || (!_checkFailed && _progress == null)
             ? null
             : marked
-            ? _undo
+            ? () => Navigator.maybePop(context)
             : _returnQuestion
             ? () => _confirm(_returnFocus)
             : _checkFailed
@@ -454,7 +441,7 @@ class _InstagramScreenState extends State<InstagramScreen>
           _busy
               ? 'Working…'
               : marked
-              ? 'Undo my confirmation'
+              ? 'Done'
               : _returnQuestion
               ? "I've posted it"
               : remaining == 0 && !_checkFailed
@@ -470,8 +457,12 @@ class _InstagramScreenState extends State<InstagramScreen>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ColoredBox(
-            color: CaptionTokens.stage,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: CaptionTokens.of(context).hairline),
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
               child: Column(
@@ -495,12 +486,18 @@ class _InstagramScreenState extends State<InstagramScreen>
                                     left: 8,
                                     bottom: 8,
                                     child: ExcludeSemantics(
-                                      child: ColoredBox(
-                                        color: CaptionTokens.stage,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: CaptionTokens.of(context)
+                                              .sheet,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                                            horizontal: 9,
+                                            vertical: 3,
                                           ),
                                           child: Text(
                                             '${photo.ordinal}',
@@ -520,24 +517,37 @@ class _InstagramScreenState extends State<InstagramScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    marked
-                        ? 'Marked posted'
-                        : handedOff
-                        ? (returned ? 'Status: still Handed off' : 'Handed off')
-                        : (returned
-                              ? 'Status: still Ready to share'
-                              : 'Ready to share'),
-                    style: Theme.of(context).textTheme.titleMedium,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ImpressionMark(
+                      label: marked
+                          ? 'Marked posted'
+                          : handedOff
+                          ? (returned
+                                ? 'Status: still Handed off'
+                                : 'Handed off')
+                          : (returned
+                                ? 'Status: still Ready to share'
+                                : 'Ready to share'),
+                      tone: marked
+                          ? ImpressionTone.user
+                          : ImpressionTone.waiting,
+                      icon: handedOff && !marked ? Icons.arrow_forward : null,
+                      time: marked && localTime.isNotEmpty ? localTime : null,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   if (marked) ...[
-                    Text(
-                      'Your confirmation at $localTime. Not verified by the app.',
+                    const Text(
+                      "Your confirmation, not verified by the app. Undo changes only this phone's record.",
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      "Undo changes only this phone's record. Nothing is changed in Instagram.",
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _undo,
+                        child: const Text('Undo my confirmation'),
+                      ),
                     ),
                   ] else if (_returnQuestion) ...[
                     Text(
@@ -556,10 +566,7 @@ class _InstagramScreenState extends State<InstagramScreen>
                           : () => setState(() => _returnQuestion = false),
                       child: const Text('Not yet'),
                     ),
-                  ] else
-                    const Text(
-                      'Nothing is on Instagram until you publish it there.',
-                    ),
+                  ],
                   if (_transferMessage != null) ...[
                     const SizedBox(height: 12),
                     Semantics(liveRegion: true, child: Text(_transferMessage!)),
@@ -568,148 +575,172 @@ class _InstagramScreenState extends State<InstagramScreen>
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '1  Copy the caption',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  package.ownCaption ? 'Own caption' : 'Shared caption',
-                  style: const TextStyle(color: CaptionTokens.secondary),
-                ),
-                const SizedBox(height: 8),
-                if (package.caption.isEmpty)
-                  const Text('No caption')
-                else
-                  SelectableText(
-                    package.caption,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: package.ownCaption
-                          ? CaptionTokens.own
-                          : CaptionTokens.text,
-                      backgroundColor: CaptionTokens.stage,
+          _steps(
+            marked,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      '1  Save photos in order',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: _busy ? null : _copy,
-                  child: Text(_copyFailed ? 'Retry copy' : 'Copy caption'),
-                ),
-                if (_copyMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(_copyMessage!),
+                  const SizedBox(height: 8),
+                  if (_checkFailed)
+                    const Text('Saved photo check unavailable')
+                  else if (_progress != null)
+                    Text('$saved of ${package.photos.length} saved')
+                  else if (!_checkFailed)
+                    const Text('Checking saved photos…'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Saved to Pictures/CrossPosting. Pick them in this numbered order; your gallery may sort them differently.',
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Semantics(liveRegion: true, child: Text(_error!)),
+                    ),
+                  if (marked || _returnQuestion || remaining == 0) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : _checkFailed
+                          ? _check
+                          : remaining == 0
+                          ? null
+                          : _save,
+                      child: Text(saveLabel),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      '2  Copy the caption',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                const SizedBox(height: 24),
-                Text(
-                  '2  Save photos in order',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (_checkFailed)
-                  const Text('Saved photo check unavailable')
-                else if (_progress != null)
-                  Text('$saved of ${package.photos.length} saved')
-                else if (!_checkFailed)
-                  const Text('Checking saved photos…'),
-                const SizedBox(height: 8),
-                const Text(
-                  'Gallery: Pictures/CrossPosting. Select the numbered photos in order; your gallery may sort them differently.',
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Semantics(liveRegion: true, child: Text(_error!)),
-                  ),
-                if (marked || _returnQuestion || remaining == 0) ...[
+                  const SizedBox(height: 8),
+                  CaptionSourceLabel(own: package.ownCaption),
+                  const SizedBox(height: 8),
+                  if (package.caption.isEmpty)
+                    const Text('No caption')
+                  else
+                    SelectableText(
+                      package.caption,
+                      style: TextStyle(
+                        fontFamily: textFace,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        height: 1.45,
+                        color: package.ownCaption
+                            ? CaptionTokens.of(context).own
+                            : CaptionTokens.of(context).text,
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : _checkFailed
-                        ? _check
-                        : remaining == 0
-                        ? null
-                        : _save,
-                    child: Text(saveLabel),
+                    onPressed: _busy ? null : _copy,
+                    child: Text(_copyFailed ? 'Retry copy' : 'Copy caption'),
                   ),
-                ],
-                const SizedBox(height: 24),
-                Text(
-                  '3  Post it in Instagram',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'New feed post, photos in order, paste the caption, check the account, publish.',
-                ),
-                if (remaining > 0 ||
-                    _checkFailed ||
-                    marked ||
-                    _returnQuestion) ...[
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _busy ? null : () => _handoff(),
-                    child: const Text('Open Instagram'),
-                  ),
-                ],
-                if (service.shareCapability.supports(
-                  package.photos.length,
-                )) ...[
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _busy ? null : () => _handoff(share: true),
-                    child: const Text('Send photos to Instagram'),
+                  if (_copyMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(_copyMessage!),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      '3  Post it in Instagram',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Copy the caption separately. Sending photos does not confirm their import or publication.',
+                    'New feed post, photos in order, paste the caption, check the account, publish.',
                   ),
+                  if (remaining > 0 ||
+                      _checkFailed ||
+                      marked ||
+                      _returnQuestion) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _handoff(),
+                      child: const Text('Open Instagram'),
+                    ),
+                  ],
+                  if (service.shareCapability.supports(
+                    package.photos.length,
+                  )) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _handoff(share: true),
+                      child: const Text('Send photos to Instagram'),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Sending photos doesn't include the caption; copy it first.",
+                    ),
+                  ],
+                  if (!marked && !_returnQuestion)
+                    TextButton(
+                      focusNode: _manualFocus,
+                      onPressed: _busy || _progress == null
+                          ? null
+                          : () => _confirm(_manualFocus),
+                      child: const Text("I've posted it"),
+                    ),
+                  const SizedBox(height: 24),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'Photo descriptions',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Saved photos don't carry descriptions; add them in Instagram.",
+                  ),
+                  for (final photo in package.photos) ...[
+                    const SizedBox(height: 16),
+                    Text('Photo ${photo.ordinal} description'),
+                    SelectableText(
+                      photo.altText.isEmpty ? 'No description' : photo.altText,
+                    ),
+                  ],
                 ],
-                if (!marked && !_returnQuestion)
-                  TextButton(
-                    focusNode: _manualFocus,
-                    onPressed: _busy || _progress == null
-                        ? null
-                        : () => _confirm(_manualFocus),
-                    child: const Text("I've posted it"),
-                  ),
-                const SizedBox(height: 24),
-                Text(
-                  'Photo descriptions',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Descriptions stay here; enter them inside Instagram if needed. Saving photos does not transfer descriptions.',
-                ),
-                for (final photo in package.photos) ...[
-                  const SizedBox(height: 16),
-                  Text('Photo ${photo.ordinal} description'),
-                  SelectableText(
-                    photo.altText.isEmpty ? 'No description' : photo.altText,
-                  ),
-                ],
-                const SizedBox(height: 24),
-                const Text(
-                  'Prepared versions stay on this device independently of the source draft. Uninstalling the app removes them.',
-                  style: TextStyle(color: CaptionTokens.secondary),
-                ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  /// Once marked, the how-to steps fold under one disclosure: the record is
+  /// the mark, the attribution and Undo. Save and copy stay inside.
+  Widget _steps(bool marked, Widget steps) => marked
+      ? Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text('How this was prepared'),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+            childrenPadding: EdgeInsets.zero,
+            children: [steps],
+          ),
+        )
+      : steps;
 
   Widget _photo(PreparedPhoto photo, int decodePixels) => FutureBuilder<File>(
     future: _files[photo.ordinal],

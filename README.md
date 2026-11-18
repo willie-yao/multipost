@@ -1,16 +1,18 @@
-# Caption for Android
+# Multipost for Android
 
-Caption is a human-operated personal posting app built with Flutter. Compose a
+Multipost (working name) is a human-operated personal posting app built with Flutter. Compose a
 shared post, choose destinations, make independent caption/media overrides and
 review each destination before taking action. Drafts and imported media stay on
-the current Android installation; there is no Caption backend to operate.
+the current Android installation; there is no Multipost backend to operate.
 
 This repository contains a local development implementation, not a public release
 or a completed three-provider MVP. Android 10 / API 29 is the provisional floor.
 X and Bluesky production connection and publishing remain unavailable, even when
 public build metadata is supplied. No live account or paid API acceptance is
-claimed. The development app name is **Caption**; the final public name and
-application ID are still release decisions.
+claimed. The visible app name is **Multipost**, a temporary working name (a basic
+search found other posting products using it; see [brand](docs/brand/README.md)).
+The final public name and application ID are still release decisions; package,
+application ID, callback and storage identifiers are intentionally unchanged.
 
 ## What works locally
 
@@ -62,11 +64,13 @@ MIT was selected on 2026-11-17. The copyright-holder name is still awaiting the
 owner's answer, so the final `LICENSE` is pending and public source release is
 blocked. Do not infer the holder from a workstation username or treat this
 selection as a completed license grant. Retain the bundled Atkinson Hyperlegible
-Next [OFL](app/assets/fonts/AtkinsonHyperlegibleNext-OFL.txt), Android
+Next [OFL](app/assets/fonts/AtkinsonHyperlegibleNext-OFL.txt), Rubik
+[OFL](app/assets/fonts/Rubik-OFL.txt), Android
 [twitter-text notice](app/android/app/src/main/assets/licenses/twitter-text-LICENSE.txt)
 and dependency notices; MIT does not replace third-party terms.
 
-`PRODUCT.md` and `docs/design/` preserve the product/design history. Native and
+`PRODUCT.md` and `docs/design/` preserve the product/design history;
+[docs/brand](docs/brand/README.md) and `DESIGN.md` describe the current identity. Native and
 host evidence lives in tracked `docs/testing/` and the compact release evidence
 record; ignored local session logs are supplementary and are not required to
 build a clean checkout. Mockup media/accounts are illustrative and are not app

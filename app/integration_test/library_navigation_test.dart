@@ -59,8 +59,8 @@ void main() {
       await tester.pumpAndSettle();
       await File(p.join(support.path, 'l5-first-run.png'))
           .writeAsBytes(await binding.takeScreenshot('l5-first-run'));
-      await tester.ensureVisible(find.text('Create a draft'));
-      await tester.tap(find.text('Create a draft'));
+      await tester.ensureVisible(find.text('New post'));
+      await tester.tap(find.text('New post'));
       await tester.pumpAndSettle();
       expect(find.text('Where should this go?'), findsOneWidget);
       expect((await services.drafts.list()).single.selected, isEmpty);

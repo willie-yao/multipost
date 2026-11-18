@@ -224,6 +224,12 @@ void main() {
         await tester.ensureVisible(find.text('Remove'));
         await tester.tap(find.text('Remove'));
         await settleEditor(tester);
+        // Remove offers Undo in a snackbar; clear it before leaving.
+        expect(find.text('Undo'), findsOneWidget);
+        tester
+            .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+            .removeCurrentSnackBar();
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Done'));
         await settleEditor(tester);
         await tester.tap(find.text('Done'));

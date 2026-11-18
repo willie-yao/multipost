@@ -1,6 +1,7 @@
 import 'package:cross_posting_app/app/app.dart';
 import 'package:cross_posting_app/design/caption_scaffold.dart';
 import 'package:cross_posting_app/design/caption_text.dart';
+import 'package:cross_posting_app/design/caption_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -178,9 +179,9 @@ void main() {
         ),
       ),
     );
-    for (final label in ['1  Choose', '2  Write', '3  Review']) {
-      expect(find.text(label).hitTestable(), findsOneWidget);
-    }
+    // At 200% text the three tabs collapse to one line.
+    expect(find.text('Step 2 of 3 · Write').hitTestable(), findsOneWidget);
+    expect(find.text('1  Choose'), findsNothing);
     expect(
       tester.getSemantics(find.bySemanticsLabel('Step 2 of 3: Write')),
       matchesSemantics(
@@ -228,38 +229,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // Cyan identifies destination-owned wording, not ordinary selection state.
-  testWidgets('ordinary selection stays neutral while own captions stay cyan', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      CaptionApp(
-        home: CaptionScaffold(
-          title: 'Caption',
-          body: Column(
-            children: [
-              ChoiceChip(
-                label: const Text('Photos'),
-                selected: true,
-                onSelected: (_) {},
-              ),
-              const CaptionText('Own wording', own: true),
-            ],
+  // Ultramarine identifies destination-owned wording, not ordinary selection.
+  testWidgets(
+    'ordinary selection stays neutral while own captions stay ultramarine',
+    (tester) async {
+      await tester.pumpWidget(
+        CaptionApp(
+          home: CaptionScaffold(
+            title: 'Caption',
+            body: Column(
+              children: [
+                ChoiceChip(
+                  label: const Text('Photos'),
+                  selected: true,
+                  onSelected: (_) {},
+                ),
+                const CaptionText('Own wording', own: true),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    final label = tester.widget<RichText>(
-      find.descendant(
-        of: find.byType(ChoiceChip),
-        matching: find.byType(RichText),
-      ),
-    );
-    expect(label.text.style?.color, const Color(0xFFF2F2EE));
-    expect(
-      tester.widget<Text>(find.text('Own wording')).textSpan?.style?.color,
-      const Color(0xFF7DD7E9),
-    );
-    expect(tester.takeException(), isNull);
-  });
+      );
+      final label = tester.widget<RichText>(
+        find.descendant(
+          of: find.byType(ChoiceChip),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(label.text.style?.color, CaptionTokens.light.onAction);
+      expect(
+        tester.widget<Text>(find.text('Own wording')).textSpan?.style?.color,
+        CaptionTokens.light.own,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
