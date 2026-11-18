@@ -33,7 +33,8 @@
         <!-- Scheme dispatch only; exact target and single-use state checked in Dart before exchange. -->
         <activity android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
             android:enabled="${captionBlueskyCallbackEnabled}"
-            android:exported="true">
+            android:exported="true"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

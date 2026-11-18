@@ -141,6 +141,10 @@ Future<void> captureNativeMatrix(
     service: app.review,
     observeOnline: () async => online,
     onConfirm: (_) async {},
+    // The same callbacks the compose flow passes, so captures show its actions.
+    onEdit: (_) async {},
+    onChangeDestinations: () async {},
+    onManageAccounts: () async {},
   );
   ResultsScreen results(String id) => ResultsScreen(
     groupId: id,

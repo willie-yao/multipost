@@ -179,6 +179,7 @@ class _MediaEditorScreenState extends State<MediaEditorScreen> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text('Removed media ${index + 1}'),
+        persist: false,
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () {

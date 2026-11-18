@@ -348,8 +348,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
             ],
             if (_online == false &&
                 widget.controller.saveState == SaveState.saved) ...[
-              ColoredBox(
-                color: CaptionTokens.of(context).raised,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: CaptionTokens.of(context).raised,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: const Padding(
                   padding: EdgeInsets.all(12),
                   child: Text(
@@ -372,12 +375,21 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 if (result.snapshot.posts.keys.any(
                   (d) => (d == Destination.instagram) == group,
                 )) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    group ? 'Prepare only' : 'Publish now',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  const SizedBox(height: 24),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      group ? 'Prepare only' : 'Publish now',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
-                  if (group) const Text('You finish it in Instagram.'),
+                  if (group)
+                    Text(
+                      'You finish it in Instagram.',
+                      style: TextStyle(
+                        color: CaptionTokens.of(context).secondary,
+                      ),
+                    ),
                   for (final post in result.snapshot.posts.values.where(
                     (post) =>
                         (post.destination == Destination.instagram) == group,
@@ -385,22 +397,25 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     _destination(post, result),
                 ],
             ],
+            const SizedBox(height: 24),
+            const Divider(height: 1),
             const SizedBox(height: 16),
             Wrap(
-              spacing: 12,
+              spacing: 8,
               runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                if (widget.onEdit != null)
+                  OutlinedButton(
+                    onPressed: _blocked ? null : () => _edit(null),
+                    child: const Text('Edit shared caption'),
+                  ),
                 TextButton(
                   onPressed: _blocked
                       ? null
                       : () => _requestReview(clearNotice: true),
                   child: const Text('Review again'),
                 ),
-                if (widget.onEdit != null)
-                  TextButton(
-                    onPressed: _blocked ? null : () => _edit(null),
-                    child: const Text('Edit shared caption'),
-                  ),
                 if (widget.onManageAccounts != null)
                   TextButton(
                     onPressed: _blocked
@@ -460,114 +475,144 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final instagramVideo = issues.any(
       (issue) => issue.code == 'instagram-photos-only',
     );
-    return Column(
+    final name = destinationName(destination);
+    final tokens = CaptionTokens.of(context);
+    return Padding(
       key: ValueKey('review-${destination.name}'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Divider(height: 32),
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              destinationName(destination),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (post.account != null)
-              Text(
-                post.account!.handle,
-                style: TextStyle(color: CaptionTokens.of(context).secondary),
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(
+                  name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: _readinessMark(destination, issues),
-        ),
-        const SizedBox(height: 12),
-        CaptionSourceLabel(own: post.ownCaption),
-        const SizedBox(height: 6),
-        if (post.content.text.isEmpty)
-          const Text('No caption')
-        else
-          _ReviewCaption(text: post.content.text, own: post.ownCaption),
-        const SizedBox(height: 12),
-        MediaSourceLabel(ownCount: version?.ownMedia?.length),
-        const SizedBox(height: 6),
-        if (post.content.media.isEmpty)
-          const Text('No media')
-        else ...[
-          MediaStrip(items: post.content.media, media: widget.service.media),
-          for (var index = 0; index < post.content.media.length; index++)
+              _readinessMark(destination, issues),
+            ],
+          ),
+          if (post.account != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '${index + 1} · ${post.content.media[index].altText.isEmpty ? 'No description' : post.content.media[index].altText}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: CaptionTokens.of(context).secondary,
+                post.account!.handle,
+                style: TextStyle(color: tokens.secondary),
+              ),
+            ),
+          const SizedBox(height: 12),
+          PostSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CaptionSourceLabel(own: post.ownCaption),
+                const SizedBox(height: 6),
+                if (post.content.text.isEmpty)
+                  const Text('No caption')
+                else
+                  _ReviewCaption(text: post.content.text, own: post.ownCaption),
+                const SizedBox(height: 16),
+                MediaSourceLabel(ownCount: version?.ownMedia?.length),
+                const SizedBox(height: 6),
+                if (post.content.media.isEmpty)
+                  const Text('No media')
+                else ...[
+                  MediaStrip(
+                    items: post.content.media,
+                    media: widget.service.media,
+                  ),
+                  for (
+                    var index = 0;
+                    index < post.content.media.length;
+                    index++
+                  )
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${index + 1} · ${post.content.media[index].altText.isEmpty ? 'No description' : post.content.media[index].altText}',
+                        style: TextStyle(fontSize: 14, color: tokens.secondary),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          if (issues.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: tokens.raised,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final issue in issues)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(issue.message),
+                      ),
+                    if ((expired || connectionNeeded) &&
+                            widget.onManageAccounts != null ||
+                        instagramVideo && widget.onEdit != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            if ((expired || connectionNeeded) &&
+                                widget.onManageAccounts != null)
+                              OutlinedButton(
+                                onPressed: _blocked
+                                    ? null
+                                    : () => _navigate(widget.onManageAccounts!),
+                                child: Text(expired ? 'Reconnect' : 'Connect'),
+                              ),
+                            if (instagramVideo && widget.onEdit != null)
+                              OutlinedButton(
+                                onPressed: _blocked
+                                    ? null
+                                    : () => _edit(Destination.instagram),
+                                child: const Text(
+                                  'Choose own photos for Instagram',
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-        ],
-        if (issues.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          ColoredBox(
-            color: CaptionTokens.of(context).raised,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final issue in issues)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(issue.message),
-                    ),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      if ((expired || connectionNeeded) &&
-                          widget.onManageAccounts != null)
-                        OutlinedButton(
-                          onPressed: _blocked
-                              ? null
-                              : () => _navigate(widget.onManageAccounts!),
-                          child: Text(expired ? 'Reconnect' : 'Connect'),
-                        ),
-                      if (instagramVideo && widget.onEdit != null)
-                        OutlinedButton(
-                          onPressed: _blocked
-                              ? null
-                              : () => _edit(Destination.instagram),
-                          child: const Text('Choose own photos for Instagram'),
-                        ),
-                    ],
-                  ),
-                ],
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (widget.onEdit != null)
+                OutlinedButton(
+                  onPressed: _blocked ? null : () => _edit(destination),
+                  child: Text('Edit $name version'),
+                ),
+              TextButton(
+                onPressed: _blocked ? null : () => _leaveOut(destination),
+                child: Text('Leave $name out'),
               ),
-            ),
+            ],
           ),
         ],
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: _blocked ? null : () => _leaveOut(destination),
-            child: Text('Leave ${destinationName(destination)} out'),
-          ),
-        ),
-        if (widget.onEdit != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _blocked ? null : () => _edit(destination),
-              child: Text('Edit ${destinationName(destination)} version'),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
@@ -588,6 +633,21 @@ String issueLabel(String code) => switch (code) {
   'connectivity-unverified' => 'Connection not checked',
   'validation-unavailable' => "Couldn't check requirements",
   'requirements-unverified' => "Couldn't check the text",
+  'text-too-long' || 'text-bytes-too-large' => 'Caption too long',
+  'text-invalid' => "Caption can't be sent",
+  'text-unavailable' => 'Text not supported',
+  'photo-count' || 'instagram-photo-count' => 'Too many photos',
+  'photo-bytes-too-large' => 'Photo too large',
+  'video-bytes-too-large' => 'Video too large',
+  'video-duration-too-long' => 'Video too long',
+  'media-dimensions' || 'media-aspect' => 'Media size not supported',
+  'mime-unavailable' ||
+  'photos-unavailable' ||
+  'video-unavailable' ||
+  'instagram-local-format' => 'Media not supported',
+  'media-metadata-unavailable' ||
+  'instagram-media-unavailable' => "Couldn't check media",
+  'alt-text-too-long' => 'Description too long',
   _ => 'Needs checking',
 };
 

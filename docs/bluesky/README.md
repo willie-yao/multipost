@@ -3,7 +3,7 @@
 Two build switches, both off by default:
 
 - `BLUESKY_DEV_CONNECT=true` lets you **sign in** to Bluesky.
-- `BLUESKY_DEV_POST=true` (needs the first) treats Bluesky's documented **text and photo** limits as accepted, so Review can publish: up to 300 characters and 4 JPEG/PNG photos. **Video stays blocked.** Nothing is sent until you press Publish in Review, and an interrupted send becomes "Unknown" with no automatic resend.
+- `BLUESKY_DEV_POST=true` (needs the first) treats Bluesky's documented **text and photo** limits as accepted, so Review can publish: up to 300 characters and 4 JPEG/PNG photos. Bluesky accepts photos up to 2 MB, so a larger photo is sent as a smaller JPEG copy (long edge 2000 px or less, no metadata); Review notes this, and the photo on your device is unchanged. **Video stays blocked.** Nothing is sent until you press Publish in Review, and an interrupted send becomes "Unknown" with no automatic resend.
 
 Ordinary builds without these switches keep Bluesky unavailable.
 
@@ -47,4 +47,5 @@ Install it on an emulator or phone, then open **Accounts → Connect Bluesky**. 
 
 - **Supported accounts:** only accounts hosted by Bluesky (`did:plc` on `bsky.social`). Self-hosted servers and `did:web` accounts get a named "unsupported" message.
 - **Permissions:** the scopes include image and video upload and reading your account email. The email is read only to check the video upload prerequisite, which this build doesn't use because video is blocked.
+- **Sign-in return:** the callback activity uses `android:taskAffinity=""` (as the sign-in plugin requires) so the sign-in tab closes when Bluesky redirects back.
 - **Verified on a real phone (2026-11-18):** sign-in. **Not yet verified:** a real post, cancel, return after the app is closed, two-factor login, token refresh.

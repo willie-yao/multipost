@@ -52,11 +52,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _load();
   }
 
+  /// Keeps the current list on screen while it refreshes, so a reload after
+  /// a delete or a return from compose never blanks the page.
   Future<void> _load() async {
-    setState(() {
-      _drafts = null;
-      _error = null;
-    });
+    setState(() => _error = null);
     try {
       await widget.services.refreshPicker();
       final repository = LibraryRepository(
@@ -183,11 +182,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
         widget.services.clock.now(),
       );
       if (!mounted) return;
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      setState(
+        () => _drafts = _drafts?.where((d) => d.id != draft.id).toList(),
+      );
+      final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Draft deleted'),
+          persist: false,
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () async {
@@ -201,6 +203,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
       );
+      await _load();
     } catch (error) {
       if (mounted) setState(() => _error = error);
     }

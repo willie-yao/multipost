@@ -210,6 +210,7 @@ ThemeData captionTheme([Brightness brightness = Brightness.light]) {
         color: t.ground,
       ),
       actionTextColor: t.ground,
+      behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
     textSelectionTheme: TextSelectionThemeData(

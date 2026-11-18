@@ -128,19 +128,32 @@ class BlueskyValidator implements DestinationValidator {
   @override
   String get version => _base.version;
   @override
-  Future<List<ReviewIssue>> validate(ResolvedPost post) async => [
-    ...await _base.validate(post),
-    if (BlueskyText(
-      post.content.text,
-      enableMarkdown: false,
-    ).handles.isNotEmpty)
-      ReviewIssue(
-        destination: Destination.bluesky,
-        code: 'mentions-resolved-at-publication',
-        blocking: false,
-        message: 'Mentions are resolved when publishing. Any handle that cannot be found stays plain text without a mention notification.',
-      ),
-  ];
+  Future<List<ReviewIssue>> validate(ResolvedPost post) async {
+    final base = await _base.validate(post);
+    // Large photos are sent as a smaller copy (see bluesky_photo.dart), so
+    // the 2 MB blob limit is a note, not a blocker.
+    final fitted = base.any((i) => i.code == 'photo-bytes-too-large');
+    return [
+      ...base.where((i) => i.code != 'photo-bytes-too-large'),
+      if (fitted)
+        ReviewIssue(
+          destination: Destination.bluesky,
+          code: 'photo-sent-smaller',
+          blocking: false,
+          message: 'Bluesky accepts photos up to 2 MB, so it gets a smaller copy of larger photos. Your original stays on this device.',
+        ),
+      if (BlueskyText(
+        post.content.text,
+        enableMarkdown: false,
+      ).handles.isNotEmpty)
+        ReviewIssue(
+          destination: Destination.bluesky,
+          code: 'mentions-resolved-at-publication',
+          blocking: false,
+          message: 'Mentions are resolved when publishing. Any handle that cannot be found stays plain text without a mention notification.',
+        ),
+    ];
+  }
 }
 
 class CapabilityValidator implements DestinationValidator {

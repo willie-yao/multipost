@@ -20,6 +20,7 @@ import '../accounts/credential_vault.dart';
 import '../drafts/draft.dart';
 import '../publishing/attempt.dart';
 import '../review/review.dart';
+import 'bluesky_photo.dart';
 import '../review/review_service.dart';
 import 'capabilities.dart';
 import 'provider.dart';
@@ -220,12 +221,18 @@ class BlueskyPublisher implements PublishProvider {
             blobs[asset.id] = job.blob!;
             continue;
           }
+          final fitted = await fitPhotoForBluesky(
+            files[asset.id]!.path,
+            asset.mimeType,
+            capabilities.maxPhotoBytes,
+          );
           final receipt = await client.atproto.repo.uploadBlob(
-            bytes: await files[asset.id]!.readAsBytes(),
-            $headers: {'Content-Type': asset.mimeType},
+            bytes: fitted.bytes,
+            $headers: {'Content-Type': fitted.mimeType},
           );
           final blob = receipt.data.blob;
-          if (blob.mimeType != asset.mimeType || blob.size != asset.bytes) {
+          if (blob.mimeType != fitted.mimeType ||
+              blob.size != fitted.bytes.length) {
             throw const FormatException('Upload receipt mismatch');
           }
           blobs[asset.id] = blob;

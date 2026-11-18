@@ -233,6 +233,49 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Delete keeps the list steady and its Undo notice clears the New post bar',
+    (tester) async {
+      final services = (await tester.runAsync(localTestServices))!;
+      addTearDown(services.close);
+      for (final (id, text) in [('one', 'First draft'), ('two', 'Second')]) {
+        await tester.runAsync(
+          () => services.drafts.save(
+            Draft(
+              id: id,
+              updatedAt: DateTime.utc(2026, 11, 16),
+              shared: PostContent(text: text),
+            ),
+            expectedRevision: -1,
+          ),
+        );
+      }
+      await tester.pumpWidget(
+        CaptionApp(home: LibraryScreen(services: services)),
+      );
+      await settleStorage(tester);
+      await tester.tap(find.byTooltip('Delete draft').first);
+      // Every frame of the reload keeps the remaining draft on screen.
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byTooltip('Delete draft'), findsOneWidget);
+      }
+      await settleStorage(tester);
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.persist, isFalse);
+      final notice = tester.getRect(find.byType(SnackBar));
+      final newPost = tester.getRect(
+        find.ancestor(
+          of: find.text('New post'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(notice.bottom, lessThanOrEqualTo(newPost.top));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('load failure shows Retry and leaves corrupt saved data intact', (
     tester,
   ) async {

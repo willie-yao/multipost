@@ -343,6 +343,7 @@ class _InstagramScreenState extends State<InstagramScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Instagram marked as posted.'),
+            persist: false,
             action: SnackBarAction(
               label: 'Undo',
               onPressed: () => unawaited(_undo()),

@@ -107,8 +107,18 @@ class CaptionScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              if (primaryAction != null)
-                DecoratedBox(
+            ],
+          ),
+        ),
+        // The bottom slot is the Scaffold's bottom bar so snackbars stack above
+        // it instead of covering it; the inset keeps it above the keyboard.
+        bottomNavigationBar: primaryAction == null
+            ? null
+            : Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: t.ground,
                     border: Border(top: BorderSide(color: t.hairline)),
@@ -124,9 +134,7 @@ class CaptionScaffold extends StatelessWidget {
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
       ),
     );
   }
