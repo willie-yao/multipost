@@ -49,6 +49,7 @@ class AppServices {
     this.connections = const {},
     Map<Destination, PublishProvider> publishProviders = const {},
     this.publishingOnline,
+    this.blueskyDevAccepted = false,
   }) : publishProviders = Map.unmodifiable(publishProviders),
        pickerImports = PickerImports(media, ids);
   final LocalDatabase database;
@@ -58,6 +59,9 @@ class AppServices {
   final Map<Destination, AccountConnection> connections;
   final Map<Destination, PublishProvider> publishProviders;
   final FutureOr<bool?> Function()? publishingOnline;
+
+  /// Development builds only: Bluesky text/photo posting is accepted.
+  final bool blueskyDevAccepted;
   final Clock clock;
   final Ids ids;
   final PickerImports pickerImports;
@@ -66,6 +70,7 @@ class AppServices {
   late final instagramRepo = InstagramRepository(database);
   late final validators = CapabilityRegistry.production(
     instagram: instagramPolicy,
+    blueskyDevAccepted: blueskyDevAccepted,
   );
   late final review = ReviewService(drafts, media, accounts, validators, clock);
   late final instagram = InstagramService(
@@ -130,6 +135,7 @@ class AppServices {
     );
     return AppServices(
       publishingOnline: const PublishingBoundary().online,
+      blueskyDevAccepted: configuration.blueskyPostingAccepted,
       publishProviders: {
         Destination.x: XPublisher(
           connection: x,
@@ -141,7 +147,10 @@ class AppServices {
         Destination.bluesky: BlueskyPublisher(
           connection: bluesky,
           media: media,
-          capabilities: ProviderCapabilities.documented(Destination.bluesky),
+          capabilities: ProviderCapabilities.documented(
+            Destination.bluesky,
+            devAccepted: configuration.blueskyPostingAccepted,
+          ),
         ),
       },
       connections: {Destination.x: x, Destination.bluesky: bluesky},

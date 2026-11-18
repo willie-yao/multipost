@@ -8,6 +8,7 @@ class AppConfiguration {
     required this.blueskyMetadataUri,
     required this.blueskyCallbackScheme,
     this.blueskyDevConnect = false,
+    this.blueskyDevPost = false,
   });
   final String xClientId;
   final Uri xRedirectUri;
@@ -20,6 +21,16 @@ class AppConfiguration {
   /// is accepted, so connecting never sends anything.
   final bool blueskyDevConnect;
 
+  /// Personal development builds only (`--dart-define=BLUESKY_DEV_POST=true`,
+  /// together with BLUESKY_DEV_CONNECT): treats Bluesky's documented text and
+  /// photo limits as accepted so Review can publish. Video stays unavailable.
+  /// Every post still needs the person's explicit Publish in Review.
+  final bool blueskyDevPost;
+
+  /// Posting needs sign-in to be open as well.
+  bool get blueskyPostingAccepted =>
+      blueskyDevPost && connection(Destination.bluesky).available;
+
   factory AppConfiguration.fromEnvironment() => AppConfiguration(
     xClientId: const String.fromEnvironment('X_CLIENT_ID'),
     xRedirectUri: _uri(const String.fromEnvironment('X_REDIRECT_URI')),
@@ -30,6 +41,7 @@ class AppConfiguration {
       'BLUESKY_CALLBACK_SCHEME',
     ),
     blueskyDevConnect: const bool.fromEnvironment('BLUESKY_DEV_CONNECT'),
+    blueskyDevPost: const bool.fromEnvironment('BLUESKY_DEV_POST'),
   );
 
   Uri get blueskyRedirectUri =>

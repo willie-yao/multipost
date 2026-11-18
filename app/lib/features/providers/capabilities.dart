@@ -53,14 +53,24 @@ class ProviderCapabilities {
 
   /// Documentary snapshots only: official counting, OAuth, account entitlements
   /// and native round trips are not accepted. Never attach a fixture counter.
-  factory ProviderCapabilities.documented(Destination destination) {
+  /// [devAccepted] marks Bluesky's documented text/photo profile as current
+  /// for a personal development build; video stays off either way.
+  factory ProviderCapabilities.documented(
+    Destination destination, {
+    bool devAccepted = false,
+  }) {
     if (destination == Destination.instagram) {
       throw ArgumentError('Instagram uses its independent photo policy.');
     }
     final x = destination == Destination.x;
+    final accepted = devAccepted && !x;
     return ProviderCapabilities(
       destination: destination,
-      version: '${x ? 'x-docs' : 'bsky-lexicons'}-2026-11-16;unavailable-1',
+      status: accepted
+          ? CapabilityStatus.current
+          : CapabilityStatus.unavailable,
+      version:
+          '${x ? 'x-docs' : 'bsky-lexicons'}-2026-11-16;${accepted ? 'dev-accepted-1' : 'unavailable-1'}',
       verifiedAt: DateTime.utc(2026, 11, 16),
       text: true,
       photos: true,
@@ -335,10 +345,14 @@ class CapabilityRegistry implements ValidatorRegistry {
 
   factory CapabilityRegistry.production({
     required DestinationValidator instagram,
+    bool blueskyDevAccepted = false,
   }) => CapabilityRegistry({
     Destination.instagram: instagram,
     Destination.bluesky: BlueskyValidator(
-      ProviderCapabilities.documented(Destination.bluesky),
+      ProviderCapabilities.documented(
+        Destination.bluesky,
+        devAccepted: blueskyDevAccepted,
+      ),
     ),
     Destination.x: CapabilityValidator(
       ProviderCapabilities.documented(Destination.x),

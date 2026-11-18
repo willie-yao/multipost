@@ -1,6 +1,11 @@
-# Bluesky sign-in for a personal development build
+# Bluesky for a personal development build
 
-This build lets you **sign in** to Bluesky to test the connection. **Posting to Bluesky stays off.** Review still blocks sending, because Bluesky's posting rules are marked unverified in this build. Connecting never sends anything.
+Two build switches, both off by default:
+
+- `BLUESKY_DEV_CONNECT=true` lets you **sign in** to Bluesky.
+- `BLUESKY_DEV_POST=true` (needs the first) treats Bluesky's documented **text and photo** limits as accepted, so Review can publish: up to 300 characters and 4 JPEG/PNG photos. **Video stays blocked.** Nothing is sent until you press Publish in Review, and an interrupted send becomes "Unknown" with no automatic resend.
+
+Ordinary builds without these switches keep Bluesky unavailable.
 
 ## What gets published
 
@@ -31,7 +36,7 @@ The files to host are in [`pages/`](pages/): `client-metadata.json` and a one-li
 From `app/`:
 
 ```bash
-flutter build apk --debug --dart-define=BLUESKY_METADATA_URI=https://willie-yao.github.io/multipost/client-metadata.json --dart-define=BLUESKY_CALLBACK_SCHEME=io.github.willie-yao --dart-define=BLUESKY_DEV_CONNECT=true
+flutter build apk --debug --dart-define=BLUESKY_METADATA_URI=https://willie-yao.github.io/multipost/client-metadata.json --dart-define=BLUESKY_CALLBACK_SCHEME=io.github.willie-yao --dart-define=BLUESKY_DEV_CONNECT=true --dart-define=BLUESKY_DEV_POST=true
 ```
 
 Ordinary builds without these values leave Bluesky unavailable.
@@ -41,5 +46,5 @@ Install it on an emulator or phone, then open **Accounts → Connect Bluesky**. 
 ## Limits
 
 - **Supported accounts:** only accounts hosted by Bluesky (`did:plc` on `bsky.social`). Self-hosted servers and `did:web` accounts get a named "unsupported" message.
-- **Permissions:** the scopes include image and video upload and reading your account email. The email is read only to check the video upload prerequisite. These match the publishing code, but none of them is used while posting is off.
-- **Not yet verified on a real phone:** sign-in, cancel, return after the app is closed, two-factor login, and token refresh.
+- **Permissions:** the scopes include image and video upload and reading your account email. The email is read only to check the video upload prerequisite, which this build doesn't use because video is blocked.
+- **Verified on a real phone (2026-11-18):** sign-in. **Not yet verified:** a real post, cancel, return after the app is closed, two-factor login, token refresh.
