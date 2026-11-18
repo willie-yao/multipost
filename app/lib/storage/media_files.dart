@@ -21,6 +21,12 @@ class MediaFileException implements Exception {
   String toString() => message;
 }
 
+/// The picked file itself cannot be used (unreadable, unsupported or over the
+/// local budget). Retrying the same file never helps, so nothing is kept.
+class MediaRejectedException extends MediaFileException {
+  const MediaRejectedException(super.message);
+}
+
 class MediaFiles {
   MediaFiles(this.database, this.root, this.ids);
 
@@ -101,7 +107,7 @@ class MediaFiles {
         expectedSha256: expectedSha256,
       );
     } on MediaProbeException catch (error) {
-      throw MediaFileException(error.message);
+      throw MediaRejectedException(error.message);
     } on FileSystemException {
       throw const MediaFileException(
         'The media could not be copied. Keep your draft and try again or replace it.',

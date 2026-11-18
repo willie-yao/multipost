@@ -586,7 +586,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'Posting to X and Bluesky isn\'t available in this build. You finish Instagram posts in Instagram.',
+                      widget.services.blueskyDevAccepted
+                          ? "Posting to X isn't available in this build. You finish Instagram posts in Instagram."
+                          : "Posting to X and Bluesky isn't available in this build. You finish Instagram posts in Instagram.",
                       style: TextStyle(color: t.secondary),
                     ),
                   ] else ...[

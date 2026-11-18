@@ -15,18 +15,47 @@ class MediaProbeException implements Exception {
 const maxPhotoEncodedBytes = 32 * 1024 * 1024;
 const maxPhotoPixels = 24 * 1000 * 1000;
 
+/// Android's own decoder for photos and video metadata (MediaProbe.kt).
+const mediaProbeChannel = MethodChannel('org.example.crossposting/media_probe');
+
+/// Shown when a picked photo cannot be used at all. Nothing is kept.
+const unreadablePhotoMessage =
+    "This photo can't be read. Choose a different one.";
+
 class MediaProbe {
-  static const _channel = MethodChannel('org.example.crossposting/media_probe');
+  static const _channel = mediaProbeChannel;
 
   Future<({int width, int height, int? durationMs})> inspect(
     String path,
     String mimeType,
   ) async {
     if (mimeType.startsWith('image/')) {
-      return Isolate.run(() {
-        final image = decodePhoto(path, mimeType);
-        return (width: image.width, height: image.height, durationMs: null);
-      });
+      if (await File(path).length() > maxPhotoEncodedBytes) {
+        throw const MediaProbeException(
+          'This photo is larger than 32 MB. Choose a smaller one.',
+        );
+      }
+      if (!Platform.isAndroid) {
+        // Host tests and non-Android builds: the bundled decoder.
+        return Isolate.run(() {
+          final image = decodePhoto(path, mimeType);
+          return (width: image.width, height: image.height, durationMs: null);
+        });
+      }
+      try {
+        final result = await _channel.invokeMapMethod<String, dynamic>(
+          'inspectPhoto',
+          {'path': path, 'mimeType': mimeType},
+        );
+        final width = result?['width'];
+        final height = result?['height'];
+        if (width is! int || height is! int || width <= 0 || height <= 0) {
+          throw const MediaProbeException(unreadablePhotoMessage);
+        }
+        return (width: width, height: height, durationMs: null);
+      } on PlatformException {
+        throw const MediaProbeException(unreadablePhotoMessage);
+      }
     }
     try {
       final result = await _channel.invokeMapMethod<String, dynamic>(

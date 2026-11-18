@@ -139,6 +139,9 @@ class _WriteScreenState extends State<WriteScreen> {
           _mediaError = 'Media could not be attached. Keep this editor open to repair or retry saving. Pending selections can be recovered in Your posts.';
         });
       }
+    } on MediaRejectedException catch (error) {
+      // The selection was closed; choosing another photo works right away.
+      if (mounted) setState(() => _mediaError = error.message);
     } catch (error) {
       if (mounted) {
         setState(() {

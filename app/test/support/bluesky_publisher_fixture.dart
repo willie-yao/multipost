@@ -139,6 +139,20 @@ class BlueskyPublisherHarness {
       if (path == '/xrpc/com.atproto.repo.uploadBlob') {
         uploads++;
         phases.add('upload');
+        // Like the real PDS: the blob:image/* grant only covers uploads
+        // declared as images; anything else needs blob:*/*.
+        if (!(request.headers['content-type'] ?? '').startsWith('image/') &&
+            !(request.headers['content-type'] ?? '').startsWith('video/')) {
+          return account.json(
+            {
+              'error': 'ScopeMissingError',
+              'message': 'Missing required scope "blob:*/*"',
+            },
+            status: 403,
+            signed: true,
+            path: path,
+          );
+        }
         return account.json(
           denyUpload
               ? {'error': 'BlobTooLarge'}

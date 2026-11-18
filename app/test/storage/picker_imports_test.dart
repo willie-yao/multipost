@@ -259,7 +259,7 @@ void main() {
   );
 
   test(
-    'failure after first item journals it and does not claim complete',
+    'an unreadable item closes the batch without claiming it complete',
     () async {
       final good = await fixture.photo('a.png');
       final bad = File('${fixture.directory.path}/bad.png');
@@ -270,19 +270,16 @@ void main() {
       );
       await expectLater(
         imports().complete(operation.id, [good, XFile(bad.path)]),
-        throwsA(isA<MediaFileException>()),
+        throwsA(isA<MediaRejectedException>()),
       );
       await fixture.reopen();
-      final partial = (await imports().unresolved())!;
-      expect(partial.isComplete, isFalse);
-      expect(partial.assets, hasLength(1));
-      final originalId = partial.assets.single.id;
-      await expectLater(
-        imports().complete(operation.id, [good, XFile(bad.path)]),
-        throwsA(isA<MediaFileException>()),
-      );
-      expect((await imports().unresolved())!.assets.single.id, originalId);
-      expect(await fixture.database.db.query('assets'), hasLength(1));
+      // Nothing is pending, so the picker is not blocked after a restart.
+      expect(await imports().unresolved(), isNull);
+      final closed = await imports().cancel(operation.id);
+      expect(closed.cancelled, isTrue);
+      expect(closed.isComplete, isFalse);
+      // The readable item's private copy is kept; nothing was attached.
+      expect(closed.assets, hasLength(1));
       await expectLater(
         imports().acknowledge(operation.id),
         throwsA(isA<MediaFileException>()),
@@ -317,6 +314,26 @@ void main() {
       expect(retried!.assets, hasLength(1));
       expect(retried.isComplete, isTrue);
       expect(await fixture.database.db.query('assets'), hasLength(1));
+    },
+  );
+
+  test(
+    'an unreadable photo closes its selection so picking works again',
+    () async {
+      final bad = File('${fixture.directory.path}/bad.png');
+      await bad.writeAsBytes([137, 80, 78, 71, 13, 10, 26, 10]);
+      final operation = await imports().begin(
+        draftId: 'draft',
+        draftRevision: 1,
+      );
+      await expectLater(
+        imports().complete(operation.id, [XFile(bad.path)]),
+        throwsA(isA<MediaRejectedException>()),
+      );
+      expect(await imports().unresolved(), isNull);
+      // The next selection, in this draft or any other, is not blocked.
+      final next = await imports().begin(draftId: 'other', draftRevision: 1);
+      expect(next.draftId, 'other');
     },
   );
 

@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../media/media_probe.dart';
@@ -27,7 +27,25 @@ Future<FittedPhoto> fitPhotoForBluesky(
   if (await file.length() <= maxBytes) {
     return FittedPhoto(await file.readAsBytes(), mimeType);
   }
-  return Isolate.run(() => fitPhotoSync(path, mimeType, maxBytes));
+  if (!Platform.isAndroid) {
+    return Isolate.run(() => fitPhotoSync(path, mimeType, maxBytes));
+  }
+  try {
+    // Android's decoder samples large camera files instead of decoding them
+    // at full size, and reads formats the bundled decoder cannot.
+    final bytes = await mediaProbeChannel.invokeMethod<Uint8List>('fitPhoto', {
+      'path': path,
+      'mimeType': mimeType,
+      'maxBytes': maxBytes,
+      'maxEdge': 2000,
+    });
+    if (bytes == null || bytes.isEmpty || bytes.length > maxBytes) {
+      throw const MediaProbeException(unreadablePhotoMessage);
+    }
+    return FittedPhoto(bytes, 'image/jpeg');
+  } on PlatformException {
+    throw const MediaProbeException(unreadablePhotoMessage);
+  }
 }
 
 /// Runs only in a worker isolate.

@@ -97,6 +97,7 @@ flutter {
 
 dependencies {
     implementation("net.openid:appauth:0.11.1")
+    implementation("androidx.browser:browser:1.9.0")
     implementation("com.twitter.twittertext:twitter-text:3.1.0")
     testImplementation("junit:junit:4.13.2")
 }

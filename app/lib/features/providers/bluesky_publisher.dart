@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:atproto_core/atproto_core.dart';
 import 'package:at_primitives/tid.dart' show isValidTid;
 import 'package:bluesky/app_bsky_embed_images.dart';
@@ -228,7 +230,10 @@ class BlueskyPublisher implements PublishProvider {
           );
           final receipt = await client.atproto.repo.uploadBlob(
             bytes: fitted.bytes,
-            $headers: {'Content-Type': fitted.mimeType},
+            // Exactly the SDK's key: its own 'Content-type: */*' default
+            // would otherwise win the case-insensitive merge, and */* needs a
+            // blob:*/* grant this app does not request.
+            $headers: {'Content-type': fitted.mimeType},
           );
           final blob = receipt.data.blob;
           if (blob.mimeType != fitted.mimeType ||
@@ -307,6 +312,12 @@ class BlueskyPublisher implements PublishProvider {
     } on XRPCException catch (error) {
       final code = error.response.data.error;
       final status = error.response.status.code;
+      // Debug builds only: the provider's own error, never tokens or content.
+      if (kDebugMode) {
+        debugPrint(
+          'Bluesky ${phase.name}: HTTP $status $code ${error.response.data.message}',
+        );
+      }
       final definitive =
           const {
             'InvalidSwap': 400,
@@ -330,7 +341,8 @@ class BlueskyPublisher implements PublishProvider {
             ? error.response.rateLimit.resetAt
             : null,
       );
-    } catch (_) {
+    } catch (error) {
+      if (kDebugMode) debugPrint('Bluesky ${phase.name}: ${error.runtimeType}');
       return phase == ProviderFailurePhase.beforeCreate
           ? _outcome(
               PublishStatus.notPublished,

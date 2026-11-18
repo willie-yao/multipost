@@ -346,22 +346,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
               Text(widget.contextNotice!),
               const SizedBox(height: 12),
             ],
-            if (_online == false &&
-                widget.controller.saveState == SaveState.saved) ...[
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: CaptionTokens.of(context).raised,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    "You're offline. Review again when connected; nothing sends automatically.",
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
             if (_notice != null) ...[
               Semantics(liveRegion: true, child: Text(_notice!)),
               const SizedBox(height: 8),
@@ -468,6 +452,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final issues = result.issues
         .where((issue) => issue.destination == destination)
         .toList();
+    // Offline is said by the mark and the footer; no extra note.
+    final notes = issues
+        .where(
+          (i) => i.code != 'offline' && i.code != 'connectivity-unverified',
+        )
+        .toList();
     final expired = issues.any((issue) => issue.code == 'connection-expired');
     final connectionNeeded = issues.any(
       (issue) => issue.code == 'connection-needed',
@@ -543,7 +533,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ],
             ),
           ),
-          if (issues.isNotEmpty) ...[
+          if (notes.isNotEmpty) ...[
             const SizedBox(height: 8),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -555,7 +545,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final issue in issues)
+                    for (final issue in notes)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(issue.message),

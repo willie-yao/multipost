@@ -40,25 +40,21 @@ void main() {
     expect(fitted.bytes, file.readAsBytesSync());
   });
 
-  test(
-    'a large phone photo becomes a smaller JPEG within the limit',
-    () async {
-      final file = noisePng(2400, 1800);
-      expect(file.lengthSync(), greaterThan(2000000));
-      final fitted = await fitPhotoForBluesky(file.path, 'image/png', 2000000);
-      expect(fitted.mimeType, 'image/jpeg');
-      expect(fitted.bytes.length, lessThanOrEqualTo(2000000));
-      final decoded = img.decodeJpg(fitted.bytes)!;
-      expect(max(decoded.width, decoded.height), lessThanOrEqualTo(2000));
-      expect(decoded.width / decoded.height, closeTo(2400 / 1800, 0.01));
-      // Retries upload identical bytes.
-      final again = await fitPhotoForBluesky(file.path, 'image/png', 2000000);
-      expect(again.bytes, fitted.bytes);
-      // The reviewed file on the device is untouched.
-      expect(file.lengthSync(), greaterThan(2000000));
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+  test('a large phone photo becomes a smaller JPEG within the limit', () async {
+    final file = noisePng(2400, 1800);
+    expect(file.lengthSync(), greaterThan(2000000));
+    final fitted = await fitPhotoForBluesky(file.path, 'image/png', 2000000);
+    expect(fitted.mimeType, 'image/jpeg');
+    expect(fitted.bytes.length, lessThanOrEqualTo(2000000));
+    final decoded = img.decodeJpg(fitted.bytes)!;
+    expect(max(decoded.width, decoded.height), lessThanOrEqualTo(2000));
+    expect(decoded.width / decoded.height, closeTo(2400 / 1800, 0.01));
+    // Retries upload identical bytes.
+    final again = await fitPhotoForBluesky(file.path, 'image/png', 2000000);
+    expect(again.bytes, fitted.bytes);
+    // The reviewed file on the device is untouched.
+    expect(file.lengthSync(), greaterThan(2000000));
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('transparent areas are flattened onto white, not black', () {
     final file = noisePng(64, 64, alpha: true);
@@ -69,7 +65,7 @@ void main() {
     expect(pixel.b, greaterThan(240));
   });
 
-  test('Review notes, but does not block, a photo over 2 MB', () async {
+  test('Review does not block or annotate a photo over 2 MB', () async {
     final validator = BlueskyValidator(
       ProviderCapabilities.documented(Destination.bluesky, devAccepted: true),
     );
@@ -80,14 +76,12 @@ void main() {
         ],
       ),
     );
-    expect(issues.where((i) => i.blocking), isEmpty);
-    expect(issues.map((i) => i.code), ['photo-sent-smaller']);
+    expect(issues, isEmpty);
   });
 
   test('the sign-in return opens in the app task so the tab closes', () {
-    final manifest = File(
-      'android/app/src/main/AndroidManifest.xml',
-    ).readAsStringSync();
+    final manifest = File('android/app/src/main/AndroidManifest.xml')
+        .readAsStringSync();
     final callback = RegExp(
       r'<activity android:name="com\.linusu\.flutter_web_auth_2\.CallbackActivity"[^>]*>',
     ).firstMatch(manifest)!.group(0)!;

@@ -1,10 +1,13 @@
 package org.example.crossposting
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
+import android.os.Build
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
@@ -35,7 +38,7 @@ class PublishingChannel(private val activity: Activity, messenger: BinaryMesseng
                         result.success(false)
                     } else {
                         try {
-                            activity.startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+                            openPost(uri)
                             result.success(true)
                         } catch (_: Exception) { result.success(false) }
                     }
@@ -45,6 +48,24 @@ class PublishingChannel(private val activity: Activity, messenger: BinaryMesseng
         }
     }
     fun dispose() { channel.setMethodCallHandler(null) }
+
+    /**
+     * The destination's own app when it is installed; otherwise an in-app
+     * browser tab on top of this app, so Back and its close button return here.
+     * A full browser would open in its own task and keep Back for its history.
+     */
+    private fun openPost(uri: Uri) {
+        val view = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.startActivity(Intent(view).addFlags(Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER))
+                return
+            } catch (_: ActivityNotFoundException) {
+                // No destination app; use the in-app tab below.
+            }
+        }
+        CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(activity, uri)
+    }
 
     private fun officialUrl(uri: Uri): Boolean {
         if (uri.scheme != "https" || uri.userInfo != null || uri.port != -1 || uri.query != null || uri.fragment != null) return false

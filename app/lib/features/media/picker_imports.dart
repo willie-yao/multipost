@@ -151,12 +151,19 @@ class PickerImports {
     if (manifest.isEmpty) return cancel(operationId);
     for (var ordinal = 0; ordinal < manifest.length; ordinal++) {
       final source = manifest[ordinal];
-      await files.importOperationItem(
-        XFile(source['path']!),
-        operationId: operationId,
-        ordinal: ordinal,
-        expectedSha256: source['sha256']!,
-      );
+      try {
+        await files.importOperationItem(
+          XFile(source['path']!),
+          operationId: operationId,
+          ordinal: ordinal,
+          expectedSha256: source['sha256']!,
+        );
+      } on MediaRejectedException {
+        // An unusable file has nothing to recover: close this selection so
+        // the picker opens again instead of waiting on Your posts.
+        await cancel(operationId);
+        rethrow;
+      }
     }
     final updated = await _database.db.update(
       'picker_imports',
