@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
 import '../../app/services.dart';
 import '../../design/caption_scaffold.dart';
 import '../../design/caption_text.dart';
+import '../../design/blank_sheet.dart';
 import '../../design/brand_mark.dart';
 import '../../design/caption_tokens.dart';
 import '../../design/impression.dart';
@@ -11,6 +13,7 @@ import '../../design/post_sheet.dart';
 import '../../storage/media_files.dart';
 import '../../storage/local_database.dart';
 import '../drafts/draft_repository.dart';
+import 'draft_rows.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_screen.dart';
 import '../compose/choose_screen.dart';
@@ -50,6 +53,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadView();
   }
 
   /// Keeps the current list on screen while it refreshes, so a reload after
@@ -79,6 +83,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
     } catch (error) {
       if (mounted) setState(() => _error = error);
+    }
+  }
+
+  /// List or grid, remembered on this device.
+  bool _grid = false;
+
+  Future<void> _loadView() async {
+    try {
+      final rows = await widget.services.database.db.query(
+        'local_preferences',
+        where: 'name = ?',
+        whereArgs: ['drafts_view'],
+      );
+      if (mounted && rows.isNotEmpty) {
+        setState(() => _grid = rows.single['value'] == 'grid');
+      }
+    } catch (_) {
+      // The list view is the default when the preference can't be read.
+    }
+  }
+
+  Future<void> _toggleView() async {
+    setState(() => _grid = !_grid);
+    try {
+      await widget.services.database.db.insert('local_preferences', {
+        'name': 'drafts_view',
+        'value': _grid ? 'grid' : 'list',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {
+      // Keeps working for this session; the choice just isn't remembered.
     }
   }
 
@@ -271,6 +305,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       showMark: !firstRun,
       bodyPadding: EdgeInsets.zero,
       actions: [
+        if (!_results && (_drafts?.isNotEmpty ?? false))
+          IconButton(
+            tooltip: _grid ? 'Show as list' : 'Show as grid',
+            onPressed: _toggleView,
+            icon: Icon(
+              _grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined,
+            ),
+          ),
         IconButton(
           tooltip: 'Accounts',
           onPressed: _accounts,
@@ -566,8 +608,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       (_groups.isNotEmpty ||
                           _packages.isNotEmpty ||
                           _markedPackages.isNotEmpty))
-                    const Text(
-                      'No drafts. Prepared packages and Instagram records are kept in Your posts.',
+                    Padding(
+                      padding: const EdgeInsets.only(top: 40, bottom: 24),
+                      child: Column(
+                        children: [
+                          BlankSheetArt(
+                            today: widget.services.clock.now().toLocal(),
+                          ),
+                          const SizedBox(height: 48),
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              'No drafts',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                        ],
+                      ),
                     )
                   else if (empty) ...[
                     Text(
@@ -592,28 +649,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       style: TextStyle(color: t.secondary),
                     ),
                   ] else ...[
-                    for (final draft in _drafts!) ...[
-                      const Divider(),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          draft.shared.text.isEmpty
-                              ? 'Untitled draft'
-                              : draft.shared.text,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
+                    if (_grid)
+                      DraftGrid(
+                        drafts: _drafts!,
+                        media: widget.services.media,
+                        now: widget.services.clock.now(),
+                        onOpen: _busy ? null : _open,
+                        onDelete: _busy ? null : _delete,
+                      )
+                    else
+                      for (final draft in _drafts!)
+                        DraftListRow(
+                          key: ValueKey(draft.id),
+                          draft: draft,
+                          media: widget.services.media,
+                          now: widget.services.clock.now(),
+                          onOpen: _busy ? null : () => _open(draft),
+                          onDelete: _busy ? null : () => _delete(draft),
                         ),
-                        subtitle: Text(
-                          '${draft.retryParentAttemptId == null ? 'Saved' : 'Saved retry'} ${_savedTime(draft.updatedAt)} · ${draft.selected.isEmpty ? 'No destinations' : draft.selected.map(destinationName).join(', ')} · ${_stageName(draft.stage)}',
-                        ),
-                        onTap: _busy ? null : () => _open(draft),
-                        trailing: IconButton(
-                          tooltip: 'Delete draft',
-                          onPressed: _busy ? null : () => _delete(draft),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ),
-                    ],
                   ],
                 ],
               ],
@@ -629,12 +682,6 @@ String _savedTime(DateTime time) {
   final local = time.toLocal();
   return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
 }
-
-String _stageName(ComposeStage stage) => switch (stage) {
-  ComposeStage.choose => 'Choose',
-  ComposeStage.write => 'Write',
-  ComposeStage.review => 'Review',
-};
 
 // The controller belongs to this route through Choose, Write and Review.
 class _ComposeHost extends StatefulWidget {

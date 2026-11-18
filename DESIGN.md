@@ -296,6 +296,13 @@ The words carry the meaning; the colour and sign only repeat it.
 
 **Readiness and connection marks.** Choose and Accounts show each destination's connection as an `ImpressionMark` ("Connected", "Not connected", "Not available", "Connection expired"…). Review shows each destination's readiness ("Ready to publish", "Ready to prepare", or the first blocking problem in the attention tone), and its footer names the first blocker. Each Review destination is name and mark on one line, the handle, then what it receives on a `PostSheet` (caption source, caption, media source, photos, descriptions), any notes on a raised fill, then an outlined "Edit X version" followed by a text "Leave X out". The page ends on a hairline and an outlined "Edit shared caption" with text "Review again" and "Manage accounts". Setup detail sits behind "Why…?" or "Details", never in the main line.
 
+### Drafts: list and grid
+The Library header has a list/grid toggle ("Show as grid" / "Show as list"), shown only on Drafts with drafts; the choice is kept on the device (`local_preferences.drafts_view`). Both views carry the same facts: caption, destinations, a three-bar step rail (Choose → Write → Review, ink up to the current step) and the save time ("Today 1:57 PM", "Yesterday …", "Nov 12").
+- **List (fanned proofs):** each row leads with a fan of small proofs, one per destination; the top proof shows the first photo or, for text-only drafts, ink lines. The fan opens once as the list appears.
+- **Grid (contact sheet):** two columns of square sheets (one column at large text or under 320dp); the photo fills the square, or the caption is set large on the sheet. Destination initials sit top-left, Delete top-right on a sheet-coloured disc.
+- Each draft is one button for screen readers ("caption. destinations. Step N of 3, stage. Saved time."); Delete is announced separately. No motion with Remove animations on.
+- Empty Drafts shows a blank post sheet with today's date stamped on it and the heading "No drafts".
+
 ### Accounts ledger
 Each destination is one row: name (title) and its connection mark on the same line, then the handle (or one plain line only for repair / removal), then its actions — one outlined recovery action, "Details" or "Why isn't X available?", and a red "Disconnect X" last. Rows sit on hairlines; only a row that needs the person (expired, needs repair, removal pending) is raised on a `PostSheet`. While saved state loads, every row shows at once with a "Checking…" mark and fills in with a short size transition (none under reduced motion), so nothing pops in.
 

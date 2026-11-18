@@ -12,6 +12,7 @@ import 'package:cross_posting_app/features/drafts/draft.dart';
 import 'package:cross_posting_app/features/drafts/draft_controller.dart';
 import 'package:cross_posting_app/features/drafts/draft_editor.dart';
 import 'package:cross_posting_app/features/drafts/draft_repository.dart';
+import 'package:cross_posting_app/features/library/draft_rows.dart';
 import 'package:cross_posting_app/features/library/library_screen.dart';
 import 'package:cross_posting_app/features/publishing/attempt.dart';
 import 'package:cross_posting_app/features/publishing/results_screen.dart';
@@ -60,7 +61,7 @@ void main() {
         if (reopenedFromLibrary) {
           await tester.tap(
             find.descendant(
-              of: find.byType(ListTile),
+              of: find.byType(DraftListRow),
               matching: find.text('Frozen caption'),
             ),
           );
@@ -203,7 +204,14 @@ void main() {
         CaptionApp(home: LibraryScreen(services: services)),
       );
       await settleStorage(tester);
-      expect(find.textContaining('Bluesky · Review'), findsOneWidget);
+      expect(find.textContaining('Bluesky · '), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(StageRail),
+          matching: find.text('Review'),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Kept locally'));
       await settleStorage(tester);
       expect(find.text('Publish now'), findsOneWidget);
@@ -272,6 +280,49 @@ void main() {
         ),
       );
       expect(notice.bottom, lessThanOrEqualTo(newPost.top));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'drafts switch between list and grid and the choice is remembered',
+    (tester) async {
+      final services = (await tester.runAsync(localTestServices))!;
+      addTearDown(services.close);
+      for (final (id, text) in [('one', 'First draft'), ('two', 'Second')]) {
+        await tester.runAsync(
+          () => services.drafts.save(
+            Draft(
+              id: id,
+              updatedAt: DateTime.utc(2026, 11, 16),
+              shared: PostContent(text: text),
+            ),
+            expectedRevision: -1,
+          ),
+        );
+      }
+      await tester.pumpWidget(
+        CaptionApp(home: LibraryScreen(services: services)),
+      );
+      await settleStorage(tester);
+      expect(find.byType(DraftListRow), findsNWidgets(2));
+      await tester.tap(find.byTooltip('Show as grid'));
+      await settleStorage(tester);
+      expect(find.byType(DraftGrid), findsOneWidget);
+      expect(find.byTooltip('Show as list'), findsOneWidget);
+
+      // A fresh Library reads the saved choice.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        CaptionApp(home: LibraryScreen(services: services)),
+      );
+      await settleStorage(tester);
+      expect(find.byType(DraftGrid), findsOneWidget);
+
+      // Delete still works from a grid tile.
+      await tester.tap(find.byTooltip('Delete draft').first);
+      await settleStorage(tester);
+      expect(find.byTooltip('Delete draft'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
