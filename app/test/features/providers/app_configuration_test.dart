@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cross_posting_app/app/app_configuration.dart';
 import 'package:cross_posting_app/features/drafts/draft.dart';
+import 'package:cross_posting_app/features/accounts/bluesky_oauth.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -120,5 +124,68 @@ void main() {
     expect(value.connection(Destination.x).available, isFalse);
     expect(value.connection(Destination.bluesky).available, isFalse);
     expect(value.connection(Destination.instagram).available, isTrue);
+  });
+
+  test('Bluesky sign-in opens only for a dev build with valid owned setup', () {
+    const metadata =
+        'https://willie-yao.github.io/multipost/client-metadata.json';
+    AppConfiguration build({
+      required bool dev,
+      String scheme = 'io.github.willie-yao',
+    }) => AppConfiguration(
+      xClientId: '',
+      xRedirectUri: Uri(),
+      blueskyMetadataUri: Uri.parse(metadata),
+      blueskyCallbackScheme: scheme,
+      blueskyDevConnect: dev,
+    );
+    expect(
+      build(dev: false).connection(Destination.bluesky).available,
+      isFalse,
+    );
+    final dev = build(dev: true).connection(Destination.bluesky);
+    expect(dev.configured, isTrue);
+    expect(dev.available, isTrue);
+    expect(dev.reason, contains('Posting to Bluesky stays off'));
+    // The switch never overrides a mismatched callback scheme.
+    expect(
+      build(
+        dev: true,
+        scheme: 'io.github.someone-else',
+      ).connection(Destination.bluesky).available,
+      isFalse,
+    );
+    // X is unaffected by the Bluesky switch.
+    expect(build(dev: true).connection(Destination.x).available, isFalse);
+    expect(
+      build(dev: true).blueskyRedirectUri.toString(),
+      'io.github.willie-yao:/callback',
+    );
+  });
+
+  test('published Bluesky metadata file matches what the app requires', () {
+    // docs/bluesky/pages is what gets hosted; drift here breaks sign-in.
+    final json = jsonDecode(
+      File('../docs/bluesky/pages/client-metadata.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final value = AppConfiguration(
+      xClientId: '',
+      xRedirectUri: Uri(),
+      blueskyMetadataUri: Uri.parse(json['client_id'] as String),
+      blueskyCallbackScheme: 'io.github.willie-yao',
+      blueskyDevConnect: true,
+    );
+    expect(value.connection(Destination.bluesky).available, isTrue);
+    expect(json['client_id'], value.blueskyMetadataUri.toString());
+    expect(json['redirect_uris'], [value.blueskyRedirectUri.toString()]);
+    expect(json['application_type'], 'native');
+    expect(json['token_endpoint_auth_method'], 'none');
+    expect(json['dpop_bound_access_tokens'], isTrue);
+    expect(json['response_types'], ['code']);
+    expect((json['grant_types'] as List).toSet(), {
+      'authorization_code',
+      'refresh_token',
+    });
+    expect(json['scope'], blueskyWriteScope);
   });
 }

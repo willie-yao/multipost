@@ -7,11 +7,18 @@ class AppConfiguration {
     required this.xRedirectUri,
     required this.blueskyMetadataUri,
     required this.blueskyCallbackScheme,
+    this.blueskyDevConnect = false,
   });
   final String xClientId;
   final Uri xRedirectUri;
   final Uri blueskyMetadataUri;
   final String blueskyCallbackScheme;
+
+  /// Personal development builds only (`--dart-define=BLUESKY_DEV_CONNECT=true`):
+  /// allows Bluesky sign-in once valid metadata and scheme are supplied.
+  /// Publishing stays blocked separately until Bluesky's posting capability
+  /// is accepted, so connecting never sends anything.
+  final bool blueskyDevConnect;
 
   factory AppConfiguration.fromEnvironment() => AppConfiguration(
     xClientId: const String.fromEnvironment('X_CLIENT_ID'),
@@ -22,6 +29,7 @@ class AppConfiguration {
     blueskyCallbackScheme: const String.fromEnvironment(
       'BLUESKY_CALLBACK_SCHEME',
     ),
+    blueskyDevConnect: const bool.fromEnvironment('BLUESKY_DEV_CONNECT'),
   );
 
   Uri get blueskyRedirectUri =>
@@ -57,6 +65,13 @@ class AppConfiguration {
             configured: false,
             available: false,
             reason: 'Bluesky connection setup is missing or invalid. The app owner must supply HTTPS client metadata and its matching native callback scheme. Keep drafting.',
+          );
+        }
+        if (blueskyDevConnect) {
+          return const ConnectionGate(
+            configured: true,
+            available: true,
+            reason: 'Development build: you can sign in to Bluesky to test the connection. Posting to Bluesky stays off in this build.',
           );
         }
         return const ConnectionGate(
