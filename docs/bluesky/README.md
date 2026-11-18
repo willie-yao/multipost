@@ -18,18 +18,17 @@ Bluesky's sign-in (atproto OAuth) needs a small public JSON file, the *client me
 
 The files to host are in [`pages/`](pages/): `client-metadata.json` and a one-line `index.html`. `app/test/features/providers/app_configuration_test.dart` checks that the JSON matches what the app requires, so changing one without the other fails a test.
 
-## Publish it (you do this; nothing here pushes)
+## How it is published
 
-1. On GitHub, create a public repository named **`multipost`** under `willie-yao`.
-2. Copy both files from `docs/bluesky/pages/` to the repository root and commit.
-3. Open **Settings → Pages**. Set "Deploy from a branch", branch `main`, folder `/ (root)`, and save.
-4. After a minute, check that this command prints `200` and `application/json`, with no redirect:
+The app's code lives in `willie-yao/multipost`, and `.github/workflows/pages.yml` publishes this `pages/` folder to GitHub Pages whenever it changes on `main` (or when run by hand from the Actions tab). The repository's **Settings → Pages → Source** must be **GitHub Actions**.
 
-   ```bash
-   curl -sI https://willie-yao.github.io/multipost/client-metadata.json
-   ```
+Check that this command prints `200` and `application/json`, with no redirect:
 
-   If your GitHub user site uses a custom domain, `github.io` redirects to it and the app rejects the redirect. In that case, tell Claude the domain, and the address and return link will be changed to match.
+```bash
+curl -sI https://willie-yao.github.io/multipost/client-metadata.json
+```
+
+If your GitHub user site uses a custom domain, `github.io` redirects to it and the app rejects the redirect. In that case, tell Claude the domain, and the address and return link will be changed to match.
 
 ## Build and try it
 
